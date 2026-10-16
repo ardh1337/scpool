@@ -161,3 +161,4 @@ def parse_cmgl_text_response(lines: List[str]) -> List[ParsedSMS]:
         ))
 
     return results
+

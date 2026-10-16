@@ -102,3 +102,4 @@ def handle_sim_removed(db: Session, slot_id: int) -> None:
     slot.status = SlotStatus.EMPTY
     slot.updated_at = now
     db.commit()
+

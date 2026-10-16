@@ -83,6 +83,12 @@ def probe_single_port(port_name: str, baudrate: int = 115200, timeout: float = 1
         r_cpin = client.send_command("AT+CPIN?", timeout=1.0)
         if r_cpin.success:
             info["sim"] = "READY" if any("READY" in l for l in r_cpin.lines) else "LOCKED"
+            if info["sim"] == "READY":
+                r_iccid = client.send_command("AT+QCCID", timeout=1.0)
+                from app.modem.sim_status import parse_iccid_response
+                iccid = parse_iccid_response(r_iccid)
+                if iccid:
+                    info["iccid"] = iccid
         else:
             err = (r_cpin.error_message or "").upper()
             if "NOT INSERTED" in err or "+CME ERROR: 10" in err:
@@ -113,18 +119,19 @@ def run_probe_all():
         print("Tidak ada port COM yang terdeteksi.")
         return
 
-    print(f"{'PORT':<8} | {'STATUS':<12} | {'SIM':<12} | {'IDENTITAS MODUL'}")
-    print("-" * 65)
+    print(f"{'PORT':<8} | {'STATUS':<10} | {'SIM':<12} | {'ICCID (MASKED)':<22} | {'IDENTITAS MODUL'}")
+    print("-" * 85)
 
     for p in ports:
         port_name = p["port"]
         res = probe_single_port(port_name)
-        # Masking output untuk privasi (I-12) dan sanitasi karakter non-ascii
         clean_text = re.sub(r'[^\x20-\x7E]', '', res['module'])
         safe_module = mask_sensitive(clean_text)
-        print(f"{res['port']:<8} | {res['status']:<12} | {res['sim']:<12} | {safe_module}")
+        raw_iccid = res.get("iccid", "-")
+        safe_iccid = mask_sensitive(raw_iccid) if raw_iccid != "-" else "-"
+        print(f"{res['port']:<8} | {res['status']:<10} | {res['sim']:<12} | {safe_iccid:<22} | {safe_module}")
 
-    print("=" * 65)
+    print("=" * 85)
 
 
 if __name__ == "__main__":

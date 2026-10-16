@@ -60,3 +60,4 @@ class SimulatedModemPool:
             pname = ports[port_index]
             self.modems[pname].remove_sim()
             self.modems[pname].insert_sim(iccid=new_iccid, phone_number=new_phone)
+

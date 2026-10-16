@@ -47,3 +47,4 @@
 | 32 | COM34 | ONLINE | NOT_INSERTED | Quectel M26 |
 
 *Catatan: Semua data pribadi disensor (I-12); perintah yang digunakan murni read-only sesuai allowlist Lampiran A (I-13).*
+

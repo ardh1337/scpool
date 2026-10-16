@@ -87,3 +87,4 @@ def is_at_command_allowed(command: str, allow_delete: bool = False) -> bool:
         return True
 
     return False
+

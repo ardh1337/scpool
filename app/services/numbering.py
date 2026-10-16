@@ -78,3 +78,4 @@ def get_display_label(db: Session, slot_id: int) -> str:
         return "PORT_ERROR"
     else:
         return "BELUM BERNOMOR"
+

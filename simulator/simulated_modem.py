@@ -260,3 +260,4 @@ class SimulatedModem:
         else:
             # Perintah tidak dikenal
             self.transport.feed_rx(b"ERROR\r\n")
+

@@ -119,3 +119,4 @@ def can_delete_sms_from_modem(db: Session, sms_id: int) -> bool:
         return False
     # Validasi: pesan tersimpan dan memiliki ID primer yang valid
     return bool(sms.id and sms.body_hash)
+
