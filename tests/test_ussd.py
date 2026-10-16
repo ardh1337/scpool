@@ -38,6 +38,15 @@ class TestUSSDModule(unittest.TestCase):
         decoded = decode_ussd_text(hex_str)
         self.assertEqual(decoded, "Pulsa")
 
+    def test_get_default_ussd_for_iccid(self):
+        """Memastikan pemilihan kode USSD berdasarkan profil ICCID operator."""
+        from app.modem.ussd import get_default_ussd_for_iccid
+        self.assertEqual(get_default_ussd_for_iccid("8962115963047226794"), "*808*7*8#")
+        self.assertEqual(get_default_ussd_for_iccid("8962100000000000000"), "*808#")
+        self.assertEqual(get_default_ussd_for_iccid("8962010000000000000"), "*123*30#")
+        self.assertEqual(get_default_ussd_for_iccid("8962890000000000000"), "*111*1#")
+        self.assertEqual(get_default_ussd_for_iccid("8962090000000000000"), "*999#")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -9,11 +9,13 @@ from typing import Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from app.database.models import (
-    ModemPool, Slot, Port, SIMCard, SIMSession, SlotStatus, EventLog
+    ModemPool, Slot, Port, SIMCard, SIMSession, SlotStatus, EventLog,
+    NumberStatus, NumberSource
 )
 from app.modem.transport import SerialTransport
 from app.modem.at_client import ATClient
 from app.modem.sim_status import parse_cpin_response, parse_iccid_response
+from app.modem.ussd import execute_ussd, get_default_ussd_for_iccid
 from app.services.slot_manager import handle_sim_inserted, handle_sim_removed
 from app.services.numbering import renumber_pool_slots, get_display_label
 from app.services.pool_init import ensure_pool_initialized
@@ -23,7 +25,8 @@ from config.modem_pool_profile import FOXCOM_32_MAPPING, get_slot_for_port
 def sync_single_slot(
     db: Session,
     slot: Slot,
-    timeout: float = 1.0
+    timeout: float = 1.0,
+    auto_fetch_number: bool = False
 ) -> Dict[str, str]:
     """
     Memindai satu slot fisik tertentu dan memperbarui status sesi di DB.
@@ -86,21 +89,34 @@ def sync_single_slot(
                 SIMSession.ended_at.is_(None)
             ).first()
 
+            sim_card = None
             if active_session and active_session.sim_card and active_session.sim_card.iccid == iccid:
                 # Sesi aktif masih valid dan sama
                 slot.status = SlotStatus.READY
                 slot.updated_at = now
                 res["status"] = "READY"
                 res["session_action"] = "EXISTING"
+                sim_card = active_session.sim_card
             else:
                 # Invarian I-1 & I-6: Buka sesi baru untuk SIM ini
-                new_session, _ = handle_sim_inserted(
+                new_session, sim_card = handle_sim_inserted(
                     db=db,
                     slot_id=slot.id,
                     iccid=iccid
                 )
                 res["status"] = "READY"
                 res["session_action"] = "NEW_SESSION"
+
+            # Auto dial USSD untuk mengambil nomor jika SIM belum memiliki nomor (I-2, I-5)
+            if auto_fetch_number and sim_card and (not sim_card.phone_number or sim_card.number_status != NumberStatus.DIKETAHUI):
+                ussd_code = get_default_ussd_for_iccid(iccid)
+                success, text, phone = execute_ussd(client, ussd_code=ussd_code, timeout=12.0)
+                if success and phone:
+                    sim_card.phone_number = phone
+                    sim_card.number_status = NumberStatus.DIKETAHUI
+                    sim_card.number_source = NumberSource.USSD
+                    db.commit()
+                    res["phone_number"] = phone
 
         elif cpin_status == "NOT_INSERTED":
             # Kartu tidak terpasang
@@ -137,7 +153,8 @@ def sync_single_slot(
 def sync_modem_pool_hardware(
     db: Session,
     pool_id: str = "foxcom_32",
-    auto_renumber: bool = True
+    auto_renumber: bool = True,
+    auto_fetch_number: bool = False
 ) -> List[Dict[str, str]]:
     """
     Melakukan sinkronisasi penuh seluruh 32 port modem pool dengan hardware nyata.
@@ -145,6 +162,7 @@ def sync_modem_pool_hardware(
     - Memindai setiap port serial fisik.
     - Mengupdate sesi SIM dan status slot.
     - Menyusun ulang nomor urut jika auto_renumber=True.
+    - Mengambil nomor via USSD secara otomatis jika auto_fetch_number=True.
     """
     ensure_pool_initialized(db, pool_id=pool_id)
 
@@ -152,7 +170,7 @@ def sync_modem_pool_hardware(
     results = []
 
     for slot in slots:
-        slot_res = sync_single_slot(db, slot)
+        slot_res = sync_single_slot(db, slot, auto_fetch_number=auto_fetch_number)
         results.append(slot_res)
 
     if auto_renumber:

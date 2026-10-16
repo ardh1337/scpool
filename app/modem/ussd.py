@@ -48,6 +48,29 @@ def extract_phone_number_from_text(text: str) -> Optional[str]:
     return None
 
 
+def get_default_ussd_for_iccid(iccid: Optional[str]) -> str:
+    """Mengembalikan kode dial USSD yang sesuai berdasarkan profil ICCID operator."""
+    if not iccid:
+        return "*808*7*8#"
+    clean_iccid = re.sub(r'\D', '', iccid)
+    # 896211 / 896212 = XL Axiata / AXIS
+    # 896210 / 896204 = Telkomsel
+    # 896201 / 896221 = Indosat
+    # 896289 = Tri
+    # 896209 = Smartfren
+    if clean_iccid.startswith("896211") or clean_iccid.startswith("896212"):
+        return "*808*7*8#"
+    elif clean_iccid.startswith("896210") or clean_iccid.startswith("896204"):
+        return "*808#"
+    elif clean_iccid.startswith("896201") or clean_iccid.startswith("896221"):
+        return "*123*30#"
+    elif clean_iccid.startswith("896289"):
+        return "*111*1#"
+    elif clean_iccid.startswith("896209"):
+        return "*999#"
+    return "*808*7*8#"
+
+
 def execute_ussd(
     client: ATClient,
     ussd_code: str,

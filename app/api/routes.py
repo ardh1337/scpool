@@ -181,9 +181,14 @@ def dial_ussd_for_slot(
 
 
 @router.post("/sync")
-def trigger_sync(db: Session = Depends(get_db)):
+def trigger_sync(
+    auto_fetch: bool = Query(True, description="Ambil nomor USSD otomatis jika belum diketahui"),
+    db: Session = Depends(get_db)
+):
     """Memindai ulang 32 port hardware secara menyeluruh."""
-    results = sync_modem_pool_hardware(db=db, pool_id="foxcom_32", auto_renumber=True)
+    results = sync_modem_pool_hardware(
+        db=db, pool_id="foxcom_32", auto_renumber=True, auto_fetch_number=auto_fetch
+    )
     return {"success": True, "scanned_slots": len(results)}
 
 

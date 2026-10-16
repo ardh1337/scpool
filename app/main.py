@@ -12,12 +12,15 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database.models import init_db
 from app.api.routes import router
+from app.services.auto_detector import start_auto_detector, stop_auto_detector
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    start_auto_detector(interval=6.0)
     yield
+    stop_auto_detector()
 
 
 app = FastAPI(
