@@ -5,7 +5,7 @@ dan fungsi masking sensitif untuk I-12.
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import hashlib
 import re
 from typing import List, Optional, Tuple
@@ -47,22 +47,19 @@ def parse_smsc_timestamp(ts_str: str) -> datetime:
     """
     cleaned = ts_str.strip('"\r\n ')
     try:
-        # Pisahkan komponen tanggal+waktu dan timezone offset
-        match = re.match(r'(\d{2})/(\d{2})/(\d{2}),(\d{2}):(\d{2}):(\d{2})([+-]\d{2})?', cleaned)
+        # Pisahkan komponen tanggal+waktu dan timezone offset (mendukung 2 atau 4 digit tahun dan pemisah spasi/koma)
+        match = re.match(r'(\d{2,4})[/.-](\d{2})[/.-](\d{2})[,\s]+(\d{2}):(\d{2}):(\d{2})([+-]\d{2})?', cleaned)
         if match:
             yy, mm, dd, hh, mi, ss, tz_offset = match.groups()
-            year = 2000 + int(yy) if int(yy) < 70 else 1900 + int(yy)
+            year = int(yy) if len(yy) == 4 else (2000 + int(yy) if int(yy) < 70 else 1900 + int(yy))
             base_dt = datetime(year, int(mm), int(dd), int(hh), int(mi), int(ss))
 
             if tz_offset:
                 # Format GSM timezone: unit 15 menit
                 sign = 1 if tz_offset[0] == '+' else -1
                 offset_quarters = int(tz_offset[1:])
-                offset_seconds = sign * offset_quarters * 15 * 60
-                tz = timezone(offset=datetime.fromtimestamp(0).tzinfo or timezone.utc)
-                # Konversi langsung ke UTC
-                utc_timestamp = base_dt.timestamp() - offset_seconds
-                return datetime.fromtimestamp(utc_timestamp, timezone.utc)
+                tz = timezone(timedelta(minutes=sign * offset_quarters * 15))
+                return base_dt.replace(tzinfo=tz).astimezone(timezone.utc)
             return base_dt.replace(tzinfo=timezone.utc)
     except Exception:
         pass

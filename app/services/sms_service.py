@@ -38,11 +38,12 @@ def poll_slot_sms(
 
     try:
         client.open()
-        # Set format SMS ke mode teks
+        # Set TE Character Set ke IRA (ASCII) dan format SMS ke mode teks
+        client.send_command('AT+CSCS="IRA"', timeout=1.0)
         client.send_command('AT+CMGF=1', timeout=1.0)
 
         # Baca semua SMS dari penyimpanan memori kartu SIM
-        res = client.send_command('AT+CMGL="ALL"', timeout=5.0)
+        res = client.send_command('AT+CMGL="ALL"', timeout=8.0)
         if not res.success:
             return []
 

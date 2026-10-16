@@ -74,17 +74,17 @@ class SerialTransport(BaseTransport):
     def readline(self, timeout: Optional[float] = None) -> bytes:
         if not self.is_open():
             raise IOError(f"Port {self.port_name} belum terbuka.")
-        old_timeout = self._serial.timeout
-        if timeout is not None:
-            self._serial.timeout = timeout
-        try:
-            return self._serial.readline()
-        finally:
-            if timeout is not None:
-                self._serial.timeout = old_timeout
+        # Hindari memanggil SetCommTimeouts berulang-ulang pada Windows/Exar UART
+        # karena memicu jitter FIFO dan korupsi byte saat data sedang mengalir.
+        return self._serial.readline()
 
     def flush(self) -> None:
         if self.is_open():
+            try:
+                self._serial.reset_input_buffer()
+                self._serial.reset_output_buffer()
+            except Exception:
+                pass
             self._serial.flush()
 
 

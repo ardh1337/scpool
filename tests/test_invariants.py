@@ -277,6 +277,19 @@ class TestInvariants(unittest.TestCase):
             with self.assertRaises(DisallowedATCommandError):
                 client.send_command(cmd)
 
+    def test_timestamp_formats_2digit_and_4digit(self):
+        """Memastikan parser timestamp SMSC mendukung format standar (2 digit tahun) dan Quectel (4 digit tahun)."""
+        from app.modem.sms_reader import parse_smsc_timestamp
+        dt1 = parse_smsc_timestamp('26/10/16,08:30:00+28')
+        self.assertEqual(dt1.year, 2026)
+        self.assertEqual(dt1.month, 10)
+        self.assertEqual(dt1.day, 16)
+
+        dt2 = parse_smsc_timestamp('2025/05/17 11:08:34+28')
+        self.assertEqual(dt2.year, 2025)
+        self.assertEqual(dt2.month, 5)
+        self.assertEqual(dt2.day, 17)
+
 
 if __name__ == "__main__":
     unittest.main()
