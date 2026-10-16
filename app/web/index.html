@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIM Inventory & SMS Hub - Foxcom 32-Port</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="header-title-row">
+          <h1>SIM Inventory & SMS Hub</h1>
+          <span class="badge pool-badge">Foxcom 32-Port (Quectel M26)</span>
+        </div>
+        <p class="header-subtitle">Pemantauan perangkat keras modem pool, siklus kartu SIM, dan manajemen SMS.</p>
+      </div>
+
+      <div class="header-actions">
+        <button id="btn-sync" class="btn btn-primary" onclick="syncHardware()">
+          <span class="icon">🔄</span> Sinkronkan Hardware
+        </button>
+        <button id="btn-poll-sms" class="btn btn-secondary" onclick="pollSMS()">
+          <span class="icon">📩</span> Periksa SMS Baru
+        </button>
+      </div>
+    </header>
+
+    <!-- Stats Bar -->
+    <section class="stats-bar">
+      <div class="stat-card">
+        <span class="stat-label">Total Slot Fisik</span>
+        <span class="stat-value" id="stat-total">32</span>
+      </div>
+      <div class="stat-card stat-ready">
+        <span class="stat-label">SIM Aktif (READY)</span>
+        <span class="stat-value" id="stat-ready">0</span>
+      </div>
+      <div class="stat-card stat-empty">
+        <span class="stat-label">Slot Kosong</span>
+        <span class="stat-value" id="stat-empty">0</span>
+      </div>
+      <div class="stat-card stat-sms">
+        <span class="stat-label">Total SMS Masuk</span>
+        <span class="stat-value" id="stat-sms">0</span>
+      </div>
+    </section>
+
+    <!-- Slot Sections (Chassis Bank 1: 1-16 & Bank 2: 17-32) -->
+    <main class="main-content">
+      <section class="bank-section">
+        <div class="bank-header">
+          <h2>Baris Atas &mdash; Slot 1 s.d. 16</h2>
+          <span class="bank-hint">Chip 1 s.d. Chip 4</span>
+        </div>
+        <div class="slots-grid" id="grid-bank-1">
+          <!-- Diisi via JavaScript -->
+        </div>
+      </section>
+
+      <section class="bank-section">
+        <div class="bank-header">
+          <h2>Baris Bawah &mdash; Slot 17 s.d. 32</h2>
+          <span class="bank-hint">Chip 5 s.d. Chip 8</span>
+        </div>
+        <div class="slots-grid" id="grid-bank-2">
+          <!-- Diisi via JavaScript -->
+        </div>
+      </section>
+
+      <!-- Global SMS Feed Section -->
+      <section class="sms-feed-section">
+        <div class="sms-feed-header">
+          <h2>Feed Pesan SMS Terkini</h2>
+          <div class="sms-search-box">
+            <input type="text" id="sms-search" placeholder="Cari pengirim atau kata kunci..." oninput="filterSMS()">
+          </div>
+        </div>
+        <div class="sms-feed-list" id="sms-feed-list">
+          <p class="empty-text">Belum ada pesan SMS yang tersimpan.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal Detail Slot & SMS -->
+  <div class="modal-overlay" id="slot-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <h3 id="modal-slot-title">Detail Slot</h3>
+          <span class="modal-port-badge" id="modal-slot-port">COM-</span>
+        </div>
+        <button class="modal-close-btn" onclick="closeModal()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="slot-info-summary">
+          <div class="info-row">
+            <span class="label">Nomor Telepon:</span>
+            <span class="val font-mono" id="modal-phone">BELUM DIKETAHUI</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Operator:</span>
+            <span class="val" id="modal-operator">-</span>
+          </div>
+          <div class="info-row">
+            <span class="label">ICCID:</span>
+            <span class="val font-mono" id="modal-iccid">-</span>
+          </div>
+        </div>
+
+        <div class="modal-ussd-row">
+          <input type="text" id="ussd-input" value="*808*7*8#" placeholder="Kode USSD (misal: *808*7*8#)">
+          <button class="btn btn-outline" id="btn-run-ussd" onclick="runSlotUSSD()">Dial USSD</button>
+        </div>
+        <div id="ussd-result-banner" class="ussd-banner hidden"></div>
+
+        <div class="slot-sms-list-header">
+          <h4>Pesan Masuk Pada Sesi Ini</h4>
+        </div>
+        <div class="slot-sms-list" id="modal-sms-list">
+          <p class="empty-text">Tidak ada pesan untuk slot ini.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
