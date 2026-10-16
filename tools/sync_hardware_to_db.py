@@ -33,9 +33,9 @@ def main():
         print("[*] Memindai 32 slot port fisik dan mencatat sesi SIM...")
         results = sync_modem_pool_hardware(db=db, pool_id="foxcom_32", auto_renumber=True)
 
-        print("\n" + "=" * 85)
-        print(f"{'SLOT':<8} | {'PORT':<8} | {'NO. URUT':<18} | {'STATUS':<10} | {'ICCID (MASKED)':<22}")
-        print("-" * 85)
+        print("\n" + "=" * 70)
+        print(f"{'SLOT FISIK':<12} | {'PORT COM':<10} | {'STATUS':<12} | {'ICCID (MASKED)':<22}")
+        print("-" * 70)
 
         ready_count = 0
         for r in results:
@@ -44,10 +44,10 @@ def main():
             safe_iccid = mask_sensitive(raw_iccid) if raw_iccid != "-" else "-"
             if r["status"] == "READY":
                 ready_count += 1
-            print(f"{slot_label:<8} | {r['port']:<8} | {r['label']:<18} | {r['status']:<10} | {safe_iccid:<22}")
+            print(f"{slot_label:<12} | {r['port']:<10} | {r['status']:<12} | {safe_iccid:<22}")
 
-        print("=" * 85)
-        print(f"[+] Selesai! Terdeteksi {ready_count} SIM aktif, bernomor urut rapi dari No. 1 s.d. No. {ready_count}.")
+        print("=" * 70)
+        print(f"[+] Selesai! Terdeteksi {ready_count} SIM aktif dari total 32 Slot Fisik.")
         print("[+] Sesi SIM telah tersimpan di database lokal SQLite.")
 
     finally:

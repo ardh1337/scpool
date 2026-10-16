@@ -97,39 +97,30 @@ class TestM3M4Stages(unittest.TestCase):
         # Jalankan penomoran urut awal
         renumber_pool_slots(self.db, pool_id="foxcom_32")
 
-        # Verifikasi: No. 1, No. 2, No. 3 tanpa lompatan
-        self.assertEqual(get_display_label(self.db, slot1.id), "No. 1")
-        self.assertEqual(get_display_label(self.db, slot2.id), "No. 2")
-        self.assertEqual(get_display_label(self.db, slot18.id), "No. 3")
+        # Verifikasi label tampilan berbasis Slot Fisik
+        self.assertEqual(get_display_label(self.db, slot1.id), "Slot 1")
+        self.assertEqual(get_display_label(self.db, slot2.id), "Slot 2")
+        self.assertEqual(get_display_label(self.db, slot18.id), "Slot 18")
 
-        # Slot yang tidak terpasang SIM harus berstatus KOSONG
+        # Slot yang tidak terpasang SIM berstatus Slot X (KOSONG)
         slot3 = self.db.query(Slot).filter(Slot.slot_index == 3).first()
-        self.assertEqual(get_display_label(self.db, slot3.id), "KOSONG")
+        self.assertEqual(get_display_label(self.db, slot3.id), "Slot 3 (KOSONG)")
 
-        # Cabut SIM pada Slot 2 (Pembekuan nomor / Frozen behavior)
+        # Cabut SIM pada Slot 2
         handle_sim_removed(self.db, slot_id=slot2.id)
-        # Slot 2 tetap memegang No. 2 namun berstatus KOSONG agar tidak mengacak nomor Slot 18
-        self.assertEqual(get_display_label(self.db, slot2.id), "No. 2 (KOSONG)")
-        # Slot 18 tetap No. 3
-        self.assertEqual(get_display_label(self.db, slot18.id), "No. 3")
-
-        # Operator menekan "Susun Ulang Nomor" (Renumber)
-        renumber_pool_slots(self.db, pool_id="foxcom_32")
-        # Sekarang hanya slot 1 dan 18 yang aktif, sehingga nomor disusun ulang menjadi 1 dan 2
-        self.assertEqual(get_display_label(self.db, slot1.id), "No. 1")
-        self.assertEqual(get_display_label(self.db, slot2.id), "KOSONG")
-        self.assertEqual(get_display_label(self.db, slot18.id), "No. 2")
+        self.assertEqual(get_display_label(self.db, slot2.id), "Slot 2 (KOSONG)")
+        self.assertEqual(get_display_label(self.db, slot18.id), "Slot 18")
 
     def test_m4_port_error_not_numbered(self):
-        """M4: Port yang error tidak diberi nomor urut."""
+        """M4: Port yang error menampilkan status PORT_ERROR."""
         pool = ensure_pool_initialized(self.db, pool_id="foxcom_32")
         slot4 = self.db.query(Slot).filter(Slot.slot_index == 4).first()
         slot4.status = SlotStatus.PORT_ERROR
         self.db.commit()
 
-        renumber_pool_slots(self.db, pool_id="foxcom_32")
-        self.assertEqual(get_display_label(self.db, slot4.id), "PORT_ERROR")
+        self.assertEqual(get_display_label(self.db, slot4.id), "Slot 4 (PORT_ERROR)")
 
 
 if __name__ == "__main__":
     unittest.main()
+

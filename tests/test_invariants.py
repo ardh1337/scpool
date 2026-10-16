@@ -110,7 +110,7 @@ class TestInvariants(unittest.TestCase):
         # Penomoran urut
         renumber_pool_slots(self.db, pool_id="pool_test")
         label = get_display_label(self.db, slot_id=self.slot1.id)
-        self.assertEqual(label, "No. 1")
+        self.assertEqual(label, "Slot 1")
 
         # SMS hanya terkait ke session_id dan slot_id, bukan sequence number
         sms = ParsedSMS(

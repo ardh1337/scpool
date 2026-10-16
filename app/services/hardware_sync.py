@@ -164,3 +164,4 @@ def sync_modem_pool_hardware(
                 r["label"] = get_display_label(db, slot_obj.id)
 
     return results
+

@@ -75,3 +75,4 @@ def ensure_pool_initialized(db: Session, pool_id: str = "foxcom_32", pool_name: 
     db.commit()
     db.refresh(pool)
     return pool
+
