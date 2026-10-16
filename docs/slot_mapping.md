@@ -47,3 +47,4 @@
 | **Slot 30** | COM33 | Hub 10, Port 3 | MI_02 | `e&1ac1c826&0` | READY |
 | **Slot 31** | COM32 | Hub 10, Port 3 | MI_04 | `e&1ac1c826&0` | READY |
 | **Slot 32** | COM34 | Hub 10, Port 3 | MI_06 | `e&1ac1c826&0` | READY |
+

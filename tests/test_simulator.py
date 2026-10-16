@@ -29,7 +29,7 @@ class TestModemSimulator(unittest.TestCase):
         # 1. Sebelum SIM dipasang
         resp = self.client.send_command("AT+CPIN?")
         self.assertFalse(resp.success)
-        self.assertEqual(parse_cpin_response(resp), "NOT INSERTED")
+        self.assertEqual(parse_cpin_response(resp), "NOT_INSERTED")
 
         # 2. Pasang SIM dengan ICCID valid
         iccid = "89620100000000001234"
@@ -48,7 +48,7 @@ class TestModemSimulator(unittest.TestCase):
         self.modem.remove_sim()
         resp_after_remove = self.client.send_command("AT+CPIN?")
         self.assertFalse(resp_after_remove.success)
-        self.assertEqual(parse_cpin_response(resp_after_remove), "NOT INSERTED")
+        self.assertEqual(parse_cpin_response(resp_after_remove), "NOT_INSERTED")
 
     def test_iccid_validation_and_unreadable(self):
         """Uji validasi ICCID valid, invalid, dan kondisi gagal baca."""

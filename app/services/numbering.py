@@ -59,7 +59,9 @@ def renumber_pool_slots(db: Session, pool_id: str) -> List[SlotNumbering]:
 def get_display_label(db: Session, slot_id: int) -> str:
     """
     Mendapatkan label tampilan untuk UI.
-    Invarian I-3: Label tampilan (No. Urut) terpisah dari ID fisik.
+    Invarian I-3 & Bagian 6:
+    - Nomor urut dibekukan saat SIM dicabut (tampil No. X (KOSONG)).
+    - Slot tanpa nomor berstatus BELUM BERNOMOR atau KOSONG.
     """
     slot = db.query(Slot).filter(Slot.id == slot_id).first()
     if not slot:
@@ -71,6 +73,10 @@ def get_display_label(db: Session, slot_id: int) -> str:
     ).first()
 
     if active_num:
+        if slot.status == SlotStatus.EMPTY:
+            return f"No. {active_num.sequence_number} (KOSONG)"
+        elif slot.status == SlotStatus.PORT_ERROR:
+            return f"No. {active_num.sequence_number} (PORT_ERROR)"
         return f"No. {active_num.sequence_number}"
     elif slot.status == SlotStatus.EMPTY:
         return "KOSONG"

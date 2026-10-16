@@ -84,3 +84,4 @@ def get_slot_for_port(port_name: str) -> Optional[int]:
 def get_port_for_slot(slot_index: int) -> Optional[str]:
     """Mengembalikan nama port COM untuk nomor slot fisik tertentu."""
     return SLOT_TO_PORT.get(slot_index)
+

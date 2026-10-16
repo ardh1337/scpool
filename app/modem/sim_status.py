@@ -45,7 +45,7 @@ def parse_cpin_response(response: ATResponse) -> str:
     if not response.success:
         err = (response.error_message or "").upper()
         if "NOT INSERTED" in err or "+CME ERROR: 10" in err:
-            return "NOT INSERTED"
+            return "NOT_INSERTED"
         return "ERROR"
 
     for line in response.lines:
