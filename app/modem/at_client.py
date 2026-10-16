@@ -46,6 +46,7 @@ URC_PATTERNS = [
     re.compile(r"^\+CPIN:\s*.*", re.IGNORECASE),       # Status PIN SIM
     re.compile(r"^\+QSIMSTAT:\s*.*", re.IGNORECASE),   # Deteksi SIM Quectel
     re.compile(r"^\+CREG:\s*.*", re.IGNORECASE),       # Status registrasi jaringan
+    re.compile(r"^\+CUSD:\s*.*", re.IGNORECASE),       # Balasan pesan USSD jaringan
     re.compile(r"^\^MODE:\s*.*", re.IGNORECASE),       # Indikator mode
     re.compile(r"^RING$", re.IGNORECASE),              # Panggilan masuk
     re.compile(r"^NO CARRIER$", re.IGNORECASE),
