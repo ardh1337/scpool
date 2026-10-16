@@ -22,7 +22,7 @@ _is_running = False
 _lock = threading.Lock()
 
 
-def _auto_detector_loop(interval: float = 6.0):
+def _auto_detector_loop(interval: float = 4.0):
     global _is_running
     _is_running = True
 
@@ -30,28 +30,17 @@ def _auto_detector_loop(interval: float = 6.0):
         try:
             db: Session = SessionLocal()
             try:
-                # Cari slot yang:
-                # 1. KOSONG (mungkin baru dipasangi kartu SIM secara fisik)
-                # 2. READY namun nomornya masih BELUM DIKETAHUI
-                slots_to_check = db.query(Slot).filter(
-                    (Slot.status == SlotStatus.EMPTY) |
-                    (
-                        (Slot.status == SlotStatus.READY) &
-                        Slot.sessions.any(
-                            (SIMSession.ended_at.is_(None)) &
-                            SIMSession.sim_card.has(SIMCard.phone_number.is_(None))
-                        )
-                    )
-                ).order_by(Slot.slot_index).all()
+                # Periksa seluruh 32 slot untuk mendeteksi:
+                # 1. SIM dicabut: status READY -> EMPTY, sesi ditutup, nomor langsung hilang
+                # 2. SIM dipasang: status EMPTY -> READY, sesi dibuka, auto-dial USSD aktif
+                # 3. SIM tertukar: sesi lama ditutup, sesi baru dibuka
+                slots = db.query(Slot).order_by(Slot.slot_index).all()
 
-                for slot in slots_to_check:
+                for slot in slots:
                     if _stop_event.is_set():
                         break
 
-                    # Jalankan sinkronisasi dengan auto-fetch nomor USSD
                     sync_single_slot(db, slot, timeout=1.0, auto_fetch_number=True)
-                    # Berikan jeda kecil antar-port agar bus serial tenang
-                    time.sleep(0.5)
 
             finally:
                 db.close()
@@ -95,3 +84,4 @@ def stop_auto_detector():
 def is_auto_detector_running() -> bool:
     """Status apakah auto detector sedang berjalan."""
     return _is_running and _thread is not None and _thread.is_alive()
+

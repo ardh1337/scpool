@@ -59,9 +59,9 @@ def list_slots(db: Session = Depends(get_db)):
         iccid_masked = None
         operator_name = None
 
-        # Ambil sesi aktif
+        # Ambil sesi aktif jika slot READY
         active_sess = [sess for sess in s.sessions if sess.ended_at is None]
-        if active_sess and active_sess[0].sim_card:
+        if s.status == SlotStatus.READY and active_sess and active_sess[0].sim_card:
             sim = active_sess[0].sim_card
             phone_num = sim.phone_number
             num_status = sim.number_status.value

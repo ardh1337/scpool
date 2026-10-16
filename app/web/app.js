@@ -58,8 +58,8 @@ function renderSlotsGrid(slots) {
     card.onclick = () => openSlotModal(slot.slot_index);
 
     const isReady = slot.status === "READY";
-    const phoneDisplay = slot.phone_number ? slot.phone_number : (isReady ? "BELUM DIKETAHUI" : "-");
-    const phoneClass = slot.phone_number ? "" : "unknown";
+    const phoneDisplay = (isReady && slot.phone_number) ? slot.phone_number : (isReady ? "BELUM DIKETAHUI" : "-");
+    const phoneClass = (isReady && slot.phone_number) ? "" : "unknown";
 
     card.innerHTML = `
       <div class="slot-card-header">
@@ -141,11 +141,12 @@ async function openSlotModal(slotIndex) {
   const slot = currentSlots.find(s => s.slot_index === slotIndex);
   if (!slot) return;
 
+  const isReady = slot.status === "READY";
   document.getElementById("modal-slot-title").textContent = `Detail Slot Fisik ${slot.slot_index}`;
   document.getElementById("modal-slot-port").textContent = slot.port_name || "-";
-  document.getElementById("modal-phone").textContent = slot.phone_number || "BELUM DIKETAHUI";
-  document.getElementById("modal-operator").textContent = slot.operator_name || "-";
-  document.getElementById("modal-iccid").textContent = slot.iccid_masked || "-";
+  document.getElementById("modal-phone").textContent = isReady ? (slot.phone_number || "BELUM DIKETAHUI") : "-";
+  document.getElementById("modal-operator").textContent = isReady ? (slot.operator_name || "-") : "-";
+  document.getElementById("modal-iccid").textContent = isReady ? (slot.iccid_masked || "-") : "-";
 
   // Sembunyikan banner ussd lama
   const banner = document.getElementById("ussd-result-banner");
