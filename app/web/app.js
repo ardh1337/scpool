@@ -273,3 +273,96 @@ function escapeHTML(str) {
     .replace(/'/g, "&#039;");
 }
 
+// Modal Pengaturan Operator & USSD
+async function openOperatorModal() {
+  document.getElementById("operator-modal").classList.add("active");
+  const banner = document.getElementById("operator-save-status");
+  banner.className = "ussd-banner hidden";
+  banner.textContent = "";
+  await loadOperatorProfiles();
+}
+
+function closeOperatorModal() {
+  document.getElementById("operator-modal").classList.remove("active");
+}
+
+async function loadOperatorProfiles() {
+  const container = document.getElementById("operator-list-container");
+  container.innerHTML = `<p class="empty-text">Memuat profil operator...</p>`;
+
+  try {
+    const res = await fetch("/api/operators");
+    if (!res.ok) throw new Error("Gagal mengambil data");
+    const profiles = await res.json();
+
+    if (!profiles || profiles.length === 0) {
+      container.innerHTML = `<p class="empty-text">Tidak ada profil operator.</p>`;
+      return;
+    }
+
+    container.innerHTML = profiles.map(p => `
+      <div class="operator-card" id="op-card-${p.id}">
+        <div class="operator-card-header">
+          <span class="operator-title">${escapeHTML(p.name)}</span>
+          <span class="operator-meta font-mono">${escapeHTML(p.iccid_prefixes || "-")}</span>
+        </div>
+        ${p.description ? `<div class="operator-desc">${escapeHTML(p.description)}</div>` : ""}
+        <div class="operator-form-row">
+          <input type="text" id="op-code-${p.id}" value="${escapeHTML(p.ussd_code)}" 
+            placeholder="Kode USSD (misal: *808#)"
+            onkeydown="if(event.key==='Enter') saveOperatorProfile('${p.id}')">
+          <button class="btn btn-primary btn-sm" id="btn-save-${p.id}" onclick="saveOperatorProfile('${p.id}')">Simpan</button>
+        </div>
+      </div>
+    `).join("");
+  } catch (err) {
+    container.innerHTML = `<p class="empty-text">Error memuat profil: ${escapeHTML(err.message)}</p>`;
+  }
+}
+
+async function saveOperatorProfile(operatorId) {
+  const input = document.getElementById(`op-code-${operatorId}`);
+  const btn = document.getElementById(`btn-save-${operatorId}`);
+  const banner = document.getElementById("operator-save-status");
+
+  if (!input) return;
+  const newCode = input.value.trim();
+  if (!newCode) {
+    alert("Kode USSD tidak boleh kosong.");
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "Menyimpan...";
+
+  try {
+    const res = await fetch(`/api/operators/${operatorId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ussd_code: newCode })
+    });
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      banner.className = "ussd-banner";
+      banner.style.color = "var(--status-ready)";
+      banner.textContent = `Berhasil menyimpan kode dial USSD untuk ${data.name}: ${data.ussd_code}`;
+      setTimeout(() => {
+        banner.className = "ussd-banner hidden";
+      }, 4000);
+    } else {
+      banner.className = "ussd-banner";
+      banner.style.color = "var(--status-error)";
+      banner.textContent = `Gagal menyimpan: ${data.detail || "Kesalahan server"}`;
+    }
+  } catch (err) {
+    banner.className = "ussd-banner";
+    banner.style.color = "var(--status-error)";
+    banner.textContent = `Error: ${err.message}`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Simpan";
+  }
+}
+
+

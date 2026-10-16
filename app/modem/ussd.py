@@ -48,26 +48,54 @@ def extract_phone_number_from_text(text: str) -> Optional[str]:
     return None
 
 
-def get_default_ussd_for_iccid(iccid: Optional[str]) -> str:
-    """Mengembalikan kode dial USSD yang sesuai berdasarkan profil ICCID operator."""
-    if not iccid:
+def get_default_ussd_for_iccid(
+    iccid: Optional[str],
+    operator_name: Optional[str] = None,
+    db: Optional[object] = None
+) -> str:
+    """
+    Mengembalikan kode dial USSD yang sesuai berdasarkan profil operator tersimpan di DB
+    atau fallback berdasarkan prefiks ICCID / nama operator.
+    """
+    clean_iccid = re.sub(r'\D', '', iccid) if iccid else ""
+    op_clean = (operator_name or "").strip().upper()
+
+    # 1. Coba cari profil tersimpan di DB
+    if db:
+        try:
+            from app.database.models import OperatorProfile
+            profiles = db.query(OperatorProfile).all()
+
+            # Cocokkan berdasarkan prefiks ICCID
+            if clean_iccid:
+                for p in profiles:
+                    if p.iccid_prefixes:
+                        prefixes = [x.strip() for x in p.iccid_prefixes.split(",") if x.strip()]
+                        if any(clean_iccid.startswith(pfx) for pfx in prefixes):
+                            return p.ussd_code
+
+            # Cocokkan berdasarkan nama operator
+            if op_clean:
+                for p in profiles:
+                    if p.operator_patterns:
+                        patterns = [x.strip().upper() for x in p.operator_patterns.split(",") if x.strip()]
+                        if any(pat in op_clean for pat in patterns):
+                            return p.ussd_code
+        except Exception:
+            pass
+
+    # 2. Fallback default jika DB tidak ada / tidak cocok
+    if clean_iccid.startswith("896211") or clean_iccid.startswith("896212") or "XL" in op_clean or "AXIS" in op_clean:
         return "*808*7*8#"
-    clean_iccid = re.sub(r'\D', '', iccid)
-    # 896211 / 896212 = XL Axiata / AXIS
-    # 896210 / 896204 = Telkomsel
-    # 896201 / 896221 = Indosat
-    # 896289 = Tri
-    # 896209 = Smartfren
-    if clean_iccid.startswith("896211") or clean_iccid.startswith("896212"):
-        return "*808*7*8#"
-    elif clean_iccid.startswith("896210") or clean_iccid.startswith("896204"):
+    elif clean_iccid.startswith("896210") or clean_iccid.startswith("896204") or "TELKOMSEL" in op_clean or "T-SEL" in op_clean:
         return "*808#"
-    elif clean_iccid.startswith("896201") or clean_iccid.startswith("896221"):
+    elif clean_iccid.startswith("896201") or clean_iccid.startswith("896221") or "INDOSAT" in op_clean or "IM3" in op_clean:
         return "*123*30#"
-    elif clean_iccid.startswith("896289"):
+    elif clean_iccid.startswith("896289") or "TRI" in op_clean:
         return "*111*1#"
-    elif clean_iccid.startswith("896209"):
+    elif clean_iccid.startswith("896209") or "SMARTFREN" in op_clean:
         return "*999#"
+
     return "*808*7*8#"
 
 

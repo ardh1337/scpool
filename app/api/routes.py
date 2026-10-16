@@ -6,14 +6,17 @@ Menyediakan REST API untuk dashboard web lokal:
 - Trigger sinkronisasi hardware & eksekusi USSD
 """
 
+from datetime import datetime, timezone
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
 from app.database.connection import get_db
 from app.database.models import (
-    ModemPool, Slot, Port, SIMCard, SIMSession, SMSMessage, SlotStatus, NumberStatus
+    ModemPool, Slot, Port, SIMCard, SIMSession, SMSMessage, SlotStatus, NumberStatus,
+    OperatorProfile
 )
 from app.services.hardware_sync import sync_single_slot, sync_modem_pool_hardware
 from app.services.sms_service import poll_slot_sms, poll_all_active_slots_sms
@@ -197,4 +200,55 @@ def trigger_poll_sms(db: Session = Depends(get_db)):
     """Memindai SMS baru dari semua slot yang aktif."""
     new_count = poll_all_active_slots_sms(db=db, is_initial=False)
     return {"success": True, "new_messages": new_count}
+
+
+@router.get("/operators")
+def list_operator_profiles(db: Session = Depends(get_db)):
+    """Mengembalikan daftar konfigurasi kode USSD per operator."""
+    profiles = db.query(OperatorProfile).order_by(OperatorProfile.name).all()
+    return [
+        {
+            "id": p.id,
+            "name": p.name,
+            "ussd_code": p.ussd_code,
+            "iccid_prefixes": p.iccid_prefixes,
+            "operator_patterns": p.operator_patterns,
+            "description": p.description,
+            "updated_at": p.updated_at.isoformat() if p.updated_at else None
+        }
+        for p in profiles
+    ]
+
+
+class OperatorUSSDUpdate(BaseModel):
+    ussd_code: str
+
+
+@router.put("/operators/{operator_id}")
+def update_operator_profile(
+    operator_id: str,
+    payload: Optional[OperatorUSSDUpdate] = None,
+    ussd_code: Optional[str] = Query(None, description="Kode USSD baru"),
+    db: Session = Depends(get_db)
+):
+    """Memperbarui kode dial USSD untuk operator tertentu."""
+    target_code = (payload.ussd_code if payload and payload.ussd_code else ussd_code)
+    if not target_code:
+        raise HTTPException(status_code=400, detail="Kode USSD wajib diisi.")
+
+    profile = db.query(OperatorProfile).filter(OperatorProfile.id == operator_id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profil operator tidak ditemukan.")
+
+    profile.ussd_code = target_code.strip()
+    profile.updated_at = datetime.now(timezone.utc)
+    db.commit()
+
+    return {
+        "success": True,
+        "id": profile.id,
+        "name": profile.name,
+        "ussd_code": profile.ussd_code
+    }
+
 

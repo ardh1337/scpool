@@ -496,3 +496,70 @@ body {
   padding: 16px 0;
 }
 
+/* Operator Profiles Modal */
+.operator-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.operator-card {
+  background: #0b0f19;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.operator-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.operator-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-main);
+}
+
+.operator-meta {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+.operator-desc {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.operator-form-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.operator-form-row input {
+  flex: 1;
+  background: #151d30;
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 0.88rem;
+}
+
+.operator-form-row input:focus {
+  outline: none;
+  border-color: var(--border-focus);
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+
+

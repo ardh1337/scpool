@@ -46,6 +46,32 @@ class TestAPIEndpoints(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn("SIM Inventory", resp.text)
 
+    def test_operator_profiles_list_and_update(self):
+        """Memastikan API profil operator dapat diambil dan diperbarui."""
+        # 1. GET /api/operators
+        resp = self.client.get("/api/operators")
+        self.assertEqual(resp.status_code, 200)
+        profiles = resp.json()
+        self.assertIsInstance(profiles, list)
+        self.assertGreaterEqual(len(profiles), 5)
+
+        # Cari profil xl_axis
+        xl_axis = next((p for p in profiles if p["id"] == "xl_axis"), None)
+        self.assertIsNotNone(xl_axis)
+        self.assertIn("*808", xl_axis["ussd_code"])
+
+        # 2. PUT /api/operators/xl_axis via JSON body
+        new_code = "*808*7*8#"
+        update_resp = self.client.put("/api/operators/xl_axis", json={"ussd_code": new_code})
+        self.assertEqual(update_resp.status_code, 200)
+        updated = update_resp.json()
+        self.assertTrue(updated["success"])
+        self.assertEqual(updated["ussd_code"], new_code)
+
+        # 3. PUT operator tidak valid -> 404
+        not_found_resp = self.client.put("/api/operators/non_existent_provider", json={"ussd_code": "*123#"})
+        self.assertEqual(not_found_resp.status_code, 404)
+
 
 if __name__ == "__main__":
     unittest.main()

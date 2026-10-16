@@ -109,7 +109,7 @@ def sync_single_slot(
 
             # Auto dial USSD untuk mengambil nomor jika SIM belum memiliki nomor (I-2, I-5)
             if auto_fetch_number and sim_card and (not sim_card.phone_number or sim_card.number_status != NumberStatus.DIKETAHUI):
-                ussd_code = get_default_ussd_for_iccid(iccid)
+                ussd_code = get_default_ussd_for_iccid(iccid, operator_name=sim_card.operator_name, db=db)
                 success, text, phone = execute_ussd(client, ussd_code=ussd_code, timeout=12.0)
                 if success and phone:
                     sim_card.phone_number = phone

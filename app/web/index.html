@@ -19,6 +19,9 @@
       </div>
 
       <div class="header-actions">
+        <button id="btn-operator-settings" class="btn btn-secondary" onclick="openOperatorModal()">
+          <span class="icon">⚙️</span> Pengaturan Operator
+        </button>
         <button id="btn-sync" class="btn btn-primary" onclick="syncHardware()">
           <span class="icon">🔄</span> Sinkronkan Hardware
         </button>
@@ -124,6 +127,28 @@
         <div class="slot-sms-list" id="modal-sms-list">
           <p class="empty-text">Tidak ada pesan untuk slot ini.</p>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Pengaturan Operator & USSD -->
+  <div class="modal-overlay" id="operator-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <h3>Pengaturan Dial USSD Operator</h3>
+          <span class="modal-port-badge">Format USSD Pengecekan Nomor</span>
+        </div>
+        <button class="modal-close-btn" onclick="closeOperatorModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="header-subtitle" style="margin-bottom: 16px;">
+          Konfigurasi kode dial USSD yang dijalankan otomatis saat SIM baru terdeteksi di setiap provider.
+        </p>
+        <div id="operator-list-container" class="operator-list-container">
+          <!-- Diisi via JavaScript -->
+        </div>
+        <div id="operator-save-status" class="ussd-banner hidden" style="margin-top: 14px;"></div>
       </div>
     </div>
   </div>

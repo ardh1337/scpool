@@ -285,10 +285,84 @@ class EventLog(Base):
     details = Column(Text, nullable=True)
 
 
+class OperatorProfile(Base):
+    """
+    Profil Operator Seluler (USSD & SMSC).
+    Format dial USSD dan pola pengenalan nomor dapat diperbarui tanpa mengubah kode program (Bagian 4 Spec).
+    """
+    __tablename__ = "operator_profiles"
+
+    id = Column(String(50), primary_key=True)  # contoh: "xl_axis", "telkomsel", "indosat", "tri", "smartfren"
+    name = Column(String(100), nullable=False)
+    ussd_code = Column(String(50), nullable=False)  # dial USSD untuk cek nomor
+    iccid_prefixes = Column(String(255), nullable=True)  # koma dipisahkan, misal "896211,896212"
+    operator_patterns = Column(String(255), nullable=True)  # koma dipisahkan, misal "XL,AXIS"
+    description = Column(String(255), nullable=True)
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+
+DEFAULT_OPERATOR_PROFILES = [
+    {
+        "id": "xl_axis",
+        "name": "XL / AXIS",
+        "ussd_code": "*808*7*8#",
+        "iccid_prefixes": "896211,896212",
+        "operator_patterns": "XL,AXIS",
+        "description": "Dial langsung pengecekan nomor 4G untuk jaringan XL Axiata dan AXIS"
+    },
+    {
+        "id": "telkomsel",
+        "name": "Telkomsel",
+        "ussd_code": "*808#",
+        "iccid_prefixes": "896210,896204",
+        "operator_patterns": "TELKOMSEL,T-SEL,SIMPATI,AS,LOOP",
+        "description": "Dial cek nomor Telkomsel"
+    },
+    {
+        "id": "indosat",
+        "name": "Indosat Ooredoo",
+        "ussd_code": "*123*30#",
+        "iccid_prefixes": "896201,896221",
+        "operator_patterns": "INDOSAT,IM3,MENTARI",
+        "description": "Dial cek nomor Indosat Ooredoo Hutchison"
+    },
+    {
+        "id": "tri",
+        "name": "Tri (3)",
+        "ussd_code": "*111*1#",
+        "iccid_prefixes": "896289",
+        "operator_patterns": "TRI,3",
+        "description": "Dial cek nomor Tri"
+    },
+    {
+        "id": "smartfren",
+        "name": "Smartfren",
+        "ussd_code": "*999#",
+        "iccid_prefixes": "896209",
+        "operator_patterns": "SMARTFREN,SMART",
+        "description": "Dial cek nomor Smartfren"
+    }
+]
+
+
 def init_db(engine_override=None):
-    """Inisialisasi tabel di database."""
+    """Inisialisasi tabel di database dan seed data awal profil operator."""
     target_engine = engine_override or from_connection_engine()
     Base.metadata.create_all(bind=target_engine)
+
+    from sqlalchemy.orm import sessionmaker
+    SessionClass = sessionmaker(bind=target_engine)
+    session = SessionClass()
+    try:
+        for prof in DEFAULT_OPERATOR_PROFILES:
+            existing = session.query(OperatorProfile).filter(OperatorProfile.id == prof["id"]).first()
+            if not existing:
+                session.add(OperatorProfile(**prof))
+        session.commit()
+    except Exception:
+        session.rollback()
+    finally:
+        session.close()
 
 
 def from_connection_engine():
