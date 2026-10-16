@@ -233,6 +233,7 @@ class SMSMessage(Base):
     deleted_from_modem = Column(Boolean, default=False, nullable=False)  # I-4
 
     session = relationship("SIMSession", back_populates="messages")
+    slot = relationship("Slot")
     parts = relationship("SMSPart", back_populates="sms_message", cascade="all, delete-orphan")
 
     __table_args__ = (

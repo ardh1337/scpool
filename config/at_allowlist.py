@@ -32,6 +32,7 @@ READ_ONLY_PREFIXES: Set[str] = {
     "AT+CUSD=?",
     "AT+CSCS?",
     "AT+CSCS=?",
+    "AT+CMEE?",
 }
 
 # Perintah baca pesan berparameter (AT+CMGL=..., AT+CMGR=...)
@@ -49,6 +50,7 @@ CONFIG_ALLOWLIST_PATTERNS = [
     re.compile(r"^AT\+QSIMSTAT=[01]$", re.IGNORECASE),           # SIM status reporting
     re.compile(r"^AT\+QSIMDET=[01],[01]$", re.IGNORECASE),       # SIM detect config
     re.compile(r"^AT\+CSCS=\"[A-Z]+\"$", re.IGNORECASE),         # TE Character Set (GSM / IRA)
+    re.compile(r"^AT\+CMEE=[012]$", re.IGNORECASE),              # Report mobile equipment error (0=numeric, 1=numeric, 2=verbose)
 ]
 
 # Perintah hapus pesan (Hanya diizinkan jika diverifikasi sudah tersimpan di DB, default non-aktif)

@@ -66,8 +66,8 @@ def is_urc_line(line: str, current_command: Optional[str] = None) -> bool:
     if current_command:
         cmd_clean = current_command.strip().upper()
         if cmd_clean.startswith("AT"):
-            cmd_body = cmd_clean[2:].rstrip("?")
-            if cmd_body and stripped.upper().startswith(cmd_body + ":"):
+            cmd_name = re.split(r"[=?\s]", cmd_clean[2:])[0]
+            if cmd_name and stripped.upper().startswith(cmd_name + ":"):
                 return False
 
     for pat in URC_PATTERNS:

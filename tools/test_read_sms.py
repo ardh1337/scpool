@@ -38,3 +38,4 @@ def test_read_sms(port: str = "COM7"):
 if __name__ == "__main__":
     test_read_sms("COM7")
     test_read_sms("COM19")
+

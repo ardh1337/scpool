@@ -81,3 +81,4 @@ def poll_all_active_slots_sms(db: Session, is_initial: bool = False) -> int:
         total_new += new_in_slot
 
     return total_new
+

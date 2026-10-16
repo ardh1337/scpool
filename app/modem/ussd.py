@@ -70,10 +70,16 @@ def execute_ussd(
     old_cb = client.urc_callback
     client.register_urc_callback(on_urc)
 
+    # Batalkan sesi USSD aktif terlebih dahulu untuk menghindari +CME ERROR: 32
+    try:
+        client.send_command("AT+CUSD=2", timeout=2.0)
+    except Exception:
+        pass
+
     try:
         # Kirim perintah USSD standar
         cmd = f'AT+CUSD=1,"{ussd_code}"'
-        resp = client.send_command(cmd, timeout=8.0)
+        resp = client.send_command(cmd, timeout=timeout)
 
         # 1. Cek langsung di raw_response (dengan dukungan multi-baris re.DOTALL)
         source_text = resp.raw_response or ""
@@ -84,8 +90,17 @@ def execute_ussd(
             phone = extract_phone_number_from_text(decoded)
             return True, decoded, phone
 
+        # Format cadangan jika tanda kutip terpotong atau format non-standar
+        match_alt = re.search(r'\+CUSD:\s*\d+,\s*"(.*?)(?:"\s*,\s*\d+|"$|$)', source_text, re.IGNORECASE | re.DOTALL)
+        if match_alt and match_alt.group(1):
+            raw_str = match_alt.group(1)
+            decoded = decode_ussd_text(raw_str)
+            phone = extract_phone_number_from_text(decoded)
+            if phone or len(decoded) > 5:
+                return True, decoded, phone
+
         # 2. Jika belum ada di raw_response, tunggu URC terpisah
-        event.wait(timeout=timeout)
+        event.wait(timeout=2.0)
         if ussd_response:
             match = re.search(r'\+CUSD:\s*\d+,\s*"([^"]*)"', ussd_response, re.IGNORECASE | re.DOTALL)
             if match:

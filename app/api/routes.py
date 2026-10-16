@@ -192,3 +192,4 @@ def trigger_poll_sms(db: Session = Depends(get_db)):
     """Memindai SMS baru dari semua slot yang aktif."""
     new_count = poll_all_active_slots_sms(db=db, is_initial=False)
     return {"success": True, "new_messages": new_count}
+
