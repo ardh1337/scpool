@@ -530,6 +530,294 @@ dialog::backdrop{background:rgba(0,0,0,.6)}dialog form{display:grid;gap:12px}
  .top,main{padding-inline:16px}#gs{display:none}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ==========================================================================
+   MODE 2: FAST OTP & ONE-CLICK NUMBER STREAM DASHBOARD
+   ========================================================================== */
+.dash-mode-toggle{
+  display:inline-flex;
+  align-items:center;
+  background:var(--p2);
+  border:1px solid var(--ln);
+  border-radius:24px;
+  padding:3px;
+  gap:3px;
+}
+.dmode-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:5px 12px;
+  border-radius:18px;
+  border:none;
+  background:transparent;
+  color:var(--mu);
+  font-size:12px;
+  font-weight:600;
+  cursor:pointer;
+  transition:all 0.18s ease;
+  user-select:none;
+}
+.dmode-btn svg{
+  width:14px;
+  height:14px;
+}
+.dmode-btn:hover{
+  color:var(--tx);
+  background:rgba(255,255,255,0.04);
+}
+.dmode-btn.on{
+  background:var(--ac);
+  color:var(--ai);
+  box-shadow:0 1px 5px rgba(0,0,0,0.2);
+}
+
+.fast-otp-layout{
+  display:grid;
+  grid-template-columns:370px 1fr;
+  gap:22px;
+  align-items:start;
+}
+@media (max-width:960px){
+  .fast-otp-layout{
+    grid-template-columns:1fr;
+  }
+}
+
+/* Kolom Kiri: List Nomor */
+.num-list-pane{
+  background:var(--pn);
+  border:1px solid var(--ln);
+  border-radius:var(--rp);
+  padding:16px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  position:sticky;
+  top:70px;
+  max-height:calc(100vh - 90px);
+}
+.num-list-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding-bottom:10px;
+  border-bottom:1px solid var(--ln);
+}
+.num-list-scroll{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  overflow-y:auto;
+  padding-right:4px;
+  max-height:calc(100vh - 220px);
+}
+.fast-num-card{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:10px 14px;
+  border-radius:8px;
+  border:1px solid var(--ln);
+  background:var(--p2);
+  cursor:pointer;
+  transition:all 0.16s ease;
+  user-select:none;
+  position:relative;
+  text-align:left;
+  width:100%;
+}
+.fast-num-card:hover{
+  border-color:var(--ac);
+  transform:translateY(-1px);
+  box-shadow:0 3px 10px rgba(0,0,0,0.14);
+}
+.fast-num-card.st-active{
+  border-color:rgba(16,185,129,0.38);
+  background:linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.02) 100%);
+}
+.fast-num-card.st-empty{
+  border-color:rgba(168,85,247,0.3);
+  background:linear-gradient(135deg, rgba(168,85,247,0.05) 0%, transparent 100%);
+  opacity:0.8;
+}
+.fast-num-card.st-offline,
+.fast-num-card.st-error{
+  border-color:rgba(239,68,68,0.38);
+  background:linear-gradient(135deg, rgba(239,68,68,0.08) 0%, transparent 100%);
+}
+.fast-num-card.copied{
+  background:rgba(16,185,129,0.22)!important;
+  border-color:var(--ac)!important;
+  box-shadow:0 0 14px rgba(16,185,129,0.4)!important;
+}
+.fast-num-card .fnum-val{
+  font-family:monospace;
+  font-size:15px;
+  font-weight:700;
+  color:var(--tx);
+  letter-spacing:0.02em;
+}
+.fast-num-card.copied .fnum-val{
+  color:var(--ac);
+}
+.fast-num-card .fnum-port{
+  font-size:11px;
+  font-weight:700;
+  padding:2px 6px;
+  border-radius:4px;
+  background:rgba(255,255,255,0.06);
+  color:var(--mu);
+}
+.fast-num-card .copy-badge{
+  font-size:11px;
+  font-weight:600;
+  color:var(--mu);
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  padding:3px 8px;
+  border-radius:12px;
+  background:rgba(255,255,255,0.04);
+  transition:all 0.15s ease;
+}
+.fast-num-card.copied .copy-badge{
+  color:var(--ac);
+  background:rgba(16,185,129,0.2);
+  font-weight:700;
+}
+
+/* Kolom Kanan: Rolling OTP Stream */
+.otp-stream-pane{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+.otp-stream-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  background:var(--pn);
+  border:1px solid var(--ln);
+  border-radius:var(--rp);
+  padding:12px 18px;
+  flex-wrap:wrap;
+  gap:10px;
+}
+.otp-stream-feed{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.otp-card{
+  background:var(--pn);
+  border:1px solid var(--ln);
+  border-radius:var(--rp);
+  padding:18px 20px;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  transition:all 0.2s ease;
+  position:relative;
+  animation:slideDownOTP 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.otp-card:hover{
+  border-color:var(--ac);
+  box-shadow:0 4px 18px rgba(0,0,0,0.12);
+}
+.otp-card.is-new{
+  border-color:rgba(16,185,129,0.5);
+  box-shadow:0 0 20px rgba(16,185,129,0.22);
+}
+@keyframes slideDownOTP{
+  from{opacity:0;transform:translateY(-14px);}
+  to{opacity:1;transform:translateY(0);}
+}
+
+/* Animated App Emojis & Badges */
+.app-logo-wrap{
+  width:42px;
+  height:42px;
+  border-radius:12px;
+  display:grid;
+  place-items:center;
+  flex:none;
+  position:relative;
+  box-shadow:0 3px 12px rgba(0,0,0,0.2);
+  transition:transform 0.2s ease;
+}
+.app-logo-wrap svg{
+  width:24px;
+  height:24px;
+}
+.anim-pulse{
+  animation:appPulse 2s infinite ease-in-out;
+}
+.anim-glide{
+  animation:appGlide 2.4s infinite ease-in-out;
+}
+.anim-rhythm{
+  animation:appRhythm 1.6s infinite ease-in-out;
+}
+.anim-float{
+  animation:appFloat 2.2s infinite ease-in-out;
+}
+.anim-shimmer{
+  animation:appShimmer 2.8s infinite ease-in-out;
+}
+@keyframes appPulse{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.08);filter:brightness(1.15)}
+}
+@keyframes appGlide{
+  0%,100%{transform:translate(0,0) rotate(0deg)}
+  50%{transform:translate(2px,-3px) rotate(4deg)}
+}
+@keyframes appRhythm{
+  0%,100%{transform:scale(1) skewX(0deg)}
+  25%{transform:scale(1.06) skewX(-3deg)}
+  75%{transform:scale(0.97) skewX(2deg)}
+}
+@keyframes appFloat{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-4px)}
+}
+@keyframes appShimmer{
+  0%,100%{transform:rotate(0deg)}
+  50%{transform:rotate(6deg) scale(1.05)}
+}
+
+.otp-box-display{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  background:var(--p2);
+  border:1px solid rgba(16,185,129,0.3);
+  border-radius:10px;
+  padding:12px 18px;
+  box-shadow:inset 0 1px 4px rgba(0,0,0,0.2), 0 0 16px rgba(16,185,129,0.08);
+}
+.otp-big-num{
+  font-family:monospace;
+  font-size:24px;
+  font-weight:900;
+  letter-spacing:0.22em;
+  color:#10b981;
+  text-shadow:0 0 12px rgba(16,185,129,0.45);
+}
+.otp-copy-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:8px 16px;
+  border-radius:8px;
+  font-size:13px;
+  font-weight:700;
+  cursor:pointer;
+  transition:all 0.16s ease;
+}
+
 </style>
 </head>
 <body>
@@ -545,7 +833,19 @@ dialog::backdrop{background:rgba(0,0,0,.6)}dialog form{display:grid;gap:12px}
 </aside>
 <div class="main">
  <header class="top">
-  <h1 id="title">Dashboard</h1>
+  <div style="display:flex;align-items:center;gap:12px;margin-right:auto;">
+   <h1 id="title" style="margin-right:0;">Dashboard</h1>
+   <div class="dash-mode-toggle" id="dash-mode-toggle">
+    <button type="button" class="dmode-btn on" id="btn-mode-grid" onclick="switchDashMode('grid')" title="Mode 1: Grid Fisik Hardware 32-Port">
+     <svg class="i" viewBox="0 0 24 24"><path d="M4 4h7v7H4zM13 4h7v4h-7zM13 11h7v9h-7zM4 14h7v6H4z"/></svg>
+     <span>Grid Port</span>
+    </button>
+    <button type="button" class="dmode-btn" id="btn-mode-stream" onclick="switchDashMode('stream')" title="Mode 2: Fast OTP & List Nomor (Auto-Copy)">
+     <svg class="i" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+     <span>Fast OTP</span>
+    </button>
+   </div>
+  </div>
   <input id="gs" type="search" placeholder="Cari slot, nomor, atau provider…" aria-label="Pencarian cepat">
   <button class="btn ic" id="top-sync" title="Sinkronkan Hardware"><svg class="i" viewBox="0 0 24 24"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg></button>
   <button class="btn ic" id="top-poll" title="Periksa SMS Baru"><svg class="i" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></button>
@@ -733,10 +1033,19 @@ $('#lo').onclick=()=>toast(`Status sistem: Terhubung ke ${poolInfo.pool}.`);
 // Filter pencarian langsung di Dashboard
 $('#gs').oninput=e=>{
  const q = e.target.value.toLowerCase().trim();
- $$('.slot-box').forEach(el=>{
-  const txt = el.textContent.toLowerCase();
-  el.style.opacity = (!q || txt.includes(q)) ? '1' : '0.22';
- });
+ if(currentDashMode === 'stream'){
+  const fSearch = $('#fnum-search');
+  if(fSearch){ fSearch.value = q; updateFastNumberList(); }
+  $$('.otp-card').forEach(el=>{
+   const txt = el.textContent.toLowerCase();
+   el.style.display = (!q || txt.includes(q)) ? '' : 'none';
+  });
+ } else {
+  $$('.slot-box').forEach(el=>{
+   const txt = el.textContent.toLowerCase();
+   el.style.opacity = (!q || txt.includes(q)) ? '1' : '0.22';
+  });
+ }
 };
 
 // Topbar Trigger Action
@@ -760,7 +1069,7 @@ const refreshBell=()=>{
 
 /* ---------- Router ---------- */
 const R={dashboard:['Dashboard',pDash],pengaturan:['Pengaturan',pSet],sms:['Dashboard',pDash],inventaris:['Dashboard',pDash]};
-function route(){const h=location.hash.replace('#/','');const k=R[h]?h:'dashboard';
+function route(){const h=location.hash.replace('#/','');const k=R[h]?h:'dashboard';const dmt=$('#dash-mode-toggle');if(dmt)dmt.style.display=(k==='dashboard')?'inline-flex':'none';$('#btn-mode-grid')?.classList.toggle('on',currentDashMode==='grid');$('#btn-mode-stream')?.classList.toggle('on',currentDashMode==='stream');
  $('#title').textContent=R[k][0];document.title=R[k][0]+' · SIM Fleet · SIM Inventory & SMS Hub';
  $$('#nav a').forEach(a=>{const on=a.dataset.k===k;a.classList.toggle('on',on);on?a.setAttribute('aria-current','page'):a.removeAttribute('aria-current')});
  if(k !== 'dashboard' && isSelectMode) exitSelectMode();
@@ -958,6 +1267,10 @@ function renderPools(){
 }
 
 function pDash(){
+ if(currentDashMode === 'stream'){
+  pStreamDash();
+  return;
+ }
  const c = cnt(), prob = c.offline + c.error;
  v.innerHTML = `
   <div class="note" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
@@ -1753,6 +2066,402 @@ function apply(){
 }
 setThemeMode('auto');
 route();
+
+/* ==========================================================================
+   MODE 2 JAVASCRIPT: FAST OTP STREAM & NUMBER LIST AUTO-COPY
+   ========================================================================== */
+let currentDashMode = localStorage.getItem('simfleet_dash_mode') || 'grid';
+let soundEnabled = localStorage.getItem('simfleet_sound') !== 'false';
+let lastSeenOtpIds = new Set();
+let fastNumFilterOp = 'all';
+
+function switchDashMode(mode){
+  currentDashMode = mode;
+  localStorage.setItem('simfleet_dash_mode', mode);
+  $('#btn-mode-grid')?.classList.toggle('on', mode === 'grid');
+  $('#btn-mode-stream')?.classList.toggle('on', mode === 'stream');
+  const gs = $('#gs');
+  if(gs){
+    gs.placeholder = (mode === 'grid') ? "Cari slot, nomor, atau provider…" : "Cari nomor atau OTP…";
+  }
+  if(isSelectMode) exitSelectMode();
+  pDash();
+}
+
+function toggleOtpSound(){
+  soundEnabled = !soundEnabled;
+  localStorage.setItem('simfleet_sound', soundEnabled);
+  const btn = $('#btn-toggle-sound');
+  if(btn) btn.textContent = soundEnabled ? '🔔 Suara: Aktif' : '🔕 Suara: Bisu';
+  toast(`Suara notifikasi OTP ${soundEnabled ? 'diaktifkan' : 'dibisukan'}.`);
+}
+
+function playOtpChime(){
+  try{
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if(ctx.state === 'suspended') ctx.resume();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(880.00, ctx.currentTime + 0.12);
+    gain.gain.setValueAtTime(0.12, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.38);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.38);
+  }catch(e){}
+}
+
+function detectAppFromSMS(body = '', sender = ''){
+  const b = (body + ' ' + sender).toLowerCase();
+  if(/whatsapp|wa\.me|\bwa\b/i.test(b)){
+    return { name: 'WhatsApp', key: 'whatsapp', color: '#25D366', bg: 'linear-gradient(135deg, rgba(37,211,102,0.22) 0%, rgba(18,140,126,0.3) 100%)' };
+  }
+  if(/telegram|tg\.me|\btg\b/i.test(b)){
+    return { name: 'Telegram', key: 'telegram', color: '#2AABEE', bg: 'linear-gradient(135deg, rgba(42,171,238,0.22) 0%, rgba(34,158,217,0.3) 100%)' };
+  }
+  if(/tiktok/i.test(b)){
+    return { name: 'TikTok', key: 'tiktok', color: '#FE2C55', bg: 'linear-gradient(135deg, rgba(254,44,85,0.25) 0%, rgba(0,242,254,0.18) 100%)' };
+  }
+  if(/google|g-|gmail|youtube/i.test(b)){
+    return { name: 'Google', key: 'google', color: '#4285F4', bg: 'linear-gradient(135deg, rgba(66,133,244,0.18) 0%, rgba(234,67,53,0.18) 100%)' };
+  }
+  if(/shopee/i.test(b)){
+    return { name: 'Shopee', key: 'shopee', color: '#EE4D2D', bg: 'linear-gradient(135deg, rgba(238,77,45,0.25) 0%, rgba(255,87,34,0.2) 100%)' };
+  }
+  if(/tokopedia|toped/i.test(b)){
+    return { name: 'Tokopedia', key: 'tokopedia', color: '#03AC0E', bg: 'linear-gradient(135deg, rgba(3,172,14,0.25) 0%, rgba(32,201,151,0.2) 100%)' };
+  }
+  if(/instagram|ig\.me/i.test(b)){
+    return { name: 'Instagram', key: 'instagram', color: '#E1306C', bg: 'linear-gradient(135deg, rgba(131,58,180,0.25) 0%, rgba(253,29,29,0.2) 100%)' };
+  }
+  if(/facebook|meta/i.test(b)){
+    return { name: 'Facebook', key: 'facebook', color: '#1877F2', bg: 'linear-gradient(135deg, rgba(24,119,242,0.25) 0%, rgba(13,71,161,0.2) 100%)' };
+  }
+  if(/twitter|x corp/i.test(b)){
+    return { name: 'Twitter / X', key: 'twitter', color: '#1DA1F2', bg: 'linear-gradient(135deg, rgba(29,161,242,0.25) 0%, rgba(0,0,0,0.4) 100%)' };
+  }
+  if(/dana/i.test(b)){
+    return { name: 'DANA', key: 'dana', color: '#118EEA', bg: 'linear-gradient(135deg, rgba(17,142,234,0.25) 0%, rgba(0,90,170,0.2) 100%)' };
+  }
+  if(/ovo/i.test(b)){
+    return { name: 'OVO', key: 'ovo', color: '#4C3494', bg: 'linear-gradient(135deg, rgba(76,52,148,0.25) 0%, rgba(115,82,199,0.2) 100%)' };
+  }
+  if(/gojek|gopay/i.test(b)){
+    return { name: 'Gojek / GoPay', key: 'gojek', color: '#00AA13', bg: 'linear-gradient(135deg, rgba(0,170,19,0.25) 0%, rgba(0,128,14,0.2) 100%)' };
+  }
+  if(/grab/i.test(b)){
+    return { name: 'Grab', key: 'grab', color: '#00B14F', bg: 'linear-gradient(135deg, rgba(0,177,79,0.25) 0%, rgba(0,120,54,0.2) 100%)' };
+  }
+  if(/bca|klikbca/i.test(b)){
+    return { name: 'Bank BCA', key: 'bca', color: '#0060AF', bg: 'linear-gradient(135deg, rgba(0,96,175,0.25) 0%, rgba(0,40,90,0.3) 100%)' };
+  }
+  if(/mandiri|livin/i.test(b)){
+    return { name: 'Bank Mandiri', key: 'mandiri', color: '#003876', bg: 'linear-gradient(135deg, rgba(0,56,118,0.25) 0%, rgba(245,158,11,0.2) 100%)' };
+  }
+  if(/bri|brimo/i.test(b)){
+    return { name: 'Bank BRI', key: 'bri', color: '#00529C', bg: 'linear-gradient(135deg, rgba(0,82,156,0.25) 0%, rgba(0,150,214,0.2) 100%)' };
+  }
+  if(/discord/i.test(b)){
+    return { name: 'Discord', key: 'discord', color: '#5865F2', bg: 'linear-gradient(135deg, rgba(88,101,242,0.25) 0%, rgba(47,49,54,0.3) 100%)' };
+  }
+  if(/lazada/i.test(b)){
+    return { name: 'Lazada', key: 'lazada', color: '#0F146D', bg: 'linear-gradient(135deg, rgba(15,20,109,0.25) 0%, rgba(245,114,36,0.2) 100%)' };
+  }
+  return { name: sender || 'Verifikasi SMS', key: 'generic', color: '#F59E0B', bg: 'linear-gradient(135deg, rgba(245,158,11,0.22) 0%, rgba(217,119,6,0.2) 100%)' };
+}
+
+function renderAnimatedAppLogo(key, color){
+  if(key === 'whatsapp'){
+    return `<svg class="anim-pulse" viewBox="0 0 24 24" fill="${color}"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>`;
+  }
+  if(key === 'telegram'){
+    return `<svg class="anim-glide" viewBox="0 0 24 24" fill="${color}"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/></svg>`;
+  }
+  if(key === 'tiktok'){
+    return `<svg class="anim-rhythm" viewBox="0 0 24 24" fill="${color}"><path d="M12.53.02C13.84 0 15.14.01 16.44 0c.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.24 1.07-.14 1.61.24 1.16 1.18 2.09 2.35 2.3 1.05.2 2.16-.08 2.94-.78.78-.69 1.15-1.75 1.15-2.79V.02h2.24z"/></svg>`;
+  }
+  if(key === 'google'){
+    return `<svg class="anim-shimmer" viewBox="0 0 24 24"><path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.4 9 5 12 5z"/><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.7-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z"/><path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 12 0 12s.7 2.3 1.9 4.7l3.7-1.9z"/><path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.4-6.4-5.2L1.9 16C3.7 19.7 7.5 23 12 23z"/></svg>`;
+  }
+  if(key === 'shopee'){
+    return `<svg class="anim-float" viewBox="0 0 24 24" fill="${color}"><path d="M19.5 7.5h-2.25V6a5.25 5.25 0 00-10.5 0v1.5H4.5A1.5 1.5 0 003 9l1.5 12a1.5 1.5 0 001.5 1.5h12a1.5 1.5 0 001.5-1.5L21 9a1.5 1.5 0 00-1.5-1.5zm-11.25-1.5a3.75 3.75 0 017.5 0v1.5h-7.5V6zm4.5 11.5c-2 0-3.25-.9-3.25-2.25 0-1.6 1.8-1.9 2.8-2.1.8-.1 1.2-.3 1.2-.6 0-.4-.4-.7-1-.7-.8 0-1.5.3-2.1.8l-.8-1.1c.8-.7 1.8-1 2.9-1 1.8 0 3 1 3 2.2 0 1.5-1.7 1.9-2.7 2.1-.9.1-1.3.3-1.3.6 0 .4.4.8 1.2.8.9 0 1.8-.4 2.4-1l.8 1.1c-.8.8-2 1.3-3.2 1.3z"/></svg>`;
+  }
+  if(key === 'tokopedia'){
+    return `<svg class="anim-pulse" viewBox="0 0 24 24" fill="${color}"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-4 7a2 2 0 110 4 2 2 0 010-4zm8 0a2 2 0 110 4 2 2 0 010-4zm-4 8c-2.33 0-4.31-1.46-5.11-3.5h10.22c-.8 2.04-2.78 3.5-5.11 3.5z"/></svg>`;
+  }
+  if(key === 'instagram'){
+    return `<svg class="anim-pulse" viewBox="0 0 24 24" fill="${color}"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>`;
+  }
+  if(key === 'dana' || key === 'ovo' || key === 'gojek' || key === 'grab'){
+    return `<svg class="anim-float" viewBox="0 0 24 24" fill="${color}"><path d="M20 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2zm0 14H4V8h16v10zm-2-5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/></svg>`;
+  }
+  if(key === 'bca' || key === 'mandiri' || key === 'bri'){
+    return `<svg class="anim-shimmer" viewBox="0 0 24 24" fill="${color}"><path d="M12 1L2 6v2h20V6L12 1zm-7 9h3v8H5v-8zm6 0h3v8h-3v-8zm6 0h3v8h-3v-8zM2 20h20v2H2v-2z"/></svg>`;
+  }
+  return `<svg class="anim-pulse" viewBox="0 0 24 24" fill="${color}"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 6c1.66 0 3 1.34 3 3 0 1.09-.59 2.04-1.46 2.56l.46 2.44h-4l.46-2.44A2.99 2.99 0 019 10c0-1.66 1.34-3 3-3z"/></svg>`;
+}
+
+function highlightOTPInBody(body = '', otp = ''){
+  const safe = esc(body);
+  if(!otp) return safe;
+  const safeOtp = esc(otp);
+  return safe.split(safeOtp).join(`<mark style="background:rgba(16,185,129,0.35);color:#fff;font-weight:800;border-radius:4px;padding:1px 5px;">${safeOtp}</mark>`);
+}
+
+function pStreamDash(){
+  const c = cnt();
+  const existingContainer = $('#fast-otp-container');
+  if(!existingContainer){
+    v.innerHTML = `
+      <div id="fast-otp-container" class="fast-otp-layout">
+        <!-- Kolom Kiri -->
+        <div class="num-list-pane">
+          <div class="num-list-header">
+            <div>
+              <b style="font-size:14px;display:block;">Daftar Nomor SIM</b>
+              <span class="mu" style="font-size:11.5px;">Klik untuk langsung salin</span>
+            </div>
+            <span class="badge ok" style="font-size:11px;" id="fnum-active-badge">${c.active} Aktif</span>
+          </div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;" id="fnum-filter-chips">
+            <button type="button" class="btn ${fastNumFilterOp==='all'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('all')">Semua</button>
+            <button type="button" class="btn ${fastNumFilterOp==='active'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('active')">Aktif</button>
+            <button type="button" class="btn ${fastNumFilterOp==='Telkomsel'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('Telkomsel')">Telkomsel</button>
+            <button type="button" class="btn ${fastNumFilterOp==='Indosat'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('Indosat')">Indosat</button>
+            <button type="button" class="btn ${fastNumFilterOp==='XL'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('XL')">XL/Axis</button>
+            <button type="button" class="btn ${fastNumFilterOp==='Tri'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('Tri')">Tri</button>
+            <button type="button" class="btn ${fastNumFilterOp==='Smartfren'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('Smartfren')">Smartfren</button>
+          </div>
+          <input type="search" id="fnum-search" placeholder="Cari nomor atau port…" style="width:100%;font-size:12.5px;padding:7px 10px;" oninput="updateFastNumberList()">
+          <div class="num-list-scroll" id="fnum-list"></div>
+        </div>
+
+        <!-- Kolom Kanan -->
+        <div class="otp-stream-pane">
+          <div class="otp-stream-head">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#10b981;box-shadow:0 0 8px #10b981;animation:appPulse 1.5s infinite;"></span>
+              <b style="font-size:15px;letter-spacing:-0.01em;">Live Stream OTP Masuk</b>
+              <span class="mu" style="font-size:12px;" id="otp-total-count"></span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button type="button" class="btn" style="padding:4px 10px;font-size:11.5px;" id="btn-toggle-sound" onclick="toggleOtpSound()">
+                ${soundEnabled ? '🔔 Suara: Aktif' : '🔕 Suara: Bisu'}
+              </button>
+              <button type="button" class="btn" style="padding:4px 10px;font-size:11.5px;" onclick="$('#top-poll').click()">
+                🔄 Cek SMS Baru
+              </button>
+            </div>
+          </div>
+          <div class="otp-stream-feed" id="otp-stream-feed"></div>
+        </div>
+      </div>
+    `;
+  }
+  updateFastNumberList();
+  updateFastOtpFeed();
+}
+
+function setFastFilterOp(op){
+  fastNumFilterOp = op;
+  $$('#fnum-filter-chips button').forEach(b => {
+    b.classList.toggle('pri', b.textContent.toLowerCase().includes(op.toLowerCase()) || (op==='all' && b.textContent==='Semua'));
+  });
+  updateFastNumberList();
+}
+
+function updateFastNumberList(){
+  const listEl = $('#fnum-list');
+  if(!listEl) return;
+  const q = ($('#fnum-search')?.value || '').toLowerCase().trim();
+  const c = cnt();
+  const badge = $('#fnum-active-badge');
+  if(badge) badge.textContent = `${c.active} Aktif`;
+
+  const filteredSlots = slots.filter(s => {
+    if(fastNumFilterOp === 'active' && s.st !== 'active') return false;
+    if(fastNumFilterOp !== 'all' && fastNumFilterOp !== 'active'){
+      const opName = (s.op || '').toLowerCase();
+      if(!opName.includes(fastNumFilterOp.toLowerCase())) return false;
+    }
+    if(!q) return true;
+    return s.id.toLowerCase().includes(q) ||
+           (s.num && s.num.toLowerCase().includes(q)) ||
+           (s.op && s.op.toLowerCase().includes(q)) ||
+           (s.dev && s.dev.toLowerCase().includes(q));
+  });
+
+  if(!filteredSlots.length){
+    listEl.innerHTML = `<div class="mu" style="padding:24px;text-align:center;font-size:12.5px;">Tidak ada nomor yang cocok dengan filter.</div>`;
+    return;
+  }
+
+  listEl.innerHTML = filteredSlots.map(s => {
+    const isAct = s.st === 'active';
+    const numDisplay = (s.num && s.num !== '—' && s.num !== 'BELUM DIKETAHUI') ? s.num : (isAct ? 'Nomor Belum Terbaca' : '(Slot Kosong)');
+    const canCopy = isAct && s.num && s.num !== '—' && s.num !== 'BELUM DIKETAHUI';
+    
+    return `
+      <div class="fast-num-card st-${s.st}" id="fast-num-${s.id}" onclick="onFastCardClick('${s.id}', '${esc(s.num||'')}')" title="${canCopy ? 'Klik untuk salin ' + s.num : 'Slot ' + s.id}">
+        <div style="display:flex;flex-direction:column;gap:3px;min-width:0;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span class="fnum-port">${s.id}</span>
+            <span class="fnum-val mono">${esc(numDisplay)}</span>
+          </div>
+          <div style="font-size:11px;color:var(--mu);display:flex;gap:6px;align-items:center;">
+            <span>${esc(s.op || '—')}</span>
+            <span>•</span>
+            <span class="mono">${esc(s.dev)}</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;flex:none;">
+          ${canCopy ? `<span class="copy-badge"><svg class="i" style="width:13px;height:13px;" viewBox="0 0 24 24"><path d="M8 4v12a2 2 0 002 2h8a2 2 0 002-2V7.242a2 2 0 00-.602-1.43L16.083 2.57A2 2 0 0014.685 2H10a2 2 0 00-2 2z"/><path d="M16 18v2a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2h2"/></svg> Salin</span>` : `<span class="mu" style="font-size:11px;">${bd(s.st)}</span>`}
+          <button type="button" class="btn ic" style="width:26px;height:26px;padding:0;" onclick="event.stopPropagation();openDrawer('${s.id}')" title="Buka Detail Port ${s.id}">
+            <svg class="i" style="width:13px;height:13px;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function onFastCardClick(id, rawNum){
+  if(!rawNum || rawNum === '—' || rawNum === 'BELUM DIKETAHUI'){
+    const s = slots.find(x => x.id === id);
+    if(s && s.st === 'empty'){
+      toast(`Slot ${id} kosong.`, 0);
+    } else {
+      toast(`Nomor pada Slot ${id} belum terdeteksi. Buka detail untuk dial CNUM.`, 0);
+    }
+    return;
+  }
+  const clean = rawNum.replace(/[^\d+]/g, '');
+  navigator.clipboard.writeText(clean);
+
+  const card = $(`#fast-num-${id}`);
+  if(card){
+    card.classList.add('copied');
+    const badge = $('.copy-badge', card);
+    if(badge) badge.innerHTML = '✓ Tersalin!';
+    setTimeout(()=>{
+      card.classList.remove('copied');
+      if(badge) badge.innerHTML = `<svg class="i" style="width:13px;height:13px;" viewBox="0 0 24 24"><path d="M8 4v12a2 2 0 002 2h8a2 2 0 002-2V7.242a2 2 0 00-.602-1.43L16.083 2.57A2 2 0 0014.685 2H10a2 2 0 00-2 2z"/><path d="M16 18v2a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2h2"/></svg> Salin`;
+    }, 1200);
+  }
+  toast(`Nomor ${clean} tersalin ke clipboard.`);
+}
+
+function updateFastOtpFeed(){
+  const feedEl = $('#otp-stream-feed');
+  if(!feedEl) return;
+
+  const otpList = sms.filter(m => m.otp || m.type === 'OTP');
+  const countEl = $('#otp-total-count');
+  if(countEl) countEl.textContent = `(${otpList.length} kode verifikasi)`;
+
+  if(!otpList.length){
+    feedEl.innerHTML = `
+      <div style="background:var(--pn);border:1px solid var(--ln);border-radius:var(--rp);padding:44px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px;">
+        <div style="width:54px;height:54px;border-radius:50%;background:rgba(16,185,129,0.1);display:grid;place-items:center;color:var(--ac);animation:appPulse 2.5s infinite;">
+          <svg class="i" style="width:28px;height:28px;" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        </div>
+        <b style="font-size:16px;">Menunggu SMS Kode Masuk</b>
+        <p class="mu" style="max-width:380px;font-size:13px;line-height:1.5;margin:0;">
+          Aliran pesan akan bergulir otomatis di sini begitu kode OTP diterima di port mana pun, lengkap dengan logo aplikasi yang bergerak.
+        </p>
+      </div>
+    `;
+    return;
+  }
+
+  // Cek apakah ada OTP baru untuk sound chime
+  const hasNewOtp = otpList.some(m => !lastSeenOtpIds.has(m.id));
+  if(hasNewOtp && lastSeenOtpIds.size > 0 && soundEnabled){
+    playOtpChime();
+  }
+  otpList.forEach(m => lastSeenOtpIds.add(m.id));
+
+  feedEl.innerHTML = otpList.map((m, idx) => {
+    const app = detectAppFromSMS(m.body, m.n);
+    const s = slots.find(x => x.id === m.slot || x.slot_index === m.slot_index);
+    const targetNum = s && s.num && s.num !== '—' ? s.num : 'Port ' + m.slot;
+    const isRecent = idx === 0 && m.m <= 2;
+
+    return `
+      <div class="otp-card ${isRecent ? 'is-new' : ''}" id="otp-card-${m.id}">
+        <!-- Top App Row -->
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+          <div class="otp-app-badge">
+            <div class="app-logo-wrap" style="background:${app.bg};border:1px solid ${app.color}40;">
+              ${renderAnimatedAppLogo(app.key, app.color)}
+            </div>
+            <div>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <b style="font-size:15px;color:var(--tx);">${esc(app.name)}</b>
+                <span style="font-size:10.5px;padding:1px 6px;border-radius:10px;background:${app.color}20;color:${app.color};font-weight:700;">VERIFIKASI</span>
+              </div>
+              <span class="mu" style="font-size:12px;">Pengirim: <b>${esc(m.n)}</b></span>
+            </div>
+          </div>
+          <div style="text-align:right;font-size:12px;">
+            <div style="font-weight:600;color:var(--tx);display:flex;align-items:center;gap:6px;justify-content:flex-end;">
+              <span class="fnum-port">${m.slot}</span>
+              <span class="mono">${esc(targetNum)}</span>
+            </div>
+            <span class="mu" style="font-size:11.5px;">${ago(m.m)}</span>
+          </div>
+        </div>
+
+        <!-- Highlight OTP Code Box -->
+        <div class="otp-box-display">
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:2px;">KODE OTP / VERIFIKASI</div>
+            <div class="otp-big-num">${esc(m.otp)}</div>
+          </div>
+          <button type="button" class="btn pri otp-copy-btn" id="btn-otp-${m.id}" onclick="copyFastOTP('${esc(m.otp)}', 'btn-otp-${m.id}')">
+            <svg class="i" viewBox="0 0 24 24"><path d="M8 4v12a2 2 0 002 2h8a2 2 0 002-2V7.242a2 2 0 00-.602-1.43L16.083 2.57A2 2 0 0014.685 2H10a2 2 0 00-2 2z"/><path d="M16 18v2a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2h2"/></svg>
+            Salin Kode
+          </button>
+        </div>
+
+        <!-- Raw SMS Body -->
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;background:var(--bg);border:1px solid var(--ln);border-radius:8px;padding:10px 12px;">
+          <div class="mono" style="font-size:12px;line-height:1.5;color:var(--tx);white-space:pre-wrap;word-break:break-word;">
+            ${highlightOTPInBody(m.body, m.otp)}
+          </div>
+          <button type="button" class="btn ic" style="flex:none;" onclick="copyFullSMS('${esc(m.body).replace(/'/g, "\\'")}', this)" title="Salin seluruh isi SMS">
+            <svg class="i" viewBox="0 0 24 24"><path d="M8 4v12a2 2 0 002 2h8a2 2 0 002-2V7.242a2 2 0 00-.602-1.43L16.083 2.57A2 2 0 0014.685 2H10a2 2 0 00-2 2z"/><path d="M16 18v2a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2h2"/></svg>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function copyFastOTP(otpCode, btnId){
+  navigator.clipboard.writeText(otpCode);
+  const btn = $('#' + btnId);
+  if(btn){
+    const orig = btn.innerHTML;
+    btn.innerHTML = '✓ Tersalin!';
+    setTimeout(()=>{ btn.innerHTML = orig; }, 1200);
+  }
+  toast(`Kode OTP ${otpCode} tersalin ke clipboard.`);
+}
+
+function copyFullSMS(text, btn){
+  navigator.clipboard.writeText(text);
+  if(btn){
+    const orig = btn.innerHTML;
+    btn.innerHTML = '✓';
+    setTimeout(()=>{ btn.innerHTML = orig; }, 1200);
+  }
+  toast('Seluruh isi pesan SMS disalin.');
+}
+
 </script>
 </body>
 </html>
