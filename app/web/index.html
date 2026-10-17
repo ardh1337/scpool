@@ -750,9 +750,17 @@ dialog::backdrop{background:rgba(0,0,0,.6)}dialog form{display:grid;gap:12px}
   display:flex;
   flex-direction:column;
   gap:6px;
-  max-height:120px;
+  height:44px;
+  max-height:44px;
   overflow-y:auto;
-  padding-right:4px;
+  scroll-snap-type:y mandatory;
+  scrollbar-width:none;
+  -ms-overflow-style:none;
+  flex:1;
+  min-width:0;
+}
+.row-otp-scroll-list::-webkit-scrollbar{
+  display:none;
 }
 .mini-otp-card{
   display:flex;
@@ -761,8 +769,13 @@ dialog::backdrop{background:rgba(0,0,0,.6)}dialog form{display:grid;gap:12px}
   background:var(--p2);
   border:1px solid var(--ln);
   border-radius:6px;
-  padding:6px 12px;
+  padding:5px 12px;
   gap:10px;
+  height:44px;
+  box-sizing:border-box;
+  flex:none;
+  scroll-snap-align:start;
+  scroll-snap-stop:always;
   transition:all 0.15s ease;
 }
 .mini-otp-card:hover{
@@ -2478,35 +2491,45 @@ function updateUnifiedTable(){
       </div>
     ` : `<span class="mu" style="font-size:11.5px;">${isAct ? 'Belum ada kode OTP masuk' : 'Slot tidak aktif'}</span>`;
 
-    // Hanya tampilkan 1 service OTP terbaru per nomor agar tinggi baris tabel selalu presisi & seragam
-    const latestOtp = slotOtps[0];
-    const otpsListHtml = latestOtp ? (() => {
-      const app = detectAppFromSMS(latestOtp.body, latestOtp.n);
-      const moreCount = slotOtps.length - 1;
-      return `
-        <div class="mini-otp-card">
-          <div style="display:flex;align-items:center;gap:8px;min-width:0;">
-            <div style="width:22px;height:22px;border-radius:6px;background:${app.bg};display:grid;place-items:center;flex:none;">
-              ${renderAnimatedAppLogo(app.key, app.color)}
-            </div>
-            <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
-              <div style="font-weight:700;font-size:12px;color:var(--tx);display:flex;gap:6px;align-items:center;">
-                <span>${esc(app.name)}</span>
-                <span class="mu" style="font-size:10.5px;font-weight:normal;">• ${ago(latestOtp.m)}</span>
-                ${moreCount > 0 ? `<span class="mu" style="font-size:10px;padding:1px 6px;background:rgba(255,255,255,0.06);border-radius:8px;" title="${moreCount} OTP lainnya tersimpan di Live Stream">+${moreCount} lainnya</span>` : ''}
+    // Kontainer OTP bergulir: tinggi tepat 1 kartu (44px), namun jika ada lebih dari 1 OTP tetap dapat digulir
+    const otpsListHtml = slotOtps.length ? `
+      <div style="display:flex;align-items:center;gap:6px;min-width:0;width:100%;">
+        <div class="row-otp-scroll-list" id="otp-scroll-${s.id}">
+          ${slotOtps.map((m, idx) => {
+            const app = detectAppFromSMS(m.body, m.n);
+            return `
+              <div class="mini-otp-card">
+                <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+                  <div style="width:22px;height:22px;border-radius:6px;background:${app.bg};display:grid;place-items:center;flex:none;">
+                    ${renderAnimatedAppLogo(app.key, app.color)}
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
+                    <div style="font-weight:700;font-size:12px;color:var(--tx);display:flex;gap:6px;align-items:center;">
+                      <span>${esc(app.name)}</span>
+                      <span class="mu" style="font-size:10.5px;font-weight:normal;">• ${ago(m.m)}</span>
+                      ${slotOtps.length > 1 ? `<span class="mu mono" style="font-size:10px;padding:0 5px;background:rgba(255,255,255,0.06);border-radius:6px;" title="Gulir mouse untuk melihat OTP lainnya">↕ ${idx + 1}/${slotOtps.length}</span>` : ''}
+                    </div>
+                    <div class="mu mono" style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px;" title="${esc(m.body)}">${esc(m.body)}</div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;flex:none;">
+                  <span class="mini-otp-digits">${esc(m.otp)}</span>
+                  <button type="button" class="btn pri" style="padding:3px 8px;font-size:11.5px;font-weight:700;" id="btn-mini-otp-${m.id}" onclick="event.stopPropagation();copyFastOTP('${esc(m.otp)}', 'btn-mini-otp-${m.id}')" title="Salin kode ${m.otp}">
+                    📋 Salin
+                  </button>
+                </div>
               </div>
-              <div class="mu mono" style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px;" title="${esc(latestOtp.body)}">${esc(latestOtp.body)}</div>
-            </div>
-          </div>
-          <div style="display:flex;align-items:center;gap:6px;flex:none;">
-            <span class="mini-otp-digits">${esc(latestOtp.otp)}</span>
-            <button type="button" class="btn pri" style="padding:3px 8px;font-size:11.5px;font-weight:700;" id="btn-mini-otp-${latestOtp.id}" onclick="event.stopPropagation();copyFastOTP('${esc(latestOtp.otp)}', 'btn-mini-otp-${latestOtp.id}')" title="Salin kode ${latestOtp.otp}">
-              📋 Salin
-            </button>
-          </div>
+            `;
+          }).join('')}
         </div>
-      `;
-    })() : '';
+        ${slotOtps.length > 1 ? `
+          <div style="display:flex;flex-direction:column;gap:2px;flex:none;">
+            <button type="button" class="btn ic" style="width:20px;height:20px;padding:0;font-size:9px;line-height:1;border-radius:4px;" onclick="event.stopPropagation();scrollSlotOtp('${s.id}', -1)" title="OTP Sebelumnya">▲</button>
+            <button type="button" class="btn ic" style="width:20px;height:20px;padding:0;font-size:9px;line-height:1;border-radius:4px;" onclick="event.stopPropagation();scrollSlotOtp('${s.id}', 1)" title="OTP Berikutnya">▼</button>
+          </div>
+        ` : ''}
+      </div>
+    ` : '';
 
     return `
       <div class="unified-slot-row" id="unified-row-${s.id}">
@@ -2663,6 +2686,12 @@ function copyFastOTP(otpCode, btnId){
     setTimeout(()=>{ btn.innerHTML = orig; }, 1200);
   }
   toast(`Kode OTP ${otpCode} tersalin ke clipboard.`);
+}
+
+function scrollSlotOtp(slotId, dir){
+  const el = $('#otp-scroll-' + slotId);
+  if(!el) return;
+  el.scrollBy({top: dir * 50, behavior: 'smooth'});
 }
 
 function copyFullSMS(text, btn){
