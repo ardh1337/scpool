@@ -987,28 +987,28 @@ dialog::backdrop{background:rgba(0,0,0,.6)}dialog form{display:grid;gap:12px}
 
 /* Modal Auth Forms Layout */
 #form-login, #form-register{
-  display:flex !important;
-  flex-direction:column !important;
-  gap:12px !important;
-  width:100% !important;
+  display:none;
+  flex-direction:column;
+  gap:12px;
+  width:100%;
 }
-#form-login[style*="display: none"], #form-register[style*="display: none"],
-#form-login[style*="display:none"], #form-register[style*="display:none"]{
-  display:none !important;
+#form-login.active, #form-register.active{
+  display:flex !important;
 }
 #form-login .f, #form-register .f{
-  display:flex !important;
-  flex-direction:column !important;
-  gap:5px !important;
-  width:100% !important;
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+  width:100%;
 }
 #form-login input, #form-register input, #form-register select{
-  width:100% !important;
-  box-sizing:border-box !important;
-  background:var(--p2) !important;
-  border:1px solid var(--ln) !important;
-  border-radius:8px !important;
-  color:var(--tx) !important;
+  width:100%;
+  box-sizing:border-box;
+  background:var(--p2);
+  border:1px solid var(--ln);
+  border-radius:8px;
+  color:var(--tx);
 }
+
 
 

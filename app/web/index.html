@@ -6,7 +6,7 @@
 <title>SCPool · SIM Inventory &amp; SMS Hub</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css?v=2">
+<link rel="stylesheet" href="/static/style.css?v=3">
 </head>
 <body>
 <div class="app">
@@ -79,7 +79,7 @@
   </div>
 
   <!-- FORM 1: MASUK (LOGIN) -->
-  <form id="form-login" style="display:grid;gap:12px;">
+  <form id="form-login" class="active">
    <label class="f">
     <span style="font-size:12px;font-weight:600;color:var(--mu);">Username</span>
     <input id="login-uname" required autocomplete="username" placeholder="Masukkan username" style="padding:10px 12px;">
@@ -95,38 +95,59 @@
   </form>
 
   <!-- FORM 2: DAFTAR AKUN BARU (REGISTER) -->
-  <form id="form-register" style="display:none;gap:12px;">
+  <form id="form-register">
    <div id="reg-msg" style="display:none;padding:10px;border-radius:8px;font-size:12.5px;"></div>
-   <label class="f">
-    <span style="font-size:12px;font-weight:600;color:var(--mu);">Username Baru</span>
-    <input id="reg-uname" required minlength="3" maxlength="20" placeholder="Huruf kecil/angka, misal: budi, kantor" style="padding:10px 12px;">
-   </label>
-   <label class="f">
-    <span style="font-size:12px;font-weight:600;color:var(--mu);">Password</span>
-    <input type="password" id="reg-pwd" required minlength="4" placeholder="Minimal 4 karakter" style="padding:10px 12px;">
-   </label>
-   <label class="f">
-    <span style="font-size:12px;font-weight:600;color:var(--mu);">Nama Modem Pool (Opsional)</span>
-    <input id="reg-pool-name" placeholder="Misal: Modem Pool Cabang" style="padding:10px 12px;">
-   </label>
-   <label class="f">
-    <span style="font-size:12px;font-weight:600;color:var(--mu);">Kapasitas Port Hardware</span>
-    <select id="reg-port-count" style="padding:10px 12px;">
-      <option value="16">16 Port</option>
-      <option value="32" selected>32 Port</option>
-      <option value="64">64 Port</option>
-      <option value="8">8 Port</option>
-    </select>
-   </label>
-   <button type="submit" class="btn pri" id="btn-reg-submit" style="padding:10px;font-size:13.5px;font-weight:700;margin-top:4px;">
-    Daftar Akun Klien
-   </button>
-   <p class="mu" style="font-size:11.5px;line-height:1.4;margin:0;text-align:center;">
-    Akun akan diverifikasi Admin sebelum dapat digunakan.
-   </p>
+   <div id="reg-fields" style="display:flex;flex-direction:column;gap:12px;">
+    <label class="f">
+     <span style="font-size:12px;font-weight:600;color:var(--mu);">Username Baru</span>
+     <input id="reg-uname" required minlength="3" maxlength="20" placeholder="Huruf kecil/angka, misal: budi, kantor" style="padding:10px 12px;">
+    </label>
+    <label class="f">
+     <span style="font-size:12px;font-weight:600;color:var(--mu);">Password</span>
+     <input type="password" id="reg-pwd" required minlength="4" placeholder="Minimal 4 karakter" style="padding:10px 12px;">
+    </label>
+    <label class="f">
+     <span style="font-size:12px;font-weight:600;color:var(--mu);">Nama Modem Pool (Opsional)</span>
+     <input id="reg-pool-name" placeholder="Misal: Modem Pool Cabang" style="padding:10px 12px;">
+    </label>
+    <label class="f">
+     <span style="font-size:12px;font-weight:600;color:var(--mu);">Kapasitas Port Hardware</span>
+     <select id="reg-port-count" style="padding:10px 12px;">
+       <option value="16">16 Port</option>
+       <option value="32" selected>32 Port</option>
+       <option value="64">64 Port</option>
+       <option value="8">8 Port</option>
+     </select>
+    </label>
+    <button type="submit" class="btn pri" id="btn-reg-submit" style="padding:10px;font-size:13.5px;font-weight:700;margin-top:4px;">
+     Daftar Akun Klien
+    </button>
+    <p class="mu" style="font-size:11.5px;line-height:1.4;margin:0;text-align:center;">
+     Akun akan diverifikasi Admin sebelum dapat digunakan.
+    </p>
+   </div>
+
+   <!-- Sukses Registrasi: Unduh Token & Script -->
+   <div id="reg-success-card" style="display:none;flex-direction:column;gap:12px;">
+    <div style="background:rgba(16,185,129,0.15);border:1px solid var(--ac);border-radius:8px;padding:12px;color:var(--tx);font-size:12.5px;line-height:1.4;" id="reg-success-desc">
+     Pendaftaran berhasil! Akun menunggu persetujuan Administrator via Telegram.
+    </div>
+    <label class="f">
+      <span style="font-size:11.5px;color:var(--mu);font-weight:600;">Agent Token Klien</span>
+      <div style="display:flex;gap:6px;">
+        <input type="text" id="reg-token-display" readonly style="flex:1;font-family:monospace;font-size:11.5px;padding:8px 10px;background:var(--p2);border:1px solid var(--ln);border-radius:6px;color:var(--ac);">
+        <button type="button" class="btn" onclick="copyRegToken()" style="padding:8px 12px;font-size:11.5px;">Salin</button>
+      </div>
+    </label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;">
+      <a id="btn-dl-bat" class="btn pri" download style="text-align:center;padding:9px 12px;font-size:12px;font-weight:700;">⬇️ run_agent.bat</a>
+      <a id="btn-dl-script" class="btn" download style="text-align:center;padding:9px 12px;font-size:12px;">⬇️ agent_forwarder.py</a>
+    </div>
+    <button type="button" class="btn" onclick="switchAuthTab('login')" style="margin-top:6px;padding:9px;font-size:12px;">Kembali ke Login</button>
+   </div>
   </form>
  </div>
 </div>
-<script src="/static/app.js?v=2"></script>
+<script src="/static/app.js?v=3"></script>
 </body>
 </html>

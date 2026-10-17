@@ -1456,15 +1456,17 @@ function switchAuthTab(tab){
   const formReg = $('#form-register');
   const tabLogin = $('#tab-btn-login');
   const tabReg = $('#tab-btn-register');
-  const regFields = $('#reg-fields');
-  const regSuccess = $('#reg-success-card');
   const regMsg = $('#reg-msg');
 
   if(tab === 'register'){
-    if(formLogin) formLogin.style.display = 'none';
-    if(formReg) formReg.style.display = 'grid';
-    if(regFields) regFields.style.display = 'grid';
-    if(regSuccess) regSuccess.style.display = 'none';
+    if(formLogin){
+      formLogin.classList.remove('active');
+      formLogin.style.display = 'none';
+    }
+    if(formReg){
+      formReg.classList.add('active');
+      formReg.style.display = 'flex';
+    }
     if(regMsg) regMsg.style.display = 'none';
     if(tabLogin){
       tabLogin.style.borderBottom = '2px solid transparent';
@@ -1478,8 +1480,14 @@ function switchAuthTab(tab){
     }
     $('#reg-uname')?.focus();
   } else {
-    if(formLogin) formLogin.style.display = 'grid';
-    if(formReg) formReg.style.display = 'none';
+    if(formLogin){
+      formLogin.classList.add('active');
+      formLogin.style.display = 'flex';
+    }
+    if(formReg){
+      formReg.classList.remove('active');
+      formReg.style.display = 'none';
+    }
     if(tabLogin){
       tabLogin.style.borderBottom = '2px solid var(--ac)';
       tabLogin.style.color = 'var(--tx)';
