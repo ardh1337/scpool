@@ -1462,7 +1462,7 @@ function switchAuthTab(tab){
 
   if(tab === 'register'){
     if(formLogin) formLogin.style.display = 'none';
-    if(formReg) formReg.style.display = 'flex';
+    if(formReg) formReg.style.display = 'grid';
     if(regFields) regFields.style.display = 'grid';
     if(regSuccess) regSuccess.style.display = 'none';
     if(regMsg) regMsg.style.display = 'none';
