@@ -409,7 +409,7 @@ def update_auth_credentials(payload: CredentialsUpdate, db: Session = Depends(ge
     if payload.username and payload.username.strip():
         user.username = payload.username.strip()
 
-    user.password = new_pwd
+    user.password = hash_password(new_pwd)
     user.updated_at = datetime.now(timezone.utc)
     db.commit()
 
@@ -691,6 +691,28 @@ def list_admin_pools(
         }
         for p in pools
     ]
+
+
+@router.get("/agent/status")
+def get_agent_status(
+    pool_id: Optional[str] = Query(None),
+    user: Optional[UserAccount] = Depends(get_current_user_optional)
+):
+    """Mengembalikan status online remote agent untuk pool tertentu."""
+    from app.services.agent_gateway import agent_gateway
+    target_pool = pool_id
+    if user and user.role not in ["superadmin", "admin"]:
+        target_pool = user.pool_id
+    if not target_pool:
+        target_pool = "foxcom_32"
+
+    is_online = agent_gateway.is_agent_online(target_pool)
+    info = agent_gateway.get_agent_info(target_pool)
+    return {
+        "pool_id": target_pool,
+        "is_online": is_online,
+        "info": info
+    }
 
 
 

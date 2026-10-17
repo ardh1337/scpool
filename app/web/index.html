@@ -998,26 +998,79 @@ dialog::backdrop{background:rgba(0,0,0,.6)}dialog form{display:grid;gap:12px}
      <span>Fast OTP</span>
     </button>
    </div>
+   <!-- Pool Switcher untuk Superadmin -->
+   <div id="top-pool-wrap" style="display:none;align-items:center;gap:6px;">
+     <select id="top-pool-select" class="btn" style="padding:4px 10px;font-size:12px;font-weight:600;background:var(--p2);border-radius:18px;" onchange="onPoolChange(this.value)">
+     </select>
+   </div>
   </div>
   <input id="gs" type="search" placeholder="Cari slot, nomor, operator…" aria-label="Pencarian cepat">
   <button class="btn ic" id="top-sync" title="Sinkronkan"><svg class="i" viewBox="0 0 24 24"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg></button>
   <button class="btn ic" id="top-poll" title="Periksa SMS"><svg class="i" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></button>
   <div class="pop"><button class="btn ic" data-pop="np" aria-label="Notifikasi" aria-expanded="false"><svg class="i" viewBox="0 0 24 24"><path d="M6 17V11a6 6 0 0112 0v6l2 2H4zM10 21h4"/></svg><span class="dot"></span></button><div class="pm" id="np" hidden></div></div>
-  <div class="pop"><button class="btn" data-pop="pp" aria-expanded="false">Admin Pool</button><div class="pm" id="pp" hidden><a href="#/dashboard">Dashboard</a><a href="#/pengaturan">Pengaturan</a><button id="lo">Status: Online</button></div></div>
+  <div class="pop" id="user-pop-wrap">
+    <button class="btn" id="top-user-btn" data-pop="pp" aria-expanded="false" style="display:inline-flex;align-items:center;gap:6px;">
+      <svg class="i" style="width:14px;height:14px;" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span id="top-user-name">Akun</span>
+    </button>
+    <div class="pm" id="pp" hidden></div>
+  </div>
  </header>
  <main id="view" tabindex="-1"></main>
 </div></div>
 <div id="bulk-bar" class="bulk-floating-bar" style="display:none;"></div>
 <div id="dr"></div><dialog id="dlg"></dialog><div id="toasts" aria-live="polite"></div>
+
+<!-- Login Overlay Modal -->
+<div id="login-overlay" style="display:none;position:fixed;inset:0;background:rgba(15,18,17,0.92);backdrop-filter:blur(10px);z-index:9999;place-items:center;">
+ <div style="width:min(380px,92vw);background:var(--pn);border:1px solid var(--ln);border-radius:14px;padding:26px;box-shadow:0 16px 40px rgba(0,0,0,0.6);display:flex;flex-direction:column;gap:18px;">
+  <div style="display:flex;align-items:center;gap:10px;">
+   <span class="logo">S</span>
+   <div>
+    <h2 style="font-size:16px;font-weight:700;">SIM Fleet</h2>
+    <span class="mu" style="font-size:12px;">Masuk ke Panel Kontrol Modem Pool</span>
+   </div>
+  </div>
+  <form id="form-login" style="display:grid;gap:12px;">
+   <label class="f">
+    <span style="font-size:12px;font-weight:600;color:var(--mu);">Username</span>
+    <input id="login-uname" required autocomplete="username" placeholder="Masukkan username" style="padding:10px 12px;">
+   </label>
+   <label class="f">
+    <span style="font-size:12px;font-weight:600;color:var(--mu);">Password</span>
+    <input type="password" id="login-pwd" required autocomplete="current-password" placeholder="Masukkan password" style="padding:10px 12px;">
+    <small id="login-err" style="color:var(--er);margin-top:2px;"></small>
+   </label>
+   <button type="submit" class="btn pri" id="btn-login-submit" style="padding:10px;font-size:13.5px;font-weight:700;margin-top:4px;">
+    Masuk ke Panel
+   </button>
+  </form>
+ </div>
+</div>
 <script>
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const IC={dashboard:'M4 4h7v7H4zM13 4h7v4h-7zM13 11h7v9h-7zM4 14h7v6H4z',sms:'M4 5h16v11H9l-5 4z',pengaturan:'M12 9a3 3 0 100 6 3 3 0 000-6zM19 12l2-1-2-4-2 1-2-1-1-2h-4l-1 2-2 1-2-1-2 4 2 1v2l-2 1 2 4 2-1 2 1 1 2h4l1-2 2-1 2 1 2-4-2-1z'};
-const ic=n=>`<svg class="i" viewBox="0 0 24 24"><path d="${IC[n]}"/></svg>`;
+const IC={
+  dashboard:'M4 4h7v7H4zM13 4h7v4h-7zM13 11h7v9h-7zM4 14h7v6H4z',
+  sms:'M4 5h16v11H9l-5 4z',
+  pengaturan:'M12 9a3 3 0 100 6 3 3 0 000-6zM19 12l2-1-2-4-2 1-2-1-1-2h-4l-1 2-2 1-2-1-2 4 2 1v2l-2 1 2 4 2-1 2 1 1 2h4l1-2 2-1 2 1 2-4-2-1z',
+  pengguna:'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75'
+};
+const ic=n=>`<svg class="i" viewBox="0 0 24 24"><path d="${IC[n]||IC.dashboard}"/></svg>`;
 
-/* Navigasi: Inventaris SIM & SMS Inbox dihilangkan dari sidebar navigasi karena sudah terintegrasi langsung di dashboard */
-const NAV=[['dashboard','Dashboard'],['pengaturan','Pengaturan']];
-$('#nav').innerHTML=NAV.map(([k,l])=>`<a href="#/${k}" data-k="${k}">${ic(k)}${l}</a>`).join('');
+/* State Multi-Tenant & Otentikasi */
+let currentUser = null;
+let activePoolId = null;
+let adminPoolsList = [];
+
+function renderNav(){
+  const navItems = [['dashboard','Dashboard'],['pengaturan','Pengaturan']];
+  if(currentUser && (currentUser.role === 'superadmin' || currentUser.role === 'admin')){
+    navItems.push(['pengguna', 'Kelola Pengguna']);
+  }
+  $('#nav').innerHTML = navItems.map(([k,l])=>`<a href="#/${k}" data-k="${k}">${ic(k)}${l}</a>`).join('');
+}
+renderNav();
 
 /* ---------- State & Integrasi Backend Live ---------- */
 const ST={active:['Aktif','ok'],empty:['Kosong','info'],offline:['Offline','warn'],error:['Error','err']};
@@ -1096,10 +1149,13 @@ function extractOTP(text){
 /* ---------- Pengambilan Data Nyata dari Backend (/api/...) ---------- */
 async function fetchBackendData(){
  try{
+  if(currentUser && currentUser.logged_in === false) return;
+  const pParam = activePoolId ? `?pool_id=${encodeURIComponent(activePoolId)}` : '';
+  const smsPParam = activePoolId ? `&pool_id=${encodeURIComponent(activePoolId)}` : '';
   const [resStatus, resSlots, resSMS, resOps] = await Promise.all([
-   fetch('/api/status').then(r=>r.ok?r.json():null).catch(()=>null),
-   fetch('/api/slots').then(r=>r.ok?r.json():null).catch(()=>null),
-   fetch('/api/sms?limit=100').then(r=>r.ok?r.json():null).catch(()=>null),
+   fetch('/api/status' + pParam).then(r=>r.ok?r.json():null).catch(()=>null),
+   fetch('/api/slots' + pParam).then(r=>r.ok?r.json():null).catch(()=>null),
+   fetch('/api/sms?limit=100' + smsPParam).then(r=>r.ok?r.json():null).catch(()=>null),
    fetch('/api/operators').then(r=>r.ok?r.json():null).catch(()=>null)
   ]);
 
@@ -1171,8 +1227,11 @@ async function fetchBackendData(){
  }
 }
 
-setInterval(fetchBackendData, 4000);
-fetchBackendData();
+setInterval(() => {
+  if(currentUser && currentUser.logged_in){
+    fetchBackendData();
+  }
+}, 4000);
 
 /* ---------- Util UI ---------- */
 function toast(msg,err){const t=document.createElement('div');t.className='ts'+(err?' err':'');t.textContent=msg;$('#toasts').append(t);setTimeout(()=>t.remove(),3500)}
@@ -1225,12 +1284,30 @@ const refreshBell=()=>{
 };
 
 /* ---------- Router ---------- */
-const R={dashboard:['Dashboard',pDash],pengaturan:['Pengaturan',pSet],sms:['Dashboard',pDash],inventaris:['Dashboard',pDash]};
-function route(){const h=location.hash.replace('#/','');const k=R[h]?h:'dashboard';const dmt=$('#dash-mode-toggle');if(dmt)dmt.style.display=(k==='dashboard')?'inline-flex':'none';$('#btn-mode-grid')?.classList.toggle('on',currentDashMode==='grid');$('#btn-mode-stream')?.classList.toggle('on',currentDashMode==='stream');
- $('#title').textContent=R[k][0];document.title=R[k][0]+' · SIM Fleet · SIM Inventory & SMS Hub';
+const R={
+  dashboard:['Dashboard',pDash],
+  pengaturan:['Pengaturan',pSet],
+  pengguna:['Kelola Pengguna',pUsers],
+  sms:['Dashboard',pDash],
+  inventaris:['Dashboard',pDash]
+};
+function route(){
+ const h=location.hash.replace('#/','');
+ let k=R[h]?h:'dashboard';
+ if(k === 'pengguna' && currentUser && currentUser.role !== 'superadmin' && currentUser.role !== 'admin'){
+  k = 'dashboard';
+  location.hash = '#/dashboard';
+ }
+ const dmt=$('#dash-mode-toggle');
+ if(dmt)dmt.style.display=(k==='dashboard')?'inline-flex':'none';
+ $('#btn-mode-grid')?.classList.toggle('on',currentDashMode==='grid');
+ $('#btn-mode-stream')?.classList.toggle('on',currentDashMode==='stream');
+ $('#title').textContent=R[k][0];
+ document.title=R[k][0]+' · SIM Fleet · SIM Inventory & SMS Hub';
  $$('#nav a').forEach(a=>{const on=a.dataset.k===k;a.classList.toggle('on',on);on?a.setAttribute('aria-current','page'):a.removeAttribute('aria-current')});
  if(k !== 'dashboard' && isSelectMode) exitSelectMode();
- closeDrawer();side(false);refreshBell();R[k][1]();v.focus({preventScroll:true});scrollTo(0,0)}
+ closeDrawer();side(false);refreshBell();R[k][1]();v.focus({preventScroll:true});scrollTo(0,0);
+}
 addEventListener('hashchange',route);
 
 /* ---------- Dashboard & Mode Checklist Dial Massal ---------- */
@@ -2222,6 +2299,478 @@ function apply(){
  document.documentElement.dataset.theme = activeTheme;
 }
 
+/* ==========================================================================
+   MULTI-TENANT & USER MANAGEMENT (SUPERADMIN & CLIENT)
+   ========================================================================== */
+
+function showLoginOverlay(){
+  const el = $('#login-overlay');
+  if(el){
+    el.style.display = 'grid';
+    $('#login-uname')?.focus();
+  }
+}
+
+function hideLoginOverlay(){
+  const el = $('#login-overlay');
+  if(el) el.style.display = 'none';
+}
+
+function updateUserUI(){
+  const btn = $('#top-user-btn');
+  const nameEl = $('#top-user-name');
+  const pop = $('#pp');
+  if(!btn || !nameEl || !pop) return;
+
+  if(!currentUser || !currentUser.logged_in){
+    nameEl.textContent = 'Masuk';
+    pop.innerHTML = `<button type="button" onclick="showLoginOverlay()">Masuk ke Akun</button>`;
+    $('#top-pool-wrap').style.display = 'none';
+    renderNav();
+    return;
+  }
+
+  const isSuper = currentUser.role === 'superadmin' || currentUser.role === 'admin';
+  nameEl.textContent = `${currentUser.username} (${isSuper ? 'Admin' : 'Operator'})`;
+
+  let popHtml = `
+    <div style="padding:8px 12px;border-bottom:1px solid var(--ln);display:flex;flex-direction:column;gap:3px;">
+      <div style="font-weight:700;color:var(--tx);">${esc(currentUser.username)}</div>
+      <div class="mu mono" style="font-size:11px;">${isSuper ? 'Super Administrator' : 'Operator Client'} • ${esc(currentUser.pool_id || '—')}</div>
+    </div>
+    <a href="#/dashboard">📊 Dashboard</a>
+  `;
+
+  if(isSuper){
+    popHtml += `<a href="#/pengguna">👥 Kelola Pengguna</a>`;
+  } else {
+    popHtml += `<button type="button" onclick="openAgentTokenModal()">🔌 Token Agent Modem</button>`;
+  }
+
+  popHtml += `
+    <a href="#/pengaturan">⚙️ Pengaturan</a>
+    <button type="button" onclick="openChangePasswordModal()">🔑 Ubah Password</button>
+    <div style="border-top:1px solid var(--ln);margin-top:4px;padding-top:4px;">
+      <button type="button" onclick="submitLogout()" style="color:var(--er);display:flex;align-items:center;gap:6px;">
+        <svg class="i" style="width:13px;height:13px;" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        Keluar (Logout)
+      </button>
+    </div>
+  `;
+  pop.innerHTML = popHtml;
+  renderNav();
+}
+
+async function loadAdminPools(){
+  const wrap = $('#top-pool-wrap');
+  const sel = $('#top-pool-select');
+  if(!wrap || !sel) return;
+
+  try {
+    const res = await fetch('/api/admin/pools');
+    if(!res.ok) return;
+    adminPoolsList = await res.json();
+
+    if(adminPoolsList.length > 0 && currentUser && (currentUser.role === 'superadmin' || currentUser.role === 'admin')){
+      wrap.style.display = 'inline-flex';
+      sel.innerHTML = adminPoolsList.map(p => `
+        <option value="${esc(p.id)}"${p.id === activePoolId ? ' selected' : ''}>
+          ${esc(p.name)} (${p.port_count}p)
+        </option>
+      `).join('');
+      if(!activePoolId && adminPoolsList[0]){
+        activePoolId = adminPoolsList[0].id;
+      }
+    } else {
+      wrap.style.display = 'none';
+    }
+  } catch(e){}
+}
+
+function onPoolChange(poolId){
+  activePoolId = poolId;
+  const p = adminPoolsList.find(x => x.id === poolId);
+  if(p){
+    toast(`Beralih ke ${p.name}.`);
+  }
+  fetchBackendData();
+}
+
+$('#form-login').onsubmit = async (e) => {
+  e.preventDefault();
+  const uname = $('#login-uname').value.trim();
+  const pwd = $('#login-pwd').value;
+  const errEl = $('#login-err');
+  const btn = $('#btn-login-submit');
+
+  errEl.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'Memverifikasi...';
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ username: uname, password: pwd })
+    });
+    const data = await res.json();
+    if(res.ok && data.success){
+      toast(`Selamat datang, ${data.user.username}!`);
+      $('#login-pwd').value = '';
+      await checkAuthAndInit();
+    } else {
+      errEl.textContent = data.detail || 'Username atau password salah.';
+    }
+  } catch(err) {
+    errEl.textContent = 'Gagal menghubungi server: ' + err.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Masuk ke Panel';
+  }
+};
+
+async function submitLogout(){
+  try {
+    await fetch('/api/auth/logout', { method: 'POST' });
+  } catch(e){}
+  currentUser = null;
+  activePoolId = null;
+  toast('Anda telah keluar.');
+  showLoginOverlay();
+  updateUserUI();
+  location.hash = '#/dashboard';
+}
+
+async function pUsers(){
+  v.innerHTML = `
+    <div class="ph">
+      <div>
+        <h2 style="font-size:18px;font-weight:700;color:var(--tx);">Manajemen Pengguna &amp; Modem Pool</h2>
+        <p class="mu" style="font-size:12.5px;margin-top:2px;">Kelola akun klien remote, alokasi modem pool terisolasi, dan token koneksi agent.exe.</p>
+      </div>
+      <button type="button" class="btn pri" onclick="openCreateUserModal()" style="display:inline-flex;align-items:center;gap:6px;">
+        <svg class="i" style="width:14px;height:14px;" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+        Tambah Pengguna Baru
+      </button>
+    </div>
+    <section class="panel" style="padding:0;overflow:hidden;">
+      <div id="users-table-wrap" style="overflow-x:auto;">
+        <div class="note" style="margin:20px;text-align:center;">Memuat data pengguna...</div>
+      </div>
+    </section>
+  `;
+  loadAdminUsersList();
+}
+
+async function loadAdminUsersList(){
+  const wrap = $('#users-table-wrap');
+  if(!wrap) return;
+
+  try {
+    const res = await fetch('/api/admin/users');
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const users = await res.json();
+
+    if(!users.length){
+      wrap.innerHTML = `<div class="mu" style="padding:32px;text-align:center;">Belum ada pengguna terdaftar.</div>`;
+      return;
+    }
+
+    wrap.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;font-size:13px;text-align:left;">
+        <thead>
+          <tr style="border-bottom:1px solid var(--ln);background:var(--p2);color:var(--mu);font-size:11.5px;text-transform:uppercase;letter-spacing:0.04em;">
+            <th style="padding:12px 16px;">Pengguna</th>
+            <th style="padding:12px 16px;">Peran</th>
+            <th style="padding:12px 16px;">Modem Pool</th>
+            <th style="padding:12px 16px;">Token Agent (Remote)</th>
+            <th style="padding:12px 16px;">Status</th>
+            <th style="padding:12px 16px;text-align:right;">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${users.map(u => {
+            const isSuper = u.role === 'superadmin' || u.role === 'admin';
+            const tokMask = u.agent_token ? (u.agent_token.slice(0, 14) + '...') : '—';
+            return `
+              <tr style="border-bottom:1px solid var(--ln);">
+                <td style="padding:14px 16px;">
+                  <b style="color:var(--tx);">${esc(u.username)}</b>
+                  <div class="mu mono" style="font-size:11px;">ID: ${u.id}</div>
+                </td>
+                <td style="padding:14px 16px;">
+                  <span class="sb-pill" style="background:${isSuper ? 'rgba(59,130,246,0.15)' : 'rgba(16,185,129,0.15)'};color:${isSuper ? 'var(--blue)' : 'var(--ac)'};font-size:11px;font-weight:700;">
+                    ${isSuper ? 'Superadmin' : 'Operator'}
+                  </span>
+                </td>
+                <td style="padding:14px 16px;">
+                  <div>${esc(u.pool_name || u.pool_id || '—')}</div>
+                  <div class="mu mono" style="font-size:11px;">${esc(u.pool_id || '—')}</div>
+                </td>
+                <td style="padding:14px 16px;">
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <span class="mono" style="font-size:11.5px;color:var(--mu);">${esc(tokMask)}</span>
+                    ${u.agent_token ? `
+                      <button type="button" class="btn ic" style="width:24px;height:24px;padding:0;" onclick="copyToClipboard('${esc(u.agent_token)}', 'Token agent milik ${u.username} disalin.')" title="Salin Token Lengkap">
+                        <svg class="i" style="width:12px;height:12px;" viewBox="0 0 24 24"><path d="M8 4v12a2 2 0 002 2h8a2 2 0 002-2V7.242a2 2 0 00-.602-1.43L16.083 2.57A2 2 0 0014.685 2H10a2 2 0 00-2 2z"/><path d="M16 18v2a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2h2"/></svg>
+                      </button>
+                    ` : ''}
+                  </div>
+                </td>
+                <td style="padding:14px 16px;">
+                  <span class="sb-pill" style="background:${u.is_active ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'};color:${u.is_active ? 'var(--ac)' : 'var(--er)'};font-size:11px;font-weight:700;">
+                    ${u.is_active ? 'Aktif' : 'Nonaktif'}
+                  </span>
+                </td>
+                <td style="padding:14px 16px;text-align:right;">
+                  <div style="display:inline-flex;gap:6px;">
+                    <button type="button" class="btn" style="padding:4px 8px;font-size:11px;" onclick="regenerateUserToken(${u.id}, '${esc(u.username)}')">
+                      Token Baru
+                    </button>
+                    <button type="button" class="btn" style="padding:4px 8px;font-size:11px;" onclick="toggleUserActive(${u.id}, ${!u.is_active})">
+                      ${u.is_active ? 'Nonaktifkan' : 'Aktifkan'}
+                    </button>
+                    ${u.id !== 1 ? `
+                      <button type="button" class="btn danger" style="padding:4px 8px;font-size:11px;" onclick="deleteUserAccount(${u.id}, '${esc(u.username)}')">
+                        Hapus
+                      </button>
+                    ` : ''}
+                  </div>
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch(err) {
+    wrap.innerHTML = `<div class="note" style="margin:16px;color:var(--er);">Gagal memuat pengguna: ${esc(err.message)}</div>`;
+  }
+}
+
+function openCreateUserModal(){
+  dlg.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h3 style="display:flex;align-items:center;gap:8px;">
+        <svg class="i" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+        Tambah Pengguna Baru
+      </h3>
+      <button type="button" class="btn ic" onclick="dlg.close()">×</button>
+    </div>
+    <form id="form-create-user" style="display:grid;gap:12px;">
+      <label class="f">
+        Username:
+        <input id="cu-uname" required minlength="3" placeholder="Contoh: budi, cabang_sby">
+      </label>
+      <label class="f">
+        Password Awal:
+        <input type="password" id="cu-pwd" required minlength="4" placeholder="Minimal 4 karakter">
+      </label>
+      <label class="f">
+        Peran:
+        <select id="cu-role">
+          <option value="operator" selected>Operator (Klien Remote)</option>
+          <option value="superadmin">Super Administrator</option>
+        </select>
+      </label>
+      <label class="f">
+        Nama Modem Pool:
+        <input id="cu-pool-name" placeholder="Contoh: Foxcom Pool Budi">
+      </label>
+      <label class="f">
+        Kapasitas Port Pool:
+        <select id="cu-port-count">
+          <option value="16">16 Port</option>
+          <option value="32" selected>32 Port</option>
+          <option value="64">64 Port</option>
+        </select>
+      </label>
+      <small id="cu-err" style="color:var(--er);"></small>
+      <div class="row end" style="margin-top:6px;">
+        <button type="button" class="btn" onclick="dlg.close()">Batal</button>
+        <button type="submit" class="btn pri" id="btn-submit-create-user">Simpan Pengguna</button>
+      </div>
+    </form>
+  `;
+
+  $('#form-create-user').onsubmit = async (e) => {
+    e.preventDefault();
+    const uname = $('#cu-uname').value.trim();
+    const pwd = $('#cu-pwd').value;
+    const role = $('#cu-role').value;
+    const pName = $('#cu-pool-name').value.trim();
+    const pCount = parseInt($('#cu-port-count').value, 10) || 32;
+    const errEl = $('#cu-err');
+    const btn = $('#btn-submit-create-user');
+
+    btn.disabled = true;
+    btn.textContent = 'Menyimpan...';
+
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          username: uname,
+          password: pwd,
+          role: role,
+          pool_name: pName,
+          port_count: pCount
+        })
+      });
+      const data = await res.json();
+      if(res.ok && data.success){
+        dlg.close();
+        toast(`Pengguna ${uname} berhasil dibuat!`);
+        loadAdminUsersList();
+        loadAdminPools();
+      } else {
+        errEl.textContent = data.detail || 'Gagal membuat pengguna.';
+      }
+    } catch(err) {
+      errEl.textContent = 'Error: ' + err.message;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Simpan Pengguna';
+    }
+  };
+
+  dlg.showModal();
+}
+
+async function openAgentTokenModal(){
+  const token = currentUser?.agent_token || '—';
+  const poolId = currentUser?.pool_id || '—';
+
+  dlg.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <h3 style="display:flex;align-items:center;gap:8px;">
+        <svg class="i" viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+        Koneksi Remote Agent Modem Pool
+      </h3>
+      <button type="button" class="btn ic" onclick="dlg.close()">×</button>
+    </div>
+    <div style="display:grid;gap:12px;">
+      <div class="note" style="margin:0;font-size:12.5px;">
+        Gunakan informasi di bawah untuk menghubungkan modem pool fisik Anda ke server melalui <b>agent.exe</b> tanpa memerlukan source code.
+      </div>
+      <div>
+        <label style="font-size:11.5px;font-weight:600;color:var(--mu);display:block;margin-bottom:4px;">Token Agent Anda:</label>
+        <div style="display:flex;gap:6px;">
+          <input class="mono" value="${esc(token)}" readonly style="flex:1;font-size:12px;background:var(--p2);">
+          <button type="button" class="btn pri" onclick="copyToClipboard('${esc(token)}', 'Token agent disalin.')">Salin</button>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:11.5px;font-weight:600;color:var(--mu);display:block;margin-bottom:4px;">WebSocket Server URL:</label>
+        <div style="display:flex;gap:6px;">
+          <input class="mono" value="wss://scpool.ardh1337.cloud/ws/agent" readonly style="flex:1;font-size:12px;background:var(--p2);">
+          <button type="button" class="btn" onclick="copyToClipboard('wss://scpool.ardh1337.cloud/ws/agent', 'URL WebSocket disalin.')">Salin</button>
+        </div>
+      </div>
+      <div id="modal-agent-status-box" style="background:var(--p2);border:1px solid var(--ln);border-radius:8px;padding:10px 14px;font-size:12px;display:flex;align-items:center;justify-content:space-between;">
+        <span>Status Agent:</span>
+        <b id="modal-agent-status-val" style="color:var(--mu);">Memeriksa...</b>
+      </div>
+      <div class="row end">
+        <button type="button" class="btn" onclick="dlg.close()">Tutup</button>
+      </div>
+    </div>
+  `;
+  dlg.showModal();
+
+  try {
+    const res = await fetch(`/api/agent/status?pool_id=${encodeURIComponent(poolId)}`);
+    const d = await res.json();
+    const valEl = $('#modal-agent-status-val');
+    if(valEl){
+      if(d.is_online){
+        valEl.innerHTML = `<span style="color:var(--ac);">🟢 Terhubung (${d.info?.port_count || 0} Port)</span>`;
+      } else {
+        valEl.innerHTML = `<span style="color:var(--mu);">⚪ Belum Terhubung (Offline)</span>`;
+      }
+    }
+  } catch(e){}
+}
+
+async function regenerateUserToken(userId, uname){
+  if(!confirm(`Buat ulang token agent untuk pengguna ${uname}? Token lama tidak akan berlaku lagi.`)) return;
+  try {
+    const res = await fetch(`/api/admin/users/${userId}/token`, { method: 'POST' });
+    const data = await res.json();
+    if(res.ok && data.success){
+      toast(`Token baru berhasil diterbitkan untuk ${uname}.`);
+      loadAdminUsersList();
+    }
+  } catch(e){
+    toast('Gagal buat token baru: ' + e.message, 1);
+  }
+}
+
+async function toggleUserActive(userId, newActive){
+  try {
+    const res = await fetch(`/api/admin/users/${userId}`, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ is_active: newActive })
+    });
+    const data = await res.json();
+    if(res.ok && data.success){
+      toast('Status pengguna diperbarui.');
+      loadAdminUsersList();
+    } else {
+      toast(data.detail || 'Gagal perbarui status.', 1);
+    }
+  } catch(e){
+    toast('Error: ' + e.message, 1);
+  }
+}
+
+async function deleteUserAccount(userId, uname){
+  if(!confirm(`Hapus akun pengguna ${uname}? Aksi ini tidak dapat dibatalkan.`)) return;
+  try {
+    const res = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
+    const data = await res.json();
+    if(res.ok && data.success){
+      toast(`Pengguna ${uname} dihapus.`);
+      loadAdminUsersList();
+      loadAdminPools();
+    } else {
+      toast(data.detail || 'Gagal menghapus pengguna.', 1);
+    }
+  } catch(e){
+    toast('Error: ' + e.message, 1);
+  }
+}
+
+async function checkAuthAndInit(){
+  setThemeMode('auto');
+  try{
+    const res = await fetch('/api/auth/me');
+    const data = await res.json();
+    if(!data.logged_in){
+      currentUser = null;
+      showLoginOverlay();
+      updateUserUI();
+      route();
+      return;
+    }
+    currentUser = data;
+    hideLoginOverlay();
+    updateUserUI();
+    if(currentUser.role === 'superadmin' || currentUser.role === 'admin'){
+      await loadAdminPools();
+    } else {
+      activePoolId = currentUser.pool_id;
+    }
+    await fetchBackendData();
+    route();
+  }catch(e){
+    console.error("Auth check error:", e);
+    route();
+  }
+}
+
 
 /* ==========================================================================
    MODE 2 JAVASCRIPT: FAST OTP STREAM & NUMBER LIST AUTO-COPY
@@ -2732,8 +3281,7 @@ function copyFullSMS(text, btn){
   toast('Seluruh isi pesan SMS disalin.');
 }
 
-setThemeMode('auto');
-route();
+checkAuthAndInit();
 </script>
 </body>
 </html>

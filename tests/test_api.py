@@ -96,7 +96,8 @@ class TestAPIEndpoints(unittest.TestCase):
         self.assertEqual(update_resp.status_code, 200)
         res_data = update_resp.json()
         self.assertTrue(res_data["success"])
-        self.assertEqual(res_data["password"], "newsecretpassword123")
+        from app.auth.security import verify_password
+        self.assertTrue(verify_password("newsecretpassword123", res_data["password"]))
 
         # 3. PUT invalid (kurang dari 4 karakter)
         err_resp = self.client.put("/api/auth/credentials", json={"password": "12"})
