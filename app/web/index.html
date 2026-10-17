@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id" data-theme="dark" data-density="comfortable">
+<html lang="id" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -45,7 +45,6 @@ html[data-theme=light]{
   --purple:#7c3aed;
   color-scheme:light;
 }
-html[data-density=compact]{--rp:6px}
 *,*::before,*::after{box-sizing:border-box}
 html,body{margin:0;height:100%}
 body{background:var(--bg);color:var(--tx);font:14px/1.55 'Inter',system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
@@ -588,9 +587,13 @@ const selectedSlots = new Set();
 let isBulkCancelled = false;
 let isSelectMode = false;
 let currentDrawerSlot = null;
+let currentThemeMode = 'auto';
+let userCredentials = { username: 'admin', password: '••••••••', realPassword: 'admin123' };
+let isPasswordVisible = false;
+let currentApiLang = 'curl';
 
 const S={sms:{q:'',slot:'all',st:'all',sel:null},labels:{},
- set:{org:'Foxcom 32-Port Pool',tz:'Asia/Jakarta (WIB)',theme:'dark',density:'comfortable'}};
+ set:{org:'Foxcom 32-Port Pool',tz:'Asia/Jakarta (WIB)',theme:'auto'}};
 const v=$('#view'),dlg=$('#dlg'),dr=$('#dr');
 
 const ago=m=>m<1?'Baru saja':m<60?m+' mnt lalu':m<1440?Math.floor(m/60)+' jam lalu':Math.floor(m/1440)+' hari lalu';
@@ -1372,62 +1375,386 @@ function smsDet(){
  <div class="row"><button class="btn" id="cp-sms">Salin teks</button><button class="btn" id="rl">Ubah label</button></div>`;
 }
 
-/* ---------- Pengaturan ---------- */
-function pSet(){
- const c=S.set,sel=(id,a,cur,lb)=>`<label class="f">${lb}<select id="${id}">${a.map(x=>`<option${x===cur?' selected':''}>${x}</option>`).join('')}</select></label>`;
- v.innerHTML=`<form class="sec" id="sf" novalidate>
- <section class="panel"><h3>Konfigurasi USSD Operator</h3>
- <p class="mu" style="margin-bottom:12px;">Kode dial USSD otomatis untuk pengecekan nomor saat SIM baru dimasukkan ke modem pool.</p>
- <div class="grid" id="op-list">
-  ${operatorProfiles.map(p=>`
-    <div style="background:var(--p2);border:1px solid var(--ln);border-radius:8px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
-      <div><b>${esc(p.name)}</b> <span class="mu mono" style="font-size:12px;">(${p.iccid_prefixes||'-'})</span><br><span class="mu" style="font-size:12px;">${esc(p.description||'')}</span></div>
-      <div class="row" style="gap:6px;"><input id="op-code-${p.id}" value="${esc(p.ussd_code)}" style="font-family:monospace;width:130px;"><button type="button" class="btn pri" onclick="saveOp('${p.id}')">Simpan</button></div>
-    </div>
-  `).join('')}
- </div>
- </section>
- 
- <section class="panel"><h3>Tampilan Dashboard</h3><div class="fg">${sel('theme',['dark','light'],c.theme,'Tema antarmuka')}${sel('density',['comfortable','compact'],c.density,'Kepadatan elemen')}</div></section>
- 
- <section class="panel"><h3>Hardware &amp; Modem Pool</h3>
- <ul class="list0" style="list-style:none;padding:0;margin:0;">
-   <li style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--ln)"><span>Chassis Pool</span><b>${esc(poolInfo.pool)}</b></li>
-   <li style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--ln)"><span>Modul Seluler</span><b style="color:var(--ac);">${esc(poolInfo.model)}</b></li>
-   <li style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--ln)"><span>Chipset UART</span><span class="mono">${esc(poolInfo.chipset)}</span></li>
-   <li style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--ln)"><span>Baudrate</span><span class="mono">115200 bps · 8-N-1</span></li>
-   <li style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--ln)"><span>Tautan Cloudflare</span><a href="https://scpool.ardh1337.cloud" target="_blank" style="color:var(--ac);">https://scpool.ardh1337.cloud</a></li>
- </ul>
- </section>
-
- <div class="row end"><button class="btn pri">Simpan preferensi tampilan</button></div></form>`;
-
- $('#sf').onsubmit=e=>{
-  e.preventDefault();
-  Object.assign(S.set,{theme:$('#theme').value,density:$('#density').value});
-  apply();toast('Preferensi tampilan disimpan.');
- };
+/* ---------- Pengaturan & Dokumentasi API ---------- */
+function getSystemTheme(){
+ return (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
 }
 
-async function saveOp(opId){
- const inp=$('#op-code-'+opId);if(!inp)return;
- const code=inp.value.trim();if(!code){toast('Kode USSD tidak boleh kosong.',1);return}
- try{
-  const r=await fetch(`/api/operators/${opId}`,{
-   method:'PUT',headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({ussd_code:code})
-  });
-  const d=await r.json();
-  if(r.ok&&d.success){
-   const p=operatorProfiles.find(x=>x.id===opId);if(p)p.ussd_code=code;
-   toast(`Kode USSD ${d.name} disimpan: ${code}`);
-  }else{
-   toast('Gagal simpan: '+(d.detail||'Error'),1);
+function setThemeMode(mode){
+ currentThemeMode = mode;
+ const activeTheme = mode === 'auto' ? getSystemTheme() : mode;
+ document.documentElement.dataset.theme = activeTheme;
+ $$('.btn-theme-opt').forEach(b => {
+  b.classList.toggle('pri', b.dataset.mode === mode);
+ });
+}
+
+if(window.matchMedia){
+ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  if(currentThemeMode === 'auto'){
+   setThemeMode('auto');
   }
- }catch(e){toast('Error: '+e.message,1)}
+ });
 }
 
-function apply(){document.documentElement.dataset.theme=S.set.theme;document.documentElement.dataset.density=S.set.density}
+async function loadCredentialsUI(){
+ try{
+  const res = await fetch('/api/auth/credentials');
+  if(res.ok){
+   const d = await res.json();
+   userCredentials.username = d.username || 'admin';
+   userCredentials.realPassword = d.password || 'admin123';
+   const uEl = $('#cred-username');
+   if(uEl) uEl.textContent = userCredentials.username;
+   updatePasswordDisplay();
+  }
+ }catch(e){
+  console.warn('Gagal memuat kredensial:', e);
+ }
+}
+
+function togglePasswordVisibility(){
+ isPasswordVisible = !isPasswordVisible;
+ updatePasswordDisplay();
+}
+
+function updatePasswordDisplay(){
+ const pEl = $('#cred-password');
+ const bEl = $('#btn-toggle-pwd');
+ if(!pEl || !bEl) return;
+ if(isPasswordVisible){
+  pEl.textContent = userCredentials.realPassword;
+  bEl.textContent = '🙈 Sembunyikan';
+ } else {
+  pEl.textContent = '••••••••';
+  bEl.textContent = '👁️ Tampilkan';
+ }
+}
+
+function openChangePasswordModal(){
+ dlg.innerHTML = `
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+    <h3 style="display:flex;align-items:center;gap:8px;">
+      <svg class="i" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Ubah Password Admin
+    </h3>
+    <button type="button" class="btn ic" onclick="dlg.close()">×</button>
+  </div>
+  <form id="form-change-pwd" style="display:grid;gap:12px;">
+    <label class="f">
+      Username:
+      <input id="cp-user" value="${esc(userCredentials.username)}" placeholder="Username admin">
+    </label>
+    <label class="f">
+      Password Baru:
+      <input type="password" id="cp-new-pwd" minlength="4" required placeholder="Minimal 4 karakter">
+    </label>
+    <label class="f">
+      Konfirmasi Password Baru:
+      <input type="password" id="cp-confirm-pwd" minlength="4" required placeholder="Ulangi password baru">
+      <small id="cp-err" class="er"></small>
+    </label>
+    <div class="row end" style="margin-top:6px;">
+      <button type="button" class="btn" onclick="dlg.close()">Batal</button>
+      <button type="submit" class="btn pri" id="btn-save-pwd">Simpan Password</button>
+    </div>
+  </form>
+ `;
+
+ $('#form-change-pwd').onsubmit = async (e) => {
+  e.preventDefault();
+  const newU = $('#cp-user').value.trim() || 'admin';
+  const newP = $('#cp-new-pwd').value;
+  const confP = $('#cp-confirm-pwd').value;
+  const errEl = $('#cp-err');
+
+  if(newP !== confP){
+   errEl.textContent = 'Konfirmasi password tidak cocok.';
+   return;
+  }
+  if(newP.length < 4){
+   errEl.textContent = 'Password minimal 4 karakter.';
+   return;
+  }
+
+  const btn = $('#btn-save-pwd');
+  btn.disabled = true;
+  btn.textContent = 'Menyimpan...';
+
+  try{
+   const res = await fetch('/api/auth/credentials', {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ username: newU, password: newP })
+   });
+   const data = await res.json();
+   if(res.ok && data.success){
+    userCredentials.username = data.username;
+    userCredentials.realPassword = data.password;
+    dlg.close();
+    toast('Password admin berhasil diubah.');
+    const uEl = $('#cred-username');
+    if(uEl) uEl.textContent = userCredentials.username;
+    updatePasswordDisplay();
+   } else {
+    errEl.textContent = data.detail || 'Gagal mengubah password.';
+   }
+  }catch(err){
+   errEl.textContent = 'Error: ' + err.message;
+  }finally{
+   btn.disabled = false;
+   btn.textContent = 'Simpan Password';
+  }
+ };
+
+ dlg.showModal();
+}
+
+const API_SNIPPETS = {
+ curl: (origin) => `# 1. Ambil seluruh port modem pool & nomor SIM aktif:
+curl -s "${origin}/api/slots"
+
+# 2. Polling pesan SMS masuk pada Port 5 (misal untuk verifikasi akun):
+curl -s "${origin}/api/slots/5/sms"
+
+# 3. Ambil feed SMS gabungan dengan pencarian kata kunci:
+curl -s "${origin}/api/sms?limit=20&q=WhatsApp"
+
+# 4. Dial USSD mandiri pada Port 5:
+curl -X POST "${origin}/api/slots/5/ussd?code=*808*7*8#"
+
+# 5. Dial USSD massal ke beberapa port:
+curl -X POST "${origin}/api/ussd/bulk" \\
+     -H "Content-Type: application/json" \\
+     -d '{"slot_indices": [1, 2, 3], "code": "*808*7*8#"}'`,
+
+ python: (origin) => `import time
+import requests
+
+BASE_URL = "${origin}"
+
+def get_active_sims():
+    """Mengambil daftar nomor telepon yang aktif di pool."""
+    resp = requests.get(f"{BASE_URL}/api/slots")
+    slots = resp.json()
+    return [s for s in slots if s["status"] == "READY"]
+
+def wait_for_otp(slot_index, timeout_seconds=60):
+    """Polling SMS masuk pada port tertentu sampai SMS/OTP diterima."""
+    print(f"Menunggu SMS masuk pada Port {slot_index}...")
+    start_time = time.time()
+    while time.time() - start_time < timeout_seconds:
+        resp = requests.get(f"{BASE_URL}/api/slots/{slot_index}/sms")
+        messages = resp.json()
+        if messages:
+            latest = messages[0]
+            return latest  # Berisi sender, body, received_at
+        time.sleep(2)
+    return None
+
+# Contoh pemakaian layanan:
+active_slots = get_active_sims()
+if active_slots:
+    sim = active_slots[0]
+    print(f"Menggunakan Port {sim['slot_index']}: {sim['phone_number']} ({sim['operator_name']})")
+    sms = wait_for_otp(sim['slot_index'])
+    if sms:
+        print(f"Diterima dari {sms['sender']}: {sms['body']}")`,
+
+ node: (origin) => `// Integrasi Node.js / JavaScript untuk Bot Layanan SIM Pool
+const BASE_URL = '${origin}';
+
+async function main() {
+  // 1. Ambil daftar kartu SIM aktif
+  const resSlots = await fetch(\`\${BASE_URL}/api/slots\`);
+  const slots = await resSlots.json();
+  const activeSlots = slots.filter(s => s.status === 'READY');
+  
+  console.log(\`SIM Siap: \${activeSlots.length} nomor\`);
+  const target = activeSlots[0];
+  console.log(\`Gunakan Port \${target.slot_index}: \${target.phone_number}\`);
+
+  // 2. Polling SMS masuk pada port target
+  const resSms = await fetch(\`\${BASE_URL}/api/slots/\${target.slot_index}/sms\`);
+  const messages = await resSms.json();
+  console.log('Riwayat SMS:', messages);
+}
+
+main().catch(console.error);`
+};
+
+function switchApiTab(lang){
+ currentApiLang = lang;
+ $$('.btn-lang').forEach(b => b.classList.toggle('pri', b.dataset.lang === lang));
+ const box = $('#api-snippet-box');
+ if(box){
+  box.textContent = API_SNIPPETS[lang](location.origin);
+ }
+}
+
+function copyCurrentSnippet(){
+ const box = $('#api-snippet-box');
+ if(box){
+  copyToClipboard(box.textContent, 'Contoh kode disalin ke clipboard.');
+ }
+}
+
+function pSet(){
+ v.innerHTML = `
+ <div class="sec" id="sf">
+  <!-- TEMA TAMPILAN -->
+  <section class="panel">
+   <h3>Tema Tampilan</h3>
+   <p class="mu" style="margin-bottom:12px;font-size:13px;">Tema menyesuaikan otomatis dengan preferensi sistem operasi Anda, atau pilih tema secara langsung:</p>
+   <div class="row" style="gap:8px;">
+     <button type="button" class="btn btn-theme-opt ${currentThemeMode==='auto'?'pri':''}" data-mode="auto" onclick="setThemeMode('auto')">🌓 Otomatis (Sistem)</button>
+     <button type="button" class="btn btn-theme-opt ${currentThemeMode==='dark'?'pri':''}" data-mode="dark" onclick="setThemeMode('dark')">🌙 Gelap (Dark)</button>
+     <button type="button" class="btn btn-theme-opt ${currentThemeMode==='light'?'pri':''}" data-mode="light" onclick="setThemeMode('light')">☀️ Terang (Light)</button>
+   </div>
+  </section>
+
+  <!-- AKUN & KREDENSIAL AKSES POOL -->
+  <section class="panel">
+   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+     <div>
+       <h3 style="display:flex;align-items:center;gap:6px;">
+         <svg class="i" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+         Akun &amp; Kredensial Akses Pool
+       </h3>
+       <p class="mu" style="font-size:12.5px;">Kredensial login untuk akses admin panel dan perlindungan antarmuka.</p>
+     </div>
+     <button type="button" class="btn pri" onclick="openChangePasswordModal()">🔑 Ubah Password</button>
+   </div>
+
+   <div style="background:var(--p2);border:1px solid var(--ln);border-radius:8px;padding:14px 18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;">
+     <div>
+       <span class="mu" style="font-size:12px;display:block;margin-bottom:4px;">Username Admin</span>
+       <b class="mono" style="font-size:15px;color:var(--tx);" id="cred-username">${esc(userCredentials.username)}</b>
+     </div>
+     <div>
+       <span class="mu" style="font-size:12px;display:block;margin-bottom:4px;">Password</span>
+       <div style="display:flex;align-items:center;gap:10px;">
+         <span class="mono" style="font-size:15px;color:var(--tx);letter-spacing:1px;" id="cred-password">••••••••</span>
+         <button type="button" class="btn" style="padding:3px 8px;font-size:11px;" id="btn-toggle-pwd" onclick="togglePasswordVisibility()">👁️ Tampilkan</button>
+       </div>
+     </div>
+     <div>
+       <span class="mu" style="font-size:12px;display:block;margin-bottom:4px;">Hak Akses</span>
+       <span class="sb-pill" style="font-size:11px;background:rgba(16,185,129,0.18);color:var(--ac);border-color:var(--ac);">Super Administrator</span>
+     </div>
+   </div>
+  </section>
+
+  <!-- DOKUMENTASI API INTEGRASI (LAYANAN SIM POOL) -->
+  <section class="panel">
+   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+     <div>
+       <h3 style="display:flex;align-items:center;gap:6px;">
+         <svg class="i" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+         Dokumentasi API Integrasi (Layanan SIM Pool)
+       </h3>
+       <p class="mu" style="font-size:12.5px;">Gunakan REST API ini untuk memberikan layanan SMS, verifikasi OTP, atau dial USSD kepada klien eksternal, bot Telegram, maupun sistem registrasi otomatis.</p>
+     </div>
+     <div class="row" style="gap:6px;">
+       <a href="/docs" target="_blank" class="btn" style="display:inline-flex;align-items:center;gap:5px;">
+         <span>↗ Swagger UI (/docs)</span>
+       </a>
+     </div>
+   </div>
+
+   <div class="note" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
+     <div>
+       <span style="font-size:12px;color:var(--mu);display:block;">BASE URL SERVER:</span>
+       <b class="mono" style="color:var(--ac);font-size:14px;" id="api-base-url">${location.origin}</b>
+     </div>
+     <button type="button" class="btn" onclick="copyToClipboard(location.origin, 'Base URL disalin')">📋 Salin Base URL</button>
+   </div>
+
+   <div style="display:grid;gap:10px;margin-bottom:20px;">
+     <div style="background:var(--p2);border:1px solid var(--ln);border-radius:8px;padding:12px 14px;">
+       <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">
+         <span class="sb-pill" style="background:#0284c7;color:#fff;font-weight:700;">GET</span>
+         <code class="mono" style="font-size:13px;font-weight:600;">/api/slots</code>
+         <span class="mu" style="font-size:12px;margin-left:auto;">Cek Port &amp; Nomor SIM Aktif</span>
+       </div>
+       <p class="mu" style="font-size:12px;margin:0;">Mengembalikan seluruh slot modem (1–32) lengkap dengan status (READY/EMPTY), nomor telepon, provider, dan ICCID.</p>
+     </div>
+
+     <div style="background:var(--p2);border:1px solid var(--ln);border-radius:8px;padding:12px 14px;">
+       <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">
+         <span class="sb-pill" style="background:#0284c7;color:#fff;font-weight:700;">GET</span>
+         <code class="mono" style="font-size:13px;font-weight:600;">/api/slots/{slot_index}/sms</code>
+         <span class="mu" style="font-size:12px;margin-left:auto;">Polling SMS / OTP per Port</span>
+       </div>
+       <p class="mu" style="font-size:12px;margin:0;">Mengambil riwayat SMS khusus pada slot tertentu. Digunakan klien/bot untuk menunggu kode OTP masuk.</p>
+     </div>
+
+     <div style="background:var(--p2);border:1px solid var(--ln);border-radius:8px;padding:12px 14px;">
+       <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">
+         <span class="sb-pill" style="background:#0284c7;color:#fff;font-weight:700;">GET</span>
+         <code class="mono" style="font-size:13px;font-weight:600;">/api/sms?limit=50&amp;q={kata_kunci}</code>
+         <span class="mu" style="font-size:12px;margin-left:auto;">Feed Gabungan Seluruh SMS</span>
+       </div>
+       <p class="mu" style="font-size:12px;margin:0;">Mengambil feed pesan SMS seluruh pool dengan opsi filter pencarian pengirim atau kata kunci.</p>
+     </div>
+
+     <div style="background:var(--p2);border:1px solid var(--ln);border-radius:8px;padding:12px 14px;">
+       <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">
+         <span class="sb-pill" style="background:#059669;color:#fff;font-weight:700;">POST</span>
+         <code class="mono" style="font-size:13px;font-weight:600;">/api/slots/{slot_index}/ussd?code={kode}</code>
+         <span class="mu" style="font-size:12px;margin-left:auto;">Dial USSD Port Tertentu</span>
+       </div>
+       <p class="mu" style="font-size:12px;margin:0;">Mengirim perintah dial USSD (contoh <code>*808*7*8#</code> atau <code>*123#</code>) untuk cek nomor atau kuota.</p>
+     </div>
+
+     <div style="background:var(--p2);border:1px solid var(--ln);border-radius:8px;padding:12px 14px;">
+       <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">
+         <span class="sb-pill" style="background:#059669;color:#fff;font-weight:700;">POST</span>
+         <code class="mono" style="font-size:13px;font-weight:600;">/api/ussd/bulk</code>
+         <span class="mu" style="font-size:12px;margin-left:auto;">Dial USSD Massal</span>
+       </div>
+       <p class="mu" style="font-size:12px;margin:0;">Eksekusi dial USSD serentak secara serial aman. Body: <code>{"slot_indices": [1,2,3], "code": "*808#"}</code></p>
+     </div>
+   </div>
+
+   <!-- Interactive Code Examples -->
+   <div style="margin-top:14px;">
+     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
+       <div class="row" style="gap:6px;">
+         <button type="button" class="btn btn-lang pri" data-lang="curl" onclick="switchApiTab('curl')">cURL</button>
+         <button type="button" class="btn btn-lang" data-lang="python" onclick="switchApiTab('python')">Python</button>
+         <button type="button" class="btn btn-lang" data-lang="node" onclick="switchApiTab('node')">Node.js / JS</button>
+       </div>
+       <button type="button" class="btn" onclick="copyCurrentSnippet()">📋 Salin Kode Contoh</button>
+     </div>
+
+     <pre id="api-snippet-box" style="background:var(--bg);border:1px solid var(--ln);border-radius:8px;padding:14px;overflow-x:auto;font-family:monospace;font-size:12px;line-height:1.55;color:var(--tx);margin:0;"></pre>
+   </div>
+  </section>
+
+  <!-- HARDWARE & MODEM POOL -->
+  <section class="panel">
+   <h3>Hardware &amp; Modem Pool</h3>
+   <ul class="list0" style="list-style:none;padding:0;margin:0;">
+     <li style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--ln)"><span>Chassis Pool</span><b>${esc(poolInfo.pool)}</b></li>
+     <li style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--ln)"><span>Modul Seluler</span><b style="color:var(--ac);">${esc(poolInfo.model)}</b></li>
+     <li style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--ln)"><span>Chipset UART</span><span class="mono">${esc(poolInfo.chipset)}</span></li>
+     <li style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--ln)"><span>Baudrate</span><span class="mono">115200 bps · 8-N-1</span></li>
+     <li style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--ln)"><span>Tautan Publik</span><a href="https://scpool.ardh1337.cloud" target="_blank" style="color:var(--ac);">https://scpool.ardh1337.cloud</a></li>
+   </ul>
+  </section>
+ </div>
+ `;
+
+ switchApiTab(currentApiLang);
+ loadCredentialsUI();
+}
+
+function apply(){
+ const activeTheme = currentThemeMode === 'auto' ? getSystemTheme() : currentThemeMode;
+ document.documentElement.dataset.theme = activeTheme;
+}
+setThemeMode('auto');
 route();
 </script>
 </body>

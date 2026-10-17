@@ -345,8 +345,18 @@ DEFAULT_OPERATOR_PROFILES = [
 ]
 
 
+class UserAccount(Base):
+    __tablename__ = "user_accounts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String(50), unique=True, nullable=False, default="admin")
+    password = Column(String(100), nullable=False, default="admin123")
+    role = Column(String(20), nullable=False, default="superadmin")
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+
 def init_db(engine_override=None):
-    """Inisialisasi tabel di database dan seed data awal profil operator."""
+    """Inisialisasi tabel di database dan seed data awal profil operator serta akun admin."""
     target_engine = engine_override or from_connection_engine()
     Base.metadata.create_all(bind=target_engine)
 
@@ -358,6 +368,11 @@ def init_db(engine_override=None):
             existing = session.query(OperatorProfile).filter(OperatorProfile.id == prof["id"]).first()
             if not existing:
                 session.add(OperatorProfile(**prof))
+
+        admin_user = session.query(UserAccount).first()
+        if not admin_user:
+            session.add(UserAccount(username="admin", password="admin123", role="superadmin"))
+
         session.commit()
     except Exception:
         session.rollback()

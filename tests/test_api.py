@@ -82,6 +82,27 @@ class TestAPIEndpoints(unittest.TestCase):
         self.assertEqual(data["results"], [])
 
 
+    def test_auth_credentials_get_and_update(self):
+        """Memastikan API kredensial admin dapat diambil dan diubah."""
+        # 1. GET
+        resp = self.client.get("/api/auth/credentials")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("username", data)
+        self.assertIn("password", data)
+
+        # 2. PUT sukses
+        update_resp = self.client.put("/api/auth/credentials", json={"password": "newsecretpassword123"})
+        self.assertEqual(update_resp.status_code, 200)
+        res_data = update_resp.json()
+        self.assertTrue(res_data["success"])
+        self.assertEqual(res_data["password"], "newsecretpassword123")
+
+        # 3. PUT invalid (kurang dari 4 karakter)
+        err_resp = self.client.put("/api/auth/credentials", json={"password": "12"})
+        self.assertEqual(err_resp.status_code, 400)
+
+
 if __name__ == "__main__":
     unittest.main()
 

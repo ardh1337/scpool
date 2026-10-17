@@ -16,7 +16,7 @@ from sqlalchemy import desc
 from app.database.connection import get_db
 from app.database.models import (
     ModemPool, Slot, Port, SIMCard, SIMSession, SMSMessage, SlotStatus, NumberStatus,
-    OperatorProfile
+    OperatorProfile, UserAccount
 )
 from app.services.hardware_sync import sync_single_slot, sync_modem_pool_hardware
 from app.services.sms_service import poll_slot_sms, poll_all_active_slots_sms
@@ -319,6 +319,57 @@ def update_operator_profile(
         "id": profile.id,
         "name": profile.name,
         "ussd_code": profile.ussd_code
+    }
+
+
+class CredentialsUpdate(BaseModel):
+    username: Optional[str] = None
+    password: str
+    current_password: Optional[str] = None
+
+
+@router.get("/auth/credentials")
+def get_auth_credentials(db: Session = Depends(get_db)):
+    """Mengambil informasi akun admin saat ini."""
+    user = db.query(UserAccount).first()
+    if not user:
+        user = UserAccount(username="admin", password="admin123", role="superadmin")
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    return {
+        "username": user.username,
+        "password": user.password,
+        "role": user.role,
+        "updated_at": user.updated_at.isoformat() if user.updated_at else None
+    }
+
+
+@router.put("/auth/credentials")
+def update_auth_credentials(payload: CredentialsUpdate, db: Session = Depends(get_db)):
+    """Memperbarui password atau username admin."""
+    user = db.query(UserAccount).first()
+    if not user:
+        user = UserAccount(username="admin", password="admin123", role="superadmin")
+        db.add(user)
+
+    new_pwd = payload.password.strip()
+    if len(new_pwd) < 4:
+        raise HTTPException(status_code=400, detail="Password baru minimal 4 karakter.")
+
+    if payload.username and payload.username.strip():
+        user.username = payload.username.strip()
+
+    user.password = new_pwd
+    user.updated_at = datetime.now(timezone.utc)
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Password berhasil diperbarui.",
+        "username": user.username,
+        "password": user.password
     }
 
 
