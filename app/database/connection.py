@@ -10,7 +10,8 @@ from pathlib import Path
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-DB_DIR = Path("d:/panel/data")
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+DB_DIR = Path(os.environ.get("SCPOOL_DATA_DIR", BASE_DIR / "data"))
 DB_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = DB_DIR / "sim_inventory.db"
 DATABASE_URL = f"sqlite:///{DB_PATH.as_posix()}"

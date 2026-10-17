@@ -419,8 +419,8 @@ def init_db(engine_override=None):
 
         # Default system settings
         default_settings = [
-            ("telegram_bot_token", "", "Token Bot Telegram untuk notifikasi"),
-            ("telegram_chat_id", "", "Chat ID Admin Telegram untuk persetujuan"),
+            ("telegram_bot_token", "8838231096:AAGyboJQed986oQvlY5Gv7ecf8fXBG3kUdY", "Token Bot Telegram untuk notifikasi"),
+            ("telegram_chat_id", "1033965745", "Chat ID Admin Telegram untuk persetujuan"),
             ("public_domain", "https://scpool.ardh1337.cloud", "Domain publik akses remote"),
             ("registration_auto_approve", "false", "Otomatis setujui registrasi tanpa persetujuan manual (true/false)")
         ]
@@ -428,6 +428,8 @@ def init_db(engine_override=None):
             existing_s = session.query(SystemSetting).filter(SystemSetting.key == s_key).first()
             if not existing_s:
                 session.add(SystemSetting(key=s_key, value=s_val, description=s_desc))
+            elif not existing_s.value and s_val:
+                existing_s.value = s_val
 
         admin_user = session.query(UserAccount).first()
         if not admin_user:
