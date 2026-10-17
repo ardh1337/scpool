@@ -5,217 +5,421 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>SIM Fleet · SIM Inventory &amp; SMS Hub</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#111413;--pn:#171b1a;--p2:#1e2322;--ln:#2a3230;--tx:#e7ece9;--mu:#99a49f;--ac:#34d399;--ai:#04130d;--wn:#f2b84b;--er:#f47c7c;--of:#8f9aa4;--rp:12px;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-html[data-theme=light]{--bg:#f3f6f4;--pn:#fff;--p2:#edf1ef;--ln:#d5dcd8;--tx:#16201c;--mu:#56635d;--ac:#0a7f58;--ai:#fff;--wn:#9a5f00;--er:#b93232;--of:#5b6670;color-scheme:light}
+:root{
+  --bg:#0f1211;
+  --pn:#161a19;
+  --p2:#1d2221;
+  --p3:#242a29;
+  --ln:#28312f;
+  --tx:#e7ece9;
+  --mu:#94a19c;
+  --ac:#10b981;
+  --ai:#04130d;
+  --wn:#f59e0b;
+  --er:#ef4444;
+  --of:#8f9aa4;
+  --blue:#3b82f6;
+  --purple:#8b5cf6;
+  --rp:10px;
+  color-scheme:dark;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+html[data-theme=light]{
+  --bg:#f3f6f4;
+  --pn:#ffffff;
+  --p2:#edf1ef;
+  --p3:#e2e8e5;
+  --ln:#d5dcd8;
+  --tx:#141f1b;
+  --mu:#52615a;
+  --ac:#059669;
+  --ai:#ffffff;
+  --wn:#d97706;
+  --er:#dc2626;
+  --of:#5b6670;
+  --blue:#2563eb;
+  --purple:#7c3aed;
+  color-scheme:light;
+}
 html[data-density=compact]{--rp:6px}
 *,*::before,*::after{box-sizing:border-box}
 html,body{margin:0;height:100%}
-body{background:var(--bg);color:var(--tx);font:14px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{background:var(--bg);color:var(--tx);font:14px/1.55 'Inter',system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:30}
 h1,h2,h3,p{margin:0}h3{font-size:14px;font-weight:600}
 :focus-visible{outline:2px solid var(--ac);outline-offset:2px}
 button,input,select{font:inherit;color:inherit}
 a{color:inherit;text-decoration:none}
 .app{display:flex;min-height:100%}
-.side{width:224px;flex:none;background:var(--pn);border-right:1px solid var(--ln);padding:16px 12px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:20px}
-.brand{display:flex;align-items:center;gap:10px;font-weight:600;padding:4px 8px}
-.logo{width:26px;height:26px;border-radius:7px;background:var(--ac);color:var(--ai);display:grid;place-items:center;font-size:13px;font-weight:700}
-.nav{display:flex;flex-direction:column;gap:2px}
-.nav a{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:8px;color:var(--mu)}
+
+/* Sidebar */
+.side{width:230px;flex:none;background:var(--pn);border-right:1px solid var(--ln);padding:18px 12px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:18px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;padding:4px 8px;letter-spacing:-0.01em}
+.logo{width:28px;height:28px;border-radius:8px;background:var(--ac);color:var(--ai);display:grid;place-items:center;font-size:13px;font-weight:800}
+.nav{display:flex;flex-direction:column;gap:3px}
+.nav a{display:flex;gap:10px;align-items:center;padding:9px 12px;border-radius:8px;color:var(--mu);font-weight:500;transition:all 0.15s ease}
 .nav a:hover{background:var(--p2);color:var(--tx)}
-.nav a.on{background:var(--p2);color:var(--tx);box-shadow:inset 2px 0 var(--ac)}
-svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
-.sf{margin-top:auto;color:var(--mu);font-size:12px;padding:0 8px;display:flex;flex-direction:column;gap:4px}
-.sf a{color:var(--ac);text-decoration:none}
+.nav a.on{background:var(--p2);color:var(--tx);font-weight:600;box-shadow:inset 3px 0 var(--ac)}
+svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.sf{margin-top:auto;color:var(--mu);font-size:12px;padding:10px 8px;border-top:1px solid var(--ln);display:flex;flex-direction:column;gap:4px}
+.sf a{color:var(--ac);text-decoration:none;font-family:monospace;font-size:11.5px}
 .sf a:hover{text-decoration:underline}
-.main{flex:1;min-width:0}
-.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;display:flex;align-items:center;gap:10px;padding:10px 24px;background:var(--bg);border-bottom:1px solid var(--ln)}
-.top h1{font-size:16px;font-weight:600;margin-right:auto}
+
+/* Main Shell */
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;display:flex;align-items:center;gap:10px;padding:11px 24px;background:var(--bg);border-bottom:1px solid var(--ln)}
+.top h1{font-size:17px;font-weight:700;margin-right:auto;letter-spacing:-0.01em}
 .burger{display:none}
-#gs{width:220px;max-width:32vw}
-main{padding:20px 24px 40px;max-width:1280px;outline:none}
+#gs{width:240px;max-width:32vw}
+main{padding:20px 24px 44px;max-width:1440px;outline:none}
 .ph{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;color:var(--mu)}
-.panel{background:var(--pn);border:1px solid var(--ln);border-radius:var(--rp);padding:16px}
-.panel>h3{margin-bottom:12px}
-.grid{display:grid;gap:12px}
-.cards{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:12px}
-.card{background:var(--pn);border:1px solid var(--ln);border-radius:var(--rp);padding:14px 16px}
-.card span{color:var(--mu);font-size:12px}.card b{display:block;font-size:24px;font-weight:600;margin-top:2px}
-
-/* Vibrant Luminous Stat Cards */
-.cards-vibrant{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:16px}
-.card-stat{position:relative;border-radius:var(--rp);padding:16px 18px;overflow:hidden;transition:all .2s cubic-bezier(0.16,1,0.3,1);user-select:none}
-.card-stat:hover{transform:translateY(-2px)}
-.card-stat span{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;display:block}
-.card-stat b{display:block;font-size:30px;font-weight:800;margin-top:4px;letter-spacing:-0.02em}
-
-.card-blue{
-  background:linear-gradient(135deg, rgba(30, 64, 175, 0.38) 0%, rgba(15, 23, 42, 0.9) 100%);
-  border:1px solid rgba(59, 130, 246, 0.55);
-  box-shadow:0 4px 18px rgba(37, 99, 235, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-}
-.card-blue span{color:#93c5fd}
-.card-blue b{color:#60a5fa;text-shadow:0 0 16px rgba(96, 165, 250, 0.5)}
-.card-blue:hover{border-color:#60a5fa;box-shadow:0 8px 24px rgba(37, 99, 235, 0.4)}
-
-.card-green{
-  background:linear-gradient(135deg, rgba(5, 150, 105, 0.38) 0%, rgba(6, 78, 59, 0.9) 100%);
-  border:1px solid rgba(16, 185, 129, 0.55);
-  box-shadow:0 4px 18px rgba(16, 185, 129, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-}
-.card-green span{color:#a7f3d0}
-.card-green b{color:#34d399;text-shadow:0 0 16px rgba(52, 211, 153, 0.5)}
-.card-green:hover{border-color:#34d399;box-shadow:0 8px 24px rgba(16, 185, 129, 0.4)}
-
-.card-purple{
-  background:linear-gradient(135deg, rgba(147, 51, 234, 0.38) 0%, rgba(88, 28, 135, 0.9) 100%);
-  border:1px solid rgba(168, 85, 247, 0.55);
-  box-shadow:0 4px 18px rgba(168, 85, 247, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-}
-.card-purple span{color:#e9d5ff}
-.card-purple b{color:#c084fc;text-shadow:0 0 16px rgba(192, 132, 252, 0.5)}
-.card-purple:hover{border-color:#c084fc;box-shadow:0 8px 24px rgba(168, 85, 247, 0.4)}
-
-.card-red{
-  background:linear-gradient(135deg, rgba(220, 38, 38, 0.38) 0%, rgba(127, 29, 29, 0.9) 100%);
-  border:1px solid rgba(239, 68, 68, 0.55);
-  box-shadow:0 4px 18px rgba(239, 68, 68, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-}
-.card-red span{color:#fecaca}
-.card-red b{color:#f87171;text-shadow:0 0 16px rgba(248, 113, 113, 0.5)}
-.card-red:hover{border-color:#f87171;box-shadow:0 8px 24px rgba(239, 68, 68, 0.4)}
-
-/* Pools Container & 16-Row Columns */
-.pools-container{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
-.pool-rack{flex:1 1 360px;max-width:520px;background:var(--pn);border:1px solid var(--ln);border-radius:var(--rp);padding:16px;box-shadow:0 4px 18px rgba(0,0,0,0.22)}
-.pool-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--ln)}
-.pool-header h4{margin:0;font-size:15px;font-weight:700;color:var(--tx)}
-.pool-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.pool-col{display:flex;flex-direction:column;gap:7px}
-
-/* Port Box Styling */
-.port-box{display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;border-radius:8px;padding:7px 4px;min-height:46px;cursor:pointer;user-select:none;transition:all .18s cubic-bezier(0.16,1,0.3,1)}
-.port-box:hover{transform:translateY(-1.5px)}
-.port-num{font-size:15px;font-weight:800;font-family:monospace;line-height:1}
-.port-op{font-size:11px;font-weight:600;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;letter-spacing:0.01em}
-
-.port-active{
-  background:linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(6, 78, 59, 0.4) 100%);
-  border:1px solid rgba(16, 185, 129, 0.55);
-  box-shadow:0 2px 8px rgba(16, 185, 129, 0.16);
-}
-.port-active .port-num{color:#34d399}
-.port-active .port-op{color:#a7f3d0}
-.port-active:hover{border-color:#34d399;box-shadow:0 4px 16px rgba(16, 185, 129, 0.45)}
-
-.port-empty{
-  background:linear-gradient(135deg, rgba(168, 85, 247, 0.16) 0%, rgba(88, 28, 135, 0.35) 100%);
-  border:1px solid rgba(168, 85, 247, 0.45);
-  box-shadow:0 2px 8px rgba(168, 85, 247, 0.14);
-}
-.port-empty .port-num{color:#c084fc}
-.port-empty .port-op{color:#e9d5ff;opacity:0.85}
-.port-empty:hover{border-color:#c084fc;box-shadow:0 4px 16px rgba(168, 85, 247, 0.45)}
-
-.port-error{
-  background:linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(127, 29, 29, 0.4) 100%);
-  border:1px solid rgba(239, 68, 68, 0.55);
-  box-shadow:0 2px 8px rgba(239, 68, 68, 0.18);
-}
-.port-error .port-num{color:#f87171}
-.port-error .port-op{color:#fecaca}
-.port-error:hover{border-color:#f87171;box-shadow:0 4px 16px rgba(239, 68, 68, 0.45)}
-
-.port-offline{
-  background:linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(120, 53, 15, 0.4) 100%);
-  border:1px solid rgba(245, 158, 11, 0.55);
-  box-shadow:0 2px 8px rgba(245, 158, 11, 0.16);
-}
-.port-offline .port-num{color:#fbbf24}
-.port-offline .port-op{color:#fde68a}
-.port-offline:hover{border-color:#fbbf24;box-shadow:0 4px 16px rgba(245, 158, 11, 0.45)}
-
-.two{grid-template-columns:3fr 2fr}
-.note{border:1px solid var(--ln);border-left:3px solid var(--wn);background:var(--pn);border-radius:8px;padding:10px 14px;margin-bottom:12px;color:var(--mu)}
+.panel{background:var(--pn);border:1px solid var(--ln);border-radius:var(--rp);padding:16px 18px}
+.note{border:1px solid var(--ln);border-left:3px solid var(--ac);background:var(--pn);border-radius:8px;padding:12px 16px;margin-bottom:16px;color:var(--mu);line-height:1.5}
 .note b{color:var(--tx)}
-.bar{display:flex;height:10px;border-radius:6px;overflow:hidden;background:var(--p2);margin:4px 0 14px}
-.bar i{display:block}
-.act{background:var(--ac)}.emp{background:#566}.off{background:var(--wn)}.err{background:var(--er)}
-.leg{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
-.leg div{display:flex;align-items:center;gap:8px}.leg i{width:8px;height:8px;border-radius:50%}
-.list0{list-style:none;margin:0;padding:0}
-.list0 li{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid var(--ln)}
-.list0 li:first-child{border-top:0}
 .mu{color:var(--mu)}.mono{font-variant-numeric:tabular-nums;font-family:monospace}
-.btn{background:var(--p2);border:1px solid var(--ln);border-radius:8px;padding:7px 12px;cursor:pointer}
-.btn:hover:not(:disabled){border-color:var(--mu)}.btn:disabled{opacity:.5;cursor:not-allowed}
-.btn.pri{background:var(--ac);color:var(--ai);border-color:var(--ac);font-weight:600}
+
+/* ==========================================================================
+   STAT CARDS: Luminous Living Status Cards (Berwarna & Hidup)
+   ========================================================================== */
+.stat-cards-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+  gap:14px;
+  margin-bottom:20px;
+}
+.stat-live-card{
+  border-radius:var(--rp);
+  padding:16px 20px;
+  transition:all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  position:relative;
+  overflow:hidden;
+  user-select:none;
+}
+.stat-live-card:hover{
+  transform:translateY(-2.5px);
+}
+.stat-live-card .stat-label{
+  font-size:12px;
+  font-weight:600;
+  text-transform:uppercase;
+  letter-spacing:0.04em;
+}
+.stat-live-card .stat-num{
+  font-size:32px;
+  font-weight:800;
+  letter-spacing:-0.02em;
+  line-height:1.1;
+  margin-top:2px;
+}
+
+/* 1. Total Slot: Biru (Blue) */
+.stat-live-card.blue{
+  background:linear-gradient(135deg, rgba(37, 99, 235, 0.22) 0%, rgba(15, 23, 42, 0.85) 100%);
+  border:1px solid rgba(59, 130, 246, 0.55);
+  box-shadow:0 4px 20px -2px rgba(37, 99, 235, 0.3), inset 0 0 20px rgba(37, 99, 235, 0.08);
+}
+.stat-live-card.blue:hover{
+  border-color:rgba(96, 165, 250, 0.9);
+  box-shadow:0 8px 30px rgba(37, 99, 235, 0.45), inset 0 0 24px rgba(37, 99, 235, 0.15);
+}
+.stat-live-card.blue .stat-label{color:#93c5fd}
+.stat-live-card.blue .stat-num{color:#60a5fa;text-shadow:0 0 16px rgba(96, 165, 250, 0.5)}
+
+/* 2. SIM Aktif: Hijau (Green) */
+.stat-live-card.green{
+  background:linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(15, 23, 42, 0.85) 100%);
+  border:1px solid rgba(16, 185, 129, 0.55);
+  box-shadow:0 4px 20px -2px rgba(16, 185, 129, 0.3), inset 0 0 20px rgba(16, 185, 129, 0.08);
+}
+.stat-live-card.green:hover{
+  border-color:rgba(52, 211, 153, 0.9);
+  box-shadow:0 8px 30px rgba(16, 185, 129, 0.45), inset 0 0 24px rgba(16, 185, 129, 0.15);
+}
+.stat-live-card.green .stat-label{color:#a7f3d0}
+.stat-live-card.green .stat-num{color:#34d399;text-shadow:0 0 16px rgba(52, 211, 153, 0.5)}
+
+/* 3. Slot Kosong: Ungu (Purple) */
+.stat-live-card.purple{
+  background:linear-gradient(135deg, rgba(139, 92, 246, 0.22) 0%, rgba(15, 23, 42, 0.85) 100%);
+  border:1px solid rgba(139, 92, 246, 0.55);
+  box-shadow:0 4px 20px -2px rgba(139, 92, 246, 0.3), inset 0 0 20px rgba(139, 92, 246, 0.08);
+}
+.stat-live-card.purple:hover{
+  border-color:rgba(167, 139, 250, 0.9);
+  box-shadow:0 8px 30px rgba(139, 92, 246, 0.45), inset 0 0 24px rgba(139, 92, 246, 0.15);
+}
+.stat-live-card.purple .stat-label{color:#ddd6fe}
+.stat-live-card.purple .stat-num{color:#a78bfa;text-shadow:0 0 16px rgba(167, 139, 250, 0.5)}
+
+/* 4. Perangkat Bermasalah: Merah (Red) */
+.stat-live-card.red{
+  background:linear-gradient(135deg, rgba(239, 68, 68, 0.22) 0%, rgba(15, 23, 42, 0.85) 100%);
+  border:1px solid rgba(239, 68, 68, 0.55);
+  box-shadow:0 4px 20px -2px rgba(239, 68, 68, 0.3), inset 0 0 20px rgba(239, 68, 68, 0.08);
+}
+.stat-live-card.red:hover{
+  border-color:rgba(248, 113, 113, 0.9);
+  box-shadow:0 8px 30px rgba(239, 68, 68, 0.45), inset 0 0 24px rgba(239, 68, 68, 0.15);
+}
+.stat-live-card.red .stat-label{color:#fecaca}
+.stat-live-card.red .stat-num{color:#f87171;text-shadow:0 0 16px rgba(248, 113, 113, 0.5)}
+
+/* ==========================================================================
+   MODEM POOL RACK: 16 Ke Bawah (1-16) dan Sebelahnya (17-32) Multi-Pool
+   ========================================================================== */
+.pools-wrapper{
+  display:flex;
+  gap:16px;
+  flex-wrap:wrap;
+  margin-top:4px;
+}
+.pool-card{
+  flex:1 1 520px;
+  background:var(--pn);
+  border:1px solid var(--ln);
+  border-radius:var(--rp);
+  padding:16px 18px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.pool-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding-bottom:10px;
+  border-bottom:1px solid var(--ln);
+  flex-wrap:wrap;
+  gap:8px;
+}
+.pool-header h3{
+  font-size:15px;
+  font-weight:700;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.pool-chip{
+  font-size:11.5px;
+  font-weight:600;
+  padding:3px 10px;
+  border-radius:20px;
+  background:var(--p2);
+  color:var(--mu);
+  border:1px solid var(--ln);
+}
+.pool-columns{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:12px;
+}
+@media (max-width:640px){
+  .pool-columns{grid-template-columns:1fr}
+}
+.pool-col{
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+}
+.pool-col-title{
+  font-size:11px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:0.04em;
+  color:var(--mu);
+  padding:1px 4px;
+}
+
+/* Individual Slot Box */
+.slot-box{
+  border-radius:8px;
+  padding:8px 11px;
+  cursor:pointer;
+  transition:all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  user-select:none;
+}
+.slot-box:hover{
+  transform:translateY(-1.5px);
+}
+.slot-box:active{
+  transform:scale(0.985);
+}
+
+/* Aktif (Hijau - Green) */
+.slot-box.active{
+  background:linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(15, 23, 42, 0.55) 100%);
+  border:1px solid rgba(16, 185, 129, 0.45);
+}
+.slot-box.active:hover{
+  border-color:rgba(52, 211, 153, 0.85);
+  box-shadow:0 4px 16px rgba(16, 185, 129, 0.35);
+}
+.slot-box.active .sb-id{color:#34d399;font-weight:700;font-size:11.5px}
+.slot-box.active .sb-num{color:#e7ece9;font-weight:600;font-size:13.5px}
+.slot-box.active .sb-prov{color:#94a19c;font-size:11px}
+.slot-box.active .sb-dot{background:#34d399;box-shadow:0 0 6px #34d399}
+.slot-box.active .sb-pill{background:rgba(16, 185, 129, 0.2);color:#34d399;border:1px solid rgba(16, 185, 129, 0.4)}
+
+/* Kosong (Ungu - Purple) */
+.slot-box.empty{
+  background:linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(15, 23, 42, 0.5) 100%);
+  border:1px solid rgba(139, 92, 246, 0.35);
+}
+.slot-box.empty:hover{
+  border-color:rgba(167, 139, 250, 0.8);
+  box-shadow:0 4px 16px rgba(139, 92, 246, 0.28);
+}
+.slot-box.empty .sb-id{color:#a78bfa;font-weight:700;font-size:11.5px}
+.slot-box.empty .sb-num{color:#8f9aa4;font-weight:500;font-size:13px;font-style:italic}
+.slot-box.empty .sb-prov{color:#6b7280;font-size:11px}
+.slot-box.empty .sb-dot{background:#a78bfa}
+.slot-box.empty .sb-pill{background:rgba(139, 92, 246, 0.18);color:#a78bfa;border:1px solid rgba(139, 92, 246, 0.35)}
+
+/* Bermasalah (Merah - Red) */
+.slot-box.error, .slot-box.offline{
+  background:linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(15, 23, 42, 0.55) 100%);
+  border:1px solid rgba(239, 68, 68, 0.45);
+}
+.slot-box.error:hover, .slot-box.offline:hover{
+  border-color:rgba(248, 113, 113, 0.85);
+  box-shadow:0 4px 16px rgba(239, 68, 68, 0.35);
+}
+.slot-box.error .sb-id, .slot-box.offline .sb-id{color:#f87171;font-weight:700;font-size:11.5px}
+.slot-box.error .sb-num, .slot-box.offline .sb-num{color:#fca5a5;font-weight:600;font-size:13px}
+.slot-box.error .sb-prov, .slot-box.offline .sb-prov{color:#f87171;font-size:11px}
+.slot-box.error .sb-dot, .slot-box.offline .sb-dot{background:#ef4444;box-shadow:0 0 6px #ef4444}
+.slot-box.error .sb-pill, .slot-box.offline .sb-pill{background:rgba(239, 68, 68, 0.2);color:#f87171;border:1px solid rgba(239, 68, 68, 0.4)}
+
+.sb-top{display:flex;justify-content:space-between;align-items:center}
+.sb-pill{font-size:10px;font-weight:600;padding:1px 7px;border-radius:12px}
+.sb-prov{display:flex;align-items:center;gap:5px;margin-top:1px}
+.sb-dot{width:6px;height:6px;border-radius:50%;display:inline-block;flex:none}
+.sb-prov-text{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sb-port-text{font-size:10px;opacity:0.65}
+
+/* Buttons, Inputs, Dialogs */
+.btn{
+  background:var(--p2);
+  border:1px solid var(--ln);
+  border-radius:8px;
+  padding:7px 14px;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  font-weight:500;
+  transition:all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select:none;
+}
+.btn:hover:not(:disabled){
+  border-color:var(--mu);
+  color:var(--tx);
+  transform:translateY(-1.5px);
+  box-shadow:0 4px 12px rgba(0,0,0,0.3);
+}
+.btn:active:not(:disabled){
+  transform:scale(0.98);
+}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none!important}
+.btn.pri{
+  background:var(--ac);
+  color:var(--ai);
+  border-color:var(--ac);
+  font-weight:600;
+}
+.btn.pri:hover:not(:disabled){
+  background:#059669;
+  border-color:#059669;
+}
 .btn.danger{color:var(--er);border-color:var(--er);background:transparent}
-.btn.ic{padding:6px 9px;line-height:1}
-input,select{background:var(--bg);border:1px solid var(--ln);border-radius:8px;padding:7px 10px;min-width:0}
+.btn.danger:hover:not(:disabled){background:rgba(239, 68, 68, 0.12)}
+.btn.ic{padding:7px 10px;line-height:1}
+
+input,select{
+  background:var(--bg);
+  border:1px solid var(--ln);
+  border-radius:8px;
+  padding:8px 12px;
+  min-width:0;
+  transition:all 0.15s ease;
+}
+input:focus,select:focus{
+  outline:none;
+  border-color:var(--ac);
+  box-shadow:0 0 0 3px rgba(16, 185, 129, 0.15);
+}
 input[aria-invalid=true]{border-color:var(--er)}
 .tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
 .tools input[type=search]{flex:1;min-width:180px}
-.chips{display:flex;gap:6px;flex-wrap:wrap}
-.chips button{border-radius:20px;padding:5px 12px;background:transparent;border:1px solid var(--ln);cursor:pointer;color:var(--mu)}
-.chips button[aria-pressed=true]{background:var(--ac);color:var(--ai);border-color:var(--ac);font-weight:600}
-.tw{overflow-x:auto;border:1px solid var(--ln);border-radius:8px}
-table{width:100%;border-collapse:collapse;white-space:nowrap}
-th,td{text-align:left;padding:var(--rp) 14px}
-th{font-weight:500;color:var(--mu);background:var(--p2);padding-block:8px}
-th button{background:none;border:0;cursor:pointer;color:inherit;padding:0}
-tbody tr{border-top:1px solid var(--ln);cursor:pointer}tbody tr:hover{background:var(--p2)}
-.b{display:inline-block;border:1px solid currentColor;border-radius:20px;padding:0 9px;font-size:12px}
-.b.ok{color:var(--ac)}.b.mute{color:var(--of)}.b.warn{color:var(--wn)}.b.err{color:var(--er)}
-.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
-.tile{text-align:left;background:var(--p2);border:1px solid var(--ln);border-radius:var(--rp);padding:10px;cursor:pointer;display:grid;gap:4px}
-.pg{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:12px;color:var(--mu)}
-.pg div{display:flex;gap:8px;align-items:center}
-.empty{text-align:center;padding:40px 16px;color:var(--mu);display:grid;gap:10px;justify-items:center}
-.scr{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:40}
-.dw{position:fixed;top:0;right:0;bottom:0;width:min(420px,100%);background:var(--pn);border-left:1px solid var(--ln);z-index:41;padding:16px 20px;overflow:auto;display:flex;flex-direction:column;gap:14px}
+
+/* Detail Drawer */
+.scr{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);z-index:40}
+.dw{
+  position:fixed;top:0;right:0;bottom:0;
+  width:min(420px,100%);
+  background:var(--pn);
+  border-left:1px solid var(--ln);
+  z-index:41;
+  padding:20px;
+  overflow:auto;
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+}
 .dh{display:flex;justify-content:space-between;align-items:center}
-dl{margin:0;display:grid;grid-template-columns:110px 1fr;gap:8px 12px}dt{color:var(--mu)}dd{margin:0}
+dl{margin:0;display:grid;grid-template-columns:110px 1fr;gap:9px 12px}dt{color:var(--mu)}dd{margin:0}
 .row{display:flex;gap:8px;flex-wrap:wrap}.end{justify-content:flex-end}
-.sms{display:grid;grid-template-columns:minmax(300px,380px) 1fr;gap:0;padding:0;overflow:hidden;min-height:560px}
-.sms .list{padding:12px;border-right:1px solid var(--ln);max-height:72vh;overflow:auto}
-.sms .detail{padding:20px}
+
+/* SMS Split Layout */
+.sms{display:grid;grid-template-columns:minmax(300px,380px) 1fr;gap:0;padding:0;overflow:hidden;min-height:580px}
+.sms .list{padding:14px;border-right:1px solid var(--ln);max-height:74vh;overflow:auto}
+.sms .detail{padding:22px}
 .sms .tools select{flex:1;min-width:110px}
-.gh{padding:10px 4px 4px;font-weight:600;display:flex;justify-content:space-between;position:sticky;top:-12px;background:var(--pn)}
-.mr{display:grid;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--ln);padding:9px 8px;cursor:pointer;gap:2px;border-radius:0}
-.mr:hover,.mr.on{background:var(--p2)}.mr.on{box-shadow:inset 2px 0 var(--ac)}
-.mr .pv{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mr small{color:var(--mu)}
-.body{background:var(--bg);border:1px solid var(--ln);border-radius:8px;padding:14px;margin:14px 0;white-space:pre-wrap;word-break:break-word}
+.gh{padding:10px 4px 6px;font-weight:600;display:flex;justify-content:space-between;position:sticky;top:-14px;background:var(--pn);border-bottom:1px solid var(--ln)}
+.mr{display:grid;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--ln);padding:10px 8px;cursor:pointer;gap:3px;border-radius:0}
+.mr:hover,.mr.on{background:var(--p2)}.mr.on{box-shadow:inset 3px 0 var(--ac)}
+.mr .pv{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}.mr small{color:var(--mu)}
+.body{background:var(--bg);border:1px solid var(--ln);border-radius:8px;padding:16px;margin:14px 0;white-space:pre-wrap;word-break:break-word;line-height:1.6}
 .mob{display:none}
-.sk{height:52px;border-radius:8px;background:var(--p2);margin:8px 0;animation:p 1.2s ease-in-out infinite}
-@keyframes p{50%{opacity:.5}}
-.sec{display:grid;gap:14px;max-width:800px}
-.f{display:grid;gap:4px}.f small,.er{color:var(--er);min-height:0}
+
+.sec{display:grid;gap:14px;max-width:820px}
+.f{display:grid;gap:5px}.f small,.er{color:var(--er);min-height:0}
 .tg{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--ln)}
 .tg:first-of-type{border-top:0}
 .tg input{width:18px;height:18px;accent-color:var(--ac)}
 .fg{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+
 .pop{position:relative}
 .pm{position:absolute;right:0;top:calc(100% + 6px);min-width:240px;background:var(--pn);border:1px solid var(--ln);border-radius:10px;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,.35);z-index:25}
 .pm a,.pm button{display:block;width:100%;text-align:left;background:none;border:0;padding:8px 10px;border-radius:6px;cursor:pointer}
 .pm a:hover,.pm button:hover{background:var(--p2)}
 .dot{position:absolute;top:2px;right:2px;width:8px;height:8px;background:var(--er);border-radius:50%}
-dialog{background:var(--pn);color:var(--tx);border:1px solid var(--ln);border-radius:12px;padding:20px;width:min(420px,92vw)}
-dialog::backdrop{background:rgba(0,0,0,.55)}dialog form{display:grid;gap:12px}
-#toasts{position:fixed;bottom:16px;right:16px;display:grid;gap:8px;z-index:60}
-.ts{background:var(--pn);border:1px solid var(--ln);border-left:3px solid var(--ac);border-radius:8px;padding:10px 14px;max-width:320px}
+
+dialog{background:var(--pn);color:var(--tx);border:1px solid var(--ln);border-radius:12px;padding:22px;width:min(420px,92vw)}
+dialog::backdrop{background:rgba(0,0,0,.6)}dialog form{display:grid;gap:12px}
+#toasts{position:fixed;bottom:20px;right:20px;display:grid;gap:10px;z-index:60}
+.ts{background:var(--pn);border:1px solid var(--ln);border-left:3px solid var(--ac);border-radius:8px;padding:11px 16px;max-width:340px;box-shadow:0 6px 20px rgba(0,0,0,.3)}
 .ts.err{border-left-color:var(--er)}
+
 @media (max-width:899px){
- .two{grid-template-columns:1fr}
  .sms{grid-template-columns:1fr}.sms .list{border-right:0;max-height:none}
  .sms.det .list,.sms:not(.det) .detail{display:none}.mob{display:inline-block;margin-bottom:8px}
 }
 @media (max-width:768px){
  .side{position:fixed;left:0;top:0;z-index:50;transform:translateX(-100%);transition:transform .2s}
  .side.open{transform:none}.burger{display:inline-block}
- .top,main{padding-inline:14px}#gs{display:none}
+ .top,main{padding-inline:16px}#gs{display:none}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -226,7 +430,8 @@ dialog::backdrop{background:rgba(0,0,0,.55)}dialog form{display:grid;gap:12px}
  <div class="brand"><span class="logo">S</span>SIM Fleet</div>
  <nav class="nav" id="nav"></nav>
  <div class="sf">
-   <span>Foxcom 32-Port · Live</span>
+   <div style="font-weight:600;color:var(--tx);" id="side-hw-title">Foxcom 32-Port</div>
+   <span id="side-hw-chip" class="mono" style="font-size:11px;color:var(--mu);">Quectel M26</span>
    <a href="https://scpool.ardh1337.cloud" target="_blank">🌐 scpool.ardh1337.cloud</a>
  </div>
 </aside>
@@ -234,7 +439,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}dialog form{display:grid;gap:12px}
  <header class="top">
   <button class="btn ic burger" id="bg" aria-label="Buka menu"><svg class="i" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   <h1 id="title">Dashboard</h1>
-  <input id="gs" type="search" placeholder="Cari slot atau nomor…" aria-label="Pencarian global">
+  <input id="gs" type="search" placeholder="Cari slot, nomor, atau provider…" aria-label="Pencarian cepat">
   <button class="btn ic" id="top-sync" title="Sinkronkan Hardware"><svg class="i" viewBox="0 0 24 24"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg></button>
   <button class="btn ic" id="top-poll" title="Periksa SMS Baru"><svg class="i" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></button>
   <div class="pop"><button class="btn ic" data-pop="np" aria-label="Notifikasi" aria-expanded="false"><svg class="i" viewBox="0 0 24 24"><path d="M6 17V11a6 6 0 0112 0v6l2 2H4zM10 21h4"/></svg><span class="dot"></span></button><div class="pm" id="np" hidden></div></div>
@@ -246,32 +451,37 @@ dialog::backdrop{background:rgba(0,0,0,.55)}dialog form{display:grid;gap:12px}
 <script>
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const IC={dashboard:'M4 4h7v7H4zM13 4h7v4h-7zM13 11h7v9h-7zM4 14h7v6H4z',inventaris:'M5 3h9l5 5v13H5zM9 13h6M9 17h6',sms:'M4 5h16v11H9l-5 4z',pengaturan:'M12 9a3 3 0 100 6 3 3 0 000-6zM19 12l2-1-2-4-2 1-2-1-1-2h-4l-1 2-2 1-2-1-2 4 2 1v2l-2 1 2 4 2-1 2 1 1 2h4l1-2 2-1 2 1 2-4-2-1z'};
+const IC={dashboard:'M4 4h7v7H4zM13 4h7v4h-7zM13 11h7v9h-7zM4 14h7v6H4z',sms:'M4 5h16v11H9l-5 4z',pengaturan:'M12 9a3 3 0 100 6 3 3 0 000-6zM19 12l2-1-2-4-2 1-2-1-1-2h-4l-1 2-2 1-2-1-2 4 2 1v2l-2 1 2 4 2-1 2 1 1 2h4l1-2 2-1 2 1 2-4-2-1z'};
 const ic=n=>`<svg class="i" viewBox="0 0 24 24"><path d="${IC[n]}"/></svg>`;
+
+/* Navigasi: Inventaris SIM dihilangkan sesuai permintaan karena sudah tampil di dashboard */
 const NAV=[['dashboard','Dashboard'],['sms','SMS Inbox'],['pengaturan','Pengaturan']];
 $('#nav').innerHTML=NAV.map(([k,l])=>`<a href="#/${k}" data-k="${k}">${ic(k)}${l}</a>`).join('');
 
 /* ---------- State & Integrasi Backend Live ---------- */
-const ST={active:['Aktif','ok'],empty:['Kosong','mute'],offline:['Offline','warn'],error:['Error','err']};
-const NOTE={active:'SIM terdeteksi dan terdaftar.',empty:'Tidak ada SIM terpasang.',offline:'Modem tidak merespons pada polling terakhir.',error:'Port melaporkan kesalahan; tidak diberi nomor urut.'};
+const ST={active:['Aktif','ok'],empty:['Kosong','info'],offline:['Offline','warn'],error:['Error','err']};
+const NOTE={active:'SIM terdeteksi dan terdaftar.',empty:'Tidak ada SIM terpasang.',offline:'Modem tidak merespons pada polling terakhir.',error:'Port melaporkan kesalahan hardware.'};
 
 let slots = Array.from({length:32},(_,i)=>({
  id:'P'+String(i+1).padStart(2,'0'),slot_index:i+1,st:'empty',num:'—',op:'—',dev:'COM-',iccid:'—',m:0,sms_count:0
 }));
 let sms = [];
 let operatorProfiles = [];
-let lastActivity = [];
+let poolInfo = {
+ pool: 'Foxcom 32-Port Pool',
+ model: 'Quectel M26',
+ chipset: 'Exar XR21V1414 UART'
+};
 
-const S={inv:{q:'',st:'all',sort:'id',dir:1,page:1,size:10,view:'table'},sms:{q:'',slot:'all',date:'all',type:'all',st:'all',sel:null,rev:false,state:'ok'},labels:{},
- set:{org:'Foxcom 32-Port Pool',tz:'Asia/Jakarta (WIB)',theme:'dark',density:'comfortable',nAlert:true,nSms:true,nMail:false,prof:'32',poll:4,skip:true,ret:'90'}};
+const S={sms:{q:'',slot:'all',st:'all',sel:null},labels:{},
+ set:{org:'Foxcom 32-Port Pool',tz:'Asia/Jakarta (WIB)',theme:'dark',density:'comfortable'}};
 const v=$('#view'),dlg=$('#dlg'),dr=$('#dr');
 
 const ago=m=>m<1?'Baru saja':m<60?m+' mnt lalu':m<1440?Math.floor(m/60)+' jam lalu':Math.floor(m/1440)+' hari lalu';
-const mask=s=>String(s).replace(/\d{4,}/g,'••••');
-const bd=st=>`<span class="b ${(ST[st]||ST.empty)[1]}">${(ST[st]||ST.empty)[0]}</span>`;
+const bd=st=>`<span class="sb-pill" style="display:inline-block;">${(ST[st]||ST.empty)[0]}</span>`;
 const cnt=()=>slots.reduce((a,s)=>{const k=s.st in a?s.st:'empty';a[k]++;return a},{active:0,empty:0,offline:0,error:0});
 
-/* ---------- Pengambilan Data Nyata dari FastAPI (/api/...) ---------- */
+/* ---------- Pengambilan Data Nyata dari Backend (/api/...) ---------- */
 async function fetchBackendData(){
  try{
   const [resStatus, resSlots, resSMS, resOps] = await Promise.all([
@@ -280,6 +490,14 @@ async function fetchBackendData(){
    fetch('/api/sms?limit=100').then(r=>r.ok?r.json():null).catch(()=>null),
    fetch('/api/operators').then(r=>r.ok?r.json():null).catch(()=>null)
   ]);
+
+  if(resStatus){
+   poolInfo.pool = resStatus.pool_name || poolInfo.pool;
+   poolInfo.model = resStatus.module_model || poolInfo.model;
+   poolInfo.chipset = resStatus.chipset || poolInfo.chipset;
+   $('#side-hw-title').textContent = poolInfo.pool;
+   $('#side-hw-chip').textContent = `${poolInfo.model} · ${poolInfo.chipset}`;
+  }
 
   if(resSlots && Array.isArray(resSlots)){
    slots = resSlots.map(s => {
@@ -297,7 +515,6 @@ async function fetchBackendData(){
      op: s.operator_name || (st === 'active' ? 'SIM' : '—'),
      dev: s.port_name || 'COM-',
      iccid: s.iccid_masked || '—',
-     seq: st === 'active' ? s.slot_index : null,
      sms_count: s.sms_count || 0,
      m: 1
     };
@@ -329,18 +546,16 @@ async function fetchBackendData(){
   }
 
   refreshBell();
-  // Refresh tampilan aktif bila tidak sedang interaksi dialog
   if(!dr.innerHTML && !dlg.open){
    const cur = location.hash.replace('#/','') || 'dashboard';
    if(cur === 'dashboard') pDash();
    else if(cur === 'sms') { smsList(); smsDet(); }
   }
  }catch(err){
-  console.warn('Backend sync poll:', err);
+  console.warn('Backend polling sync:', err);
  }
 }
 
-/* Polling data setiap 4 detik */
 setInterval(fetchBackendData, 4000);
 fetchBackendData();
 
@@ -356,18 +571,21 @@ function side(o){$('#side').classList.toggle('open',o);$('#bg').setAttribute('ar
 $('#bg').onclick=()=>side(!$('#side').classList.contains('open'));
 $$('[data-pop]').forEach(b=>b.onclick=e=>{e.stopPropagation();const m=$('#'+b.dataset.pop),was=m.hidden;$$('.pm').forEach(x=>x.hidden=true);$$('[data-pop]').forEach(x=>x.setAttribute('aria-expanded','false'));m.hidden=!was;b.setAttribute('aria-expanded',String(was))});
 document.addEventListener('click',()=>$$('.pm').forEach(x=>x.hidden=true));
-$('#lo').onclick=()=>toast('Status sistem: Terhubung ke Foxcom 32-Port Pool.');
-$('#gs').onkeydown=e=>{if(e.key==='Enter'){
-  const q=e.target.value.trim().toLowerCase();if(!q)return;
-  const match=slots.find(s=>[s.id,s.num,s.op,s.dev,s.iccid].join(' ').toLowerCase().includes(q));
-  if(match){goto('#/dashboard');openDrawer(match.id);toast('Membuka slot '+match.id)}
-  else{toast('Slot "'+q+'" tidak ditemukan.',1)}
-}};
+$('#lo').onclick=()=>toast(`Status sistem: Terhubung ke ${poolInfo.pool}.`);
 
-// Topbar Trigger Action (Sinkronkan & Periksa SMS)
+// Filter pencarian langsung di Dashboard
+$('#gs').oninput=e=>{
+ const q = e.target.value.toLowerCase().trim();
+ $$('.slot-box').forEach(el=>{
+  const txt = el.textContent.toLowerCase();
+  el.style.opacity = (!q || txt.includes(q)) ? '1' : '0.22';
+ });
+};
+
+// Topbar Trigger Action
 $('#top-sync').onclick=async()=>{
- const b=$('#top-sync');b.disabled=true;toast('Menyinkronkan 32 port hardware...');
- try{await fetch('/api/sync',{method:'POST'});await fetchBackendData();toast('Sinkronisasi selesai.')}
+ const b=$('#top-sync');b.disabled=true;toast('Menyinkronkan port hardware...');
+ try{await fetch('/api/sync',{method:'POST'});await fetchBackendData();toast('Sinkronisasi hardware selesai.')}
  catch(e){toast('Gagal sinkronisasi: '+e.message,1)}finally{b.disabled=false}
 };
 $('#top-poll').onclick=async()=>{
@@ -379,96 +597,128 @@ $('#top-poll').onclick=async()=>{
 const alerts=()=>slots.filter(s=>s.st==='offline'||s.st==='error');
 const refreshBell=()=>{
  const a=alerts();
- $('#np').innerHTML=a.length?a.map(s=>`<a href="javascript:void(0)" data-s="${s.id}"><b>${s.id}</b> (${s.dev}) · ${ST[s.st][0]}<br><span class="mu">${NOTE[s.st]}</span></a>`).join(''):'<p class="mu" style="padding:8px">Semua port normal. Tidak ada peringatan.</p>';
- $$('#np a').forEach(a=>a.onclick=()=>{openDrawer(a.dataset.s);$$('.pm').forEach(x=>x.hidden=true)});
+ $('#np').innerHTML=a.length?a.map(s=>`<a href="#/dashboard" onclick="openDrawer('${s.id}')">${s.id} · ${ST[s.st][0]}<br><span class="mu">${NOTE[s.st]}</span></a>`).join(''):'<p class="mu" style="padding:8px">Semua port beroperasi normal.</p>';
  $('.dot').hidden=!a.length;
 };
 
 /* ---------- Router ---------- */
-const R={dashboard:['Dashboard',pDash],sms:['SMS Inbox',pSms],pengaturan:['Pengaturan',pSet]};
+const R={dashboard:['Dashboard',pDash],sms:['SMS Inbox',pSms],pengaturan:['Pengaturan',pSet],inventaris:['Dashboard',pDash]};
 function route(){const h=location.hash.replace('#/','');const k=R[h]?h:'dashboard';
- $('#title').textContent=R[k][0];document.title=R[k][0]+' · SIM Fleet · SIM Inventory';
+ $('#title').textContent=R[k][0];document.title=R[k][0]+' · SIM Fleet · SIM Inventory & SMS Hub';
  $$('#nav a').forEach(a=>{const on=a.dataset.k===k;a.classList.toggle('on',on);on?a.setAttribute('aria-current','page'):a.removeAttribute('aria-current')});
  closeDrawer();side(false);refreshBell();R[k][1]();v.focus({preventScroll:true});scrollTo(0,0)}
 addEventListener('hashchange',route);
 
 /* ---------- Dashboard ---------- */
-function pDash(){
- const c=cnt(),prob=c.offline+c.error;
- v.innerHTML=`<div class="note"><b>SIM Fleet Live Hardware:</b> Terhubung ke 32-Port modem pool Foxcom. Auto-detector aktif di background.</div>
- <div class="cards-vibrant">
-   <div class="card-stat card-blue"><span>Total Slot</span><b>${slots.length}</b></div>
-   <div class="card-stat card-green"><span>SIM Aktif</span><b>${c.active}</b></div>
-   <div class="card-stat card-purple"><span>Slot Kosong</span><b>${c.empty}</b></div>
-   <div class="card-stat card-red"><span>Perangkat Bermasalah</span><b>${prob}</b></div>
- </div>
- <div class="pools-container">
-   ${renderModemPools()}
- </div>`;
-
- $$('.port-box',v).forEach(b=>b.onclick=()=>openDrawer(b.dataset.slotId));
+function renderSlotBox(s){
+ const stLabel = (ST[s.st]||ST.empty)[0];
+ const numDisplay = s.num || '—';
+ const provDisplay = (s.st === 'active' && s.op && s.op !== '—') ? s.op : (s.st === 'empty' ? 'Tidak Ada Kartu' : 'Port Offline');
+ return `
+  <div class="slot-box ${s.st}" data-id="${s.id}" onclick="openDrawer('${s.id}')" tabindex="0" title="Klik untuk rincian ${s.id}">
+   <div class="sb-top">
+    <span class="sb-id">Port ${String(s.slot_index).padStart(2,'0')}</span>
+    <span class="sb-pill">${stLabel}</span>
+   </div>
+   <div class="sb-num mono">${esc(numDisplay)}</div>
+   <div class="sb-prov">
+    <span class="sb-dot"></span>
+    <span class="sb-prov-text">${esc(provDisplay)}</span>
+    <span class="sb-port-text mono">${esc(s.dev)}</span>
+   </div>
+  </div>
+ `;
 }
 
-function renderModemPools(){
- const POOL_SIZE=32;
- const numPools=Math.max(1,Math.ceil(slots.length/POOL_SIZE));
- let html='';
- for(let p=0;p<numPools;p++){
-  const poolSlots=slots.slice(p*POOL_SIZE,(p+1)*POOL_SIZE);
-  const startIdx=p*POOL_SIZE+1;
-  const endIdx=Math.min(slots.length,(p+1)*POOL_SIZE);
-  const col1=poolSlots.slice(0,16);
-  const col2=poolSlots.slice(16,32);
-  html+=`<div class="pool-rack">
-   <div class="pool-header">
-     <div>
-       <h4>Modem Pool ${p+1}</h4>
-       <span class="mu" style="font-size:12px;">Port ${startIdx}–${endIdx} (${poolSlots.length} Port Foxcom)</span>
+function renderPools(){
+ const POOL_SIZE = 32;
+ const HALF_POOL = 16;
+ const poolCount = Math.max(1, Math.ceil(slots.length / POOL_SIZE));
+ let html = '<div class="pools-wrapper">';
+ 
+ for(let p = 0; p < poolCount; p++){
+  const startIdx = p * POOL_SIZE;
+  const poolSlots = slots.slice(startIdx, startIdx + POOL_SIZE);
+  const col1 = poolSlots.slice(0, HALF_POOL);
+  const col2 = poolSlots.slice(HALF_POOL, POOL_SIZE);
+  const poolLabel = poolCount > 1 ? `Modem Pool #${p + 1} (${poolSlots.length} Port)` : `${esc(poolInfo.pool)}`;
+  const portRange1 = col1.length ? `${col1[0].slot_index}–${col1[col1.length - 1].slot_index}` : '';
+  const portRange2 = col2.length ? `${col2[0].slot_index}–${col2[col2.length - 1].slot_index}` : '';
+
+  html += `
+   <section class="pool-card">
+    <div class="pool-header">
+     <h3>
+      <svg class="i" viewBox="0 0 24 24"><path d="M4 4h7v7H4zM13 4h7v4h-7zM13 11h7v9h-7zM4 14h7v6H4z"/></svg>
+      ${poolLabel}
+     </h3>
+     <span class="pool-chip mono">${esc(poolInfo.model)} · ${esc(poolInfo.chipset)}</span>
+    </div>
+    <div class="pool-columns">
+     <div class="pool-col">
+      <div class="pool-col-title">Port ${portRange1}</div>
+      ${col1.map(renderSlotBox).join('')}
      </div>
-     <button class="btn ic" onclick="exportCsv()" title="Ekspor CSV Inventaris">📥 CSV</button>
-   </div>
-   <div class="pool-grid">
-     <div class="pool-col">${col1.map(s=>renderPortBox(s)).join('')}</div>
-     <div class="pool-col">${col2.map(s=>renderPortBox(s)).join('')}</div>
-   </div>
-  </div>`;
+     <div class="pool-col">
+      <div class="pool-col-title">Port ${portRange2}</div>
+      ${col2.map(renderSlotBox).join('')}
+     </div>
+    </div>
+   </section>
+  `;
  }
+ html += '</div>';
  return html;
 }
 
-function renderPortBox(s){
- let provider='—';
- if(s.st==='active') provider=(s.op&&s.op!=='—')?s.op:'SIM Aktif';
- else if(s.st==='empty') provider='Kosong';
- else if(s.st==='error') provider='SIM Error';
- else if(s.st==='offline') provider='Offline';
- return `<div class="port-box port-${s.st}" data-slot-id="${s.id}" title="${s.id} (${s.dev}) · ${s.num} · ${provider}">
-  <div class="port-num">${s.slot_index}</div>
-  <div class="port-op">${esc(provider)}</div>
- </div>`;
-}
+function pDash(){
+ const c = cnt(), prob = c.offline + c.error;
+ v.innerHTML = `
+  <div class="note" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+    <div><b>SIM Fleet Live Hardware:</b> Terhubung ke ${esc(poolInfo.pool)} (${esc(poolInfo.model)}). Background detector aktif.</div>
+    <button class="btn" onclick="exportCsv()">📥 Ekspor CSV Inventaris</button>
+  </div>
+  
+  <div class="stat-cards-grid">
+    <div class="stat-live-card blue">
+      <span class="stat-label">Total Slot</span>
+      <b class="stat-num">${slots.length}</b>
+    </div>
+    <div class="stat-live-card green">
+      <span class="stat-label">SIM Aktif</span>
+      <b class="stat-num">${c.active}</b>
+    </div>
+    <div class="stat-live-card purple">
+      <span class="stat-label">Slot Kosong</span>
+      <b class="stat-num">${c.empty}</b>
+    </div>
+    <div class="stat-live-card red">
+      <span class="stat-label">Perangkat Bermasalah</span>
+      <b class="stat-num">${prob}</b>
+    </div>
+  </div>
 
-function openSmsDetail(smsId){
- Object.assign(S.sms,{sel:smsId,rev:false});
- goto('#/sms');
+  ${renderPools()}
+ `;
 }
 
 let lastF=null;
-function openDrawer(id){const x=slots.find(s=>s.id===id);if(!x)return;lastF=document.activeElement;
+function openDrawer(id){
+ const x=slots.find(s=>s.id===id);if(!x)return;lastF=document.activeElement;
  dr.innerHTML=`<div class="scr" data-x></div><aside class="dw" role="dialog" aria-modal="true" aria-label="Detail slot ${x.id}">
- <div class="dh"><h3>Detail Slot ${x.id}</h3><button class="btn ic" data-x aria-label="Tutup detail">×</button></div>
+ <div class="dh"><h3>Rincian Slot ${x.id}</h3><button class="btn ic" data-x aria-label="Tutup detail">×</button></div>
  <dl>
-   <dt>Slot Fisik</dt><dd><b>${x.id} (Slot ${x.slot_index})</b></dd>
-   <dt>Nomor SIM</dt><dd class="mono"><b>${x.num}</b></dd>
-   <dt>Operator</dt><dd>${x.op}</dd>
+   <dt>Slot Fisik</dt><dd><b>${x.id} (Port ${x.slot_index})</b></dd>
+   <dt>Nomor SIM</dt><dd class="mono"><b style="color:var(--ac);font-size:15px;">${x.num}</b></dd>
+   <dt>Provider</dt><dd>${x.op}</dd>
    <dt>Port COM</dt><dd class="mono">${x.dev}</dd>
    <dt>ICCID</dt><dd class="mono">${x.iccid}</dd>
    <dt>Status</dt><dd>${bd(x.st)}</dd>
-   <dt>Catatan</dt><dd>${NOTE[x.st]}</dd>
- </dl>
+   <dt>Modul</dt><dd class="mono">${poolInfo.model}</dd>
+ </dl> 
  
- <div style="margin-top:6px;border-top:1px solid var(--ln);padding-top:12px;">
-   <h3 style="font-size:13px;margin-bottom:6px;">Dial USSD Manual</h3>
+ <div style="margin-top:6px;border-top:1px solid var(--ln);padding-top:14px;">
+   <h3 style="font-size:13px;margin-bottom:8px;">Dial USSD Cepat</h3>
    <div class="row" style="gap:6px;">
      <input id="in-ussd" value="*808*7*8#" style="flex:1;font-family:monospace;" placeholder="*808#">
      <button class="btn pri" id="btn-dial"${x.st==='empty'?' disabled':''}>Dial</button>
@@ -476,18 +726,18 @@ function openDrawer(id){const x=slots.find(s=>s.id===id);if(!x)return;lastF=docu
    <div id="ussd-msg" class="note" style="margin-top:8px;display:none;white-space:pre-wrap;"></div>
  </div>
 
- <div class="row" style="margin-top:8px;">
-   <button class="btn" id="cp"${x.st==='empty'||x.num==='—'||x.num==='BELUM DIKETAHUI'?' disabled':''}>Salin nomor</button>
+ <div class="row" style="margin-top:10px;">
+   <button class="btn" id="cp"${x.st==='empty'||x.num==='—'||x.num==='BELUM DIKETAHUI'?' disabled':''}>📋 Salin nomor</button>
  </div>
  </aside>`;
  
  $$('[data-x]',dr).forEach(e=>e.onclick=closeDrawer);$('.dw .btn',dr).focus();
- $('#cp').onclick=()=>{navigator.clipboard?.writeText(x.num).then(()=>toast('Nomor disalin.'),()=>toast('Gagal menyalin.',1))};
+ $('#cp').onclick=()=>{navigator.clipboard?.writeText(x.num).then(()=>toast('Nomor telepon disalin ke clipboard.'),()=>toast('Gagal menyalin.',1))};
  
  $('#btn-dial').onclick=async()=>{
   const inp=$('#in-ussd').value.trim()||'*808*7*8#';
-  const btn=$('#btn-dial');btn.disabled=true;btn.textContent='...';
-  const box=$('#ussd-msg');box.style.display='block';box.textContent='Menghubungi jaringan seluler...';
+  const btn=$('#btn-dial');btn.disabled=true;btn.textContent='Dialing...';
+  const box=$('#ussd-msg');box.style.display='block';box.textContent='Menghubungi operator seluler...';
   try{
    const r=await fetch(`/api/slots/${x.slot_index}/ussd?code=${encodeURIComponent(inp)}`,{method:'POST'});
    const d=await r.json();
@@ -507,58 +757,75 @@ function openDrawer(id){const x=slots.find(s=>s.id===id);if(!x)return;lastF=docu
 }
 
 function closeDrawer(){if(!dr.innerHTML)return;dr.innerHTML='';lastF&&lastF.isConnected&&lastF.focus();lastF=null}
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDrawer();side(false)}});
+document.addEventListener('keydown',e=>{
+ if(e.key==='Escape'){closeDrawer();side(false)}
+ if(e.key==='/'&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)){
+  e.preventDefault();
+  const cur=location.hash.replace('#/','')||'dashboard';
+  if(cur==='sms')$('#sq')?.focus();
+  else $('#gs')?.focus();
+ }
+});
 
 function exportCsv(){
- const headers=['Slot','Nomor SIM','Operator','Port COM','Status','ICCID'];
+ const headers=['Slot','Nomor SIM','Provider','Port COM','Status','ICCID'];
  const rows=slots.map(s=>[s.id,s.num,s.op,s.dev,(ST[s.st]||ST.empty)[0],s.iccid]);
  const content="data:text/csv;charset=utf-8,"+headers.join(',')+"\n"+rows.map(r=>r.join(',')).join("\n");
- const a=document.createElement('a');a.href=encodeURI(content);a.download=`sim_fleet_inventory_${new Date().toISOString().slice(0,10)}.csv`;
+ const a=document.createElement('a');a.href=encodeURI(content);a.download=`sim_inventory_${new Date().toISOString().slice(0,10)}.csv`;
  document.body.appendChild(a);a.click();document.body.removeChild(a);
- toast('File CSV inventaris diunduh.');
+ toast('File CSV inventaris berhasil diunduh.');
 }
 
-/* ---------- SMS ---------- */
+/* ---------- SMS Inbox (Semua Kode & Pesan Ditampilkan Langsung) ---------- */
 const lab=n=>S.labels[n]||'';
-function pSms(){const s=S.sms,o=(a,cur)=>a.map(x=>`<option value="${x[0]}"${x[0]===cur?' selected':''}>${x[1]}</option>`).join('');
- v.innerHTML=`<div class="ph"><p>Pesan masuk dari seluruh slot modem pool. Ekstraksi otomatis kode OTP dan filter per nomor pengirim.</p></div>
+function pSms(){
+ const s=S.sms,o=(a,cur)=>a.map(x=>`<option value="${x[0]}"${x[0]===cur?' selected':''}>${x[1]}</option>`).join('');
+ v.innerHTML=`<div class="ph"><p>Pusat SMS masuk seluruh slot modem pool. Kode OTP dan isi pesan ditampilkan secara langsung tanpa sensor.</p></div>
  <section class="panel sms" id="sms"><div class="list"><div class="tools"><input id="sq" type="search" placeholder="Cari pengirim, nomor, isi pesan" aria-label="Cari SMS" value="${esc(s.q)}">
- <select id="sslot" aria-label="Slot">${o([['all','Semua slot'],...slots.map(x=>[x.id,x.id+' ('+x.dev+')'])],s.slot)}</select>
- <select id="stype" aria-label="Jenis">${o([['all','Semua jenis'],['OTP','OTP'],['Notifikasi','Notifikasi'],['Bawaan','Bawaan']],s.type)}</select></div><div id="sl"></div></div><div class="detail" id="sd"></div></section>`;
- const m={sq:'q',sslot:'slot',stype:'type'};
+ <select id="sslot" aria-label="Slot">${o([['all','Semua slot'],...slots.map(x=>[x.id,x.id+' ('+x.dev+')'])],s.slot)}</select></div><div id="sl"></div></div><div class="detail" id="sd"></div></section>`;
+ const m={sq:'q',sslot:'slot'};
  Object.keys(m).forEach(id=>$('#'+id).oninput=e=>{s[m[id]]=e.target.value;smsList()});
- $('#sms').onclick=async e=>{const t=e.target.closest('[data-m],#bk,#rv,#rl,#cp-sms,#cp-otp');if(!t)return;
-  if(t.dataset.m){s.sel=+t.dataset.m;s.rev=false;smsList();smsDet()}
+ $('#sms').onclick=async e=>{
+  const t=e.target.closest('[data-m],#bk,#rl,#cp-sms,#cp-otp');if(!t)return;
+  if(t.dataset.m){s.sel=+t.dataset.m;smsList();smsDet()}
   else if(t.id==='bk'){s.sel=null;smsList();smsDet()}
-  else if(t.id==='cp-sms'){const x=sms.find(m=>m.id===s.sel);if(x){navigator.clipboard?.writeText(x.body);toast('Isi SMS disalin.')}}
+  else if(t.id==='cp-sms'){const x=sms.find(m=>m.id===s.sel);if(x){navigator.clipboard?.writeText(x.body);toast('Isi SMS disalin ke clipboard.')}}
   else if(t.id==='cp-otp'){const x=sms.find(m=>m.id===s.sel);const match=(x?.body||'').match(/\b\d{4,8}\b/);if(match){navigator.clipboard?.writeText(match[0]);toast('Kode OTP disalin: '+match[0])}}
   else if(t.id==='rl'){const x=sms.find(m=>m.id===s.sel);if(!x)return;const r=await modal({title:'Ubah label pengirim',text:'Label berlaku untuk pengirim '+x.n+'.',ok:'Simpan label',field:{label:'Label',value:lab(x.n)}});if(r){S.labels[x.n]=r;smsList();smsDet();toast('Label disimpan.')}}
  };
- smsList();smsDet()}
+ smsList();smsDet();
+}
 
-function smsList(){const s=S.sms,q=s.q.toLowerCase(),el=$('#sl');
- const a=sms.filter(x=>(s.slot==='all'||x.slot===s.slot)&&(s.type==='all'||x.type===s.type)&&(!q||(x.n+' '+lab(x.n)+' '+x.body).toLowerCase().includes(q)));
+function smsList(){
+ const s=S.sms,q=s.q.toLowerCase(),el=$('#sl');
+ const a=sms.filter(x=>(s.slot==='all'||x.slot===s.slot)&&(!q||(x.n+' '+lab(x.n)+' '+x.body).toLowerCase().includes(q)));
  if(!a.length){el.innerHTML=`<div class="empty"><p>${sms.length?'Tidak ada pesan yang cocok dengan filter.':'Belum ada pesan SMS tersimpan.'}</p></div>`;return}
  const G={};a.sort((p,r)=>p.m-r.m).forEach(x=>(G[x.n]=G[x.n]||[]).push(x));
- el.innerHTML=Object.entries(G).map(([n,l])=>`<div class="gh"><span>${esc(lab(n)||n)}</span><span class="mu">${l.length}</span></div>${l.map(x=>`<button class="mr${x.id===s.sel?' on':''}" data-m="${x.id}"><span class="pv">${esc(x.body)}</span><small>${ago(x.m)} · ${x.slot} · ${x.type} · ${x.st}</small></button>`).join('')}`).join('')}
+ // Pesan ditampilkan secara langsung tanpa fungsi mask()
+ el.innerHTML=Object.entries(G).map(([n,l])=>`<div class="gh"><span>${esc(lab(n)||n)}</span><span class="mu">${l.length}</span></div>${l.map(x=>`<button class="mr${x.id===s.sel?' on':''}" data-m="${x.id}"><span class="pv">${esc(x.body)}</span><small>${ago(x.m)} · ${x.slot} · ${x.type} · ${x.st}</small></button>`).join('')}`).join('');
+}
 
-function smsDet(){const s=S.sms,x=sms.find(m=>m.id===s.sel),d=$('#sd');$('#sms').classList.toggle('det',!!x);
+function smsDet(){
+ const s=S.sms,x=sms.find(m=>m.id===s.sel),d=$('#sd');$('#sms').classList.toggle('det',!!x);
  if(!x){d.innerHTML='<div class="empty"><p>Pilih pesan untuk melihat detail rincian.</p></div>';return}
  const otpMatch=(x.body||'').match(/\b\d{4,8}\b/);
+ // Isi pesan ditampilkan langsung sepenuhnya tanpa tombol samarkan kode
  d.innerHTML=`<button class="btn mob" id="bk">‹ Kembali</button><h3>${esc(lab(x.n)||'Pengirim: '+x.n)}</h3><p class="mu mono">${esc(x.n)}</p>
  <dl style="margin-top:12px"><dt>Diterima</dt><dd>${x.received_at?new Date(x.received_at).toLocaleString('id-ID'):ago(x.m)}</dd><dt>Slot Fisik</dt><dd><b>${x.slot} (${x.port})</b></dd><dt>Status</dt><dd>${x.st}</dd></dl>
- ${otpMatch?`<div class="note" style="border-left-color:var(--ac);display:flex;justify-content:space-between;align-items:center;margin:12px 0;"><div><span style="font-size:12px;color:var(--ac);display:block;font-weight:600;">KODE OTP TERDETEKSI:</span><b class="mono" style="font-size:22px;letter-spacing:2px;color:var(--tx);">${otpMatch[0]}</b></div><button class="btn pri" id="cp-otp">Salin OTP</button></div>`:''}
+ ${otpMatch?`<div class="note" style="border-left-color:var(--ac);display:flex;justify-content:space-between;align-items:center;margin:12px 0;"><div><span style="font-size:12px;color:var(--ac);display:block;font-weight:600;">KODE OTP TERDETEKSI:</span><b class="mono" style="font-size:24px;letter-spacing:2px;color:var(--tx);">${otpMatch[0]}</b></div><button class="btn pri" id="cp-otp">📋 Salin OTP</button></div>`:''}
  <div class="body">${esc(x.body)}</div>
- <div class="row"><button class="btn" id="cp-sms">Salin teks</button><button class="btn" id="rl">Ubah label</button></div>`}
+ <div class="row"><button class="btn" id="cp-sms">Salin teks</button><button class="btn" id="rl">Ubah label</button></div>`;
+}
 
 /* ---------- Pengaturan ---------- */
-function pSet(){const c=S.set,sel=(id,a,cur,lb)=>`<label class="f">${lb}<select id="${id}">${a.map(x=>`<option${x===cur?' selected':''}>${x}</option>`).join('')}</select></label>`;
+function pSet(){
+ const c=S.set,sel=(id,a,cur,lb)=>`<label class="f">${lb}<select id="${id}">${a.map(x=>`<option${x===cur?' selected':''}>${x}</option>`).join('')}</select></label>`;
  v.innerHTML=`<form class="sec" id="sf" novalidate>
  <section class="panel"><h3>Konfigurasi USSD Operator</h3>
- <p class="mu" style="margin-bottom:12px;">Kode USSD yang dijalankan otomatis saat kartu SIM baru terdeteksi di modem pool.</p>
+ <p class="mu" style="margin-bottom:12px;">Kode dial USSD otomatis untuk pengecekan nomor saat SIM baru dimasukkan ke modem pool.</p>
  <div class="grid" id="op-list">
   ${operatorProfiles.map(p=>`
-    <div style="background:var(--p2);border:1px solid var(--ln);border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+    <div style="background:var(--p2);border:1px solid var(--ln);border-radius:8px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
       <div><b>${esc(p.name)}</b> <span class="mu mono" style="font-size:12px;">(${p.iccid_prefixes||'-'})</span><br><span class="mu" style="font-size:12px;">${esc(p.description||'')}</span></div>
       <div class="row" style="gap:6px;"><input id="op-code-${p.id}" value="${esc(p.ussd_code)}" style="font-family:monospace;width:130px;"><button type="button" class="btn pri" onclick="saveOp('${p.id}')">Simpan</button></div>
     </div>
@@ -566,22 +833,22 @@ function pSet(){const c=S.set,sel=(id,a,cur,lb)=>`<label class="f">${lb}<select 
  </div>
  </section>
  
- <section class="panel"><h3>Tampilan Dashboard</h3><div class="fg">${sel('theme',['dark','light'],c.theme,'Tema antarmuka')}${sel('density',['comfortable','compact'],c.density,'Kepadatan tabel')}</div></section>
+ <section class="panel"><h3>Tampilan Dashboard</h3><div class="fg">${sel('theme',['dark','light'],c.theme,'Tema antarmuka')}${sel('density',['comfortable','compact'],c.density,'Kepadatan elemen')}</div></section>
  
  <section class="panel"><h3>Hardware &amp; Modem Pool</h3>
- <ul class="list0">
-   <li><span>Chassis</span><b>Foxcom 32-Port USB Rack</b></li>
-   <li><span>Chipset UART</span><span class="mono">Exar XR21V1414 (8-Port Quad UART)</span></li>
-   <li><span>Modul Seluler</span><span>Quectel M26 (GSM/GPRS/USSD)</span></li>
-   <li><span>Baudrate</span><span class="mono">115200 bps · 8-N-1</span></li>
-   <li><span>Auto-Detector</span><span class="b ok">Aktif (Daemon Background 4.0s)</span></li>
-   <li><span>Tautan Publik (Cloudflare)</span><a href="https://scpool.ardh1337.cloud" target="_blank" style="color:var(--ac);">https://scpool.ardh1337.cloud</a></li>
+ <ul class="list0" style="list-style:none;padding:0;margin:0;">
+   <li style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--ln)"><span>Chassis Pool</span><b>${esc(poolInfo.pool)}</b></li>
+   <li style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--ln)"><span>Modul Seluler</span><b style="color:var(--ac);">${esc(poolInfo.model)}</b></li>
+   <li style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--ln)"><span>Chipset UART</span><span class="mono">${esc(poolInfo.chipset)}</span></li>
+   <li style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--ln)"><span>Baudrate</span><span class="mono">115200 bps · 8-N-1</span></li>
+   <li style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--ln)"><span>Tautan Cloudflare</span><a href="https://scpool.ardh1337.cloud" target="_blank" style="color:var(--ac);">https://scpool.ardh1337.cloud</a></li>
  </ul>
  </section>
 
  <div class="row end"><button class="btn pri">Simpan preferensi tampilan</button></div></form>`;
 
- $('#sf').onsubmit=e=>{e.preventDefault();
+ $('#sf').onsubmit=e=>{
+  e.preventDefault();
   Object.assign(S.set,{theme:$('#theme').value,density:$('#density').value});
   apply();toast('Preferensi tampilan disimpan.');
  };
