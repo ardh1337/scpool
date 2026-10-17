@@ -1,159 +1,503 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" data-theme="dark" data-density="comfortable">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SIM Inventory & SMS Hub - Foxcom 32-Port</title>
-  <link rel="stylesheet" href="/static/style.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SIM Fleet · SIM Inventory &amp; SMS Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#111413;--pn:#171b1a;--p2:#1e2322;--ln:#2a3230;--tx:#e7ece9;--mu:#99a49f;--ac:#34d399;--ai:#04130d;--wn:#f2b84b;--er:#f47c7c;--of:#8f9aa4;--rp:12px;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html[data-theme=light]{--bg:#f3f6f4;--pn:#fff;--p2:#edf1ef;--ln:#d5dcd8;--tx:#16201c;--mu:#56635d;--ac:#0a7f58;--ai:#fff;--wn:#9a5f00;--er:#b93232;--of:#5b6670;color-scheme:light}
+html[data-density=compact]{--rp:6px}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--tx);font:14px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:30}
+h1,h2,h3,p{margin:0}h3{font-size:14px;font-weight:600}
+:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+button,input,select{font:inherit;color:inherit}
+a{color:inherit;text-decoration:none}
+.app{display:flex;min-height:100%}
+.side{width:224px;flex:none;background:var(--pn);border-right:1px solid var(--ln);padding:16px 12px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:20px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;padding:4px 8px}
+.logo{width:26px;height:26px;border-radius:7px;background:var(--ac);color:var(--ai);display:grid;place-items:center;font-size:13px;font-weight:700}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav a{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:8px;color:var(--mu)}
+.nav a:hover{background:var(--p2);color:var(--tx)}
+.nav a.on{background:var(--p2);color:var(--tx);box-shadow:inset 2px 0 var(--ac)}
+svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.sf{margin-top:auto;color:var(--mu);font-size:12px;padding:0 8px;display:flex;flex-direction:column;gap:4px}
+.sf a{color:var(--ac);text-decoration:none}
+.sf a:hover{text-decoration:underline}
+.main{flex:1;min-width:0}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;display:flex;align-items:center;gap:10px;padding:10px 24px;background:var(--bg);border-bottom:1px solid var(--ln)}
+.top h1{font-size:16px;font-weight:600;margin-right:auto}
+.burger{display:none}
+#gs{width:220px;max-width:32vw}
+main{padding:20px 24px 40px;max-width:1280px;outline:none}
+.ph{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;color:var(--mu)}
+.panel{background:var(--pn);border:1px solid var(--ln);border-radius:var(--rp);padding:16px}
+.panel>h3{margin-bottom:12px}
+.grid{display:grid;gap:12px}
+.cards{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:12px}
+.card{background:var(--pn);border:1px solid var(--ln);border-radius:var(--rp);padding:14px 16px}
+.card span{color:var(--mu);font-size:12px}.card b{display:block;font-size:24px;font-weight:600;margin-top:2px}
+.two{grid-template-columns:3fr 2fr}
+.note{border:1px solid var(--ln);border-left:3px solid var(--wn);background:var(--pn);border-radius:8px;padding:10px 14px;margin-bottom:12px;color:var(--mu)}
+.note b{color:var(--tx)}
+.bar{display:flex;height:10px;border-radius:6px;overflow:hidden;background:var(--p2);margin:4px 0 14px}
+.bar i{display:block}
+.act{background:var(--ac)}.emp{background:#566}.off{background:var(--wn)}.err{background:var(--er)}
+.leg{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.leg div{display:flex;align-items:center;gap:8px}.leg i{width:8px;height:8px;border-radius:50%}
+.list0{list-style:none;margin:0;padding:0}
+.list0 li{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid var(--ln)}
+.list0 li:first-child{border-top:0}
+.mu{color:var(--mu)}.mono{font-variant-numeric:tabular-nums;font-family:monospace}
+.btn{background:var(--p2);border:1px solid var(--ln);border-radius:8px;padding:7px 12px;cursor:pointer}
+.btn:hover:not(:disabled){border-color:var(--mu)}.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.pri{background:var(--ac);color:var(--ai);border-color:var(--ac);font-weight:600}
+.btn.danger{color:var(--er);border-color:var(--er);background:transparent}
+.btn.ic{padding:6px 9px;line-height:1}
+input,select{background:var(--bg);border:1px solid var(--ln);border-radius:8px;padding:7px 10px;min-width:0}
+input[aria-invalid=true]{border-color:var(--er)}
+.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.tools input[type=search]{flex:1;min-width:180px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chips button{border-radius:20px;padding:5px 12px;background:transparent;border:1px solid var(--ln);cursor:pointer;color:var(--mu)}
+.chips button[aria-pressed=true]{background:var(--ac);color:var(--ai);border-color:var(--ac);font-weight:600}
+.tw{overflow-x:auto;border:1px solid var(--ln);border-radius:8px}
+table{width:100%;border-collapse:collapse;white-space:nowrap}
+th,td{text-align:left;padding:var(--rp) 14px}
+th{font-weight:500;color:var(--mu);background:var(--p2);padding-block:8px}
+th button{background:none;border:0;cursor:pointer;color:inherit;padding:0}
+tbody tr{border-top:1px solid var(--ln);cursor:pointer}tbody tr:hover{background:var(--p2)}
+.b{display:inline-block;border:1px solid currentColor;border-radius:20px;padding:0 9px;font-size:12px}
+.b.ok{color:var(--ac)}.b.mute{color:var(--of)}.b.warn{color:var(--wn)}.b.err{color:var(--er)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.tile{text-align:left;background:var(--p2);border:1px solid var(--ln);border-radius:var(--rp);padding:10px;cursor:pointer;display:grid;gap:4px}
+.pg{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:12px;color:var(--mu)}
+.pg div{display:flex;gap:8px;align-items:center}
+.empty{text-align:center;padding:40px 16px;color:var(--mu);display:grid;gap:10px;justify-items:center}
+.scr{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:40}
+.dw{position:fixed;top:0;right:0;bottom:0;width:min(420px,100%);background:var(--pn);border-left:1px solid var(--ln);z-index:41;padding:16px 20px;overflow:auto;display:flex;flex-direction:column;gap:14px}
+.dh{display:flex;justify-content:space-between;align-items:center}
+dl{margin:0;display:grid;grid-template-columns:110px 1fr;gap:8px 12px}dt{color:var(--mu)}dd{margin:0}
+.row{display:flex;gap:8px;flex-wrap:wrap}.end{justify-content:flex-end}
+.sms{display:grid;grid-template-columns:minmax(300px,380px) 1fr;gap:0;padding:0;overflow:hidden;min-height:560px}
+.sms .list{padding:12px;border-right:1px solid var(--ln);max-height:72vh;overflow:auto}
+.sms .detail{padding:20px}
+.sms .tools select{flex:1;min-width:110px}
+.gh{padding:10px 4px 4px;font-weight:600;display:flex;justify-content:space-between;position:sticky;top:-12px;background:var(--pn)}
+.mr{display:grid;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--ln);padding:9px 8px;cursor:pointer;gap:2px;border-radius:0}
+.mr:hover,.mr.on{background:var(--p2)}.mr.on{box-shadow:inset 2px 0 var(--ac)}
+.mr .pv{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mr small{color:var(--mu)}
+.body{background:var(--bg);border:1px solid var(--ln);border-radius:8px;padding:14px;margin:14px 0;white-space:pre-wrap;word-break:break-word}
+.mob{display:none}
+.sk{height:52px;border-radius:8px;background:var(--p2);margin:8px 0;animation:p 1.2s ease-in-out infinite}
+@keyframes p{50%{opacity:.5}}
+.sec{display:grid;gap:14px;max-width:800px}
+.f{display:grid;gap:4px}.f small,.er{color:var(--er);min-height:0}
+.tg{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--ln)}
+.tg:first-of-type{border-top:0}
+.tg input{width:18px;height:18px;accent-color:var(--ac)}
+.fg{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.pop{position:relative}
+.pm{position:absolute;right:0;top:calc(100% + 6px);min-width:240px;background:var(--pn);border:1px solid var(--ln);border-radius:10px;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,.35);z-index:25}
+.pm a,.pm button{display:block;width:100%;text-align:left;background:none;border:0;padding:8px 10px;border-radius:6px;cursor:pointer}
+.pm a:hover,.pm button:hover{background:var(--p2)}
+.dot{position:absolute;top:2px;right:2px;width:8px;height:8px;background:var(--er);border-radius:50%}
+dialog{background:var(--pn);color:var(--tx);border:1px solid var(--ln);border-radius:12px;padding:20px;width:min(420px,92vw)}
+dialog::backdrop{background:rgba(0,0,0,.55)}dialog form{display:grid;gap:12px}
+#toasts{position:fixed;bottom:16px;right:16px;display:grid;gap:8px;z-index:60}
+.ts{background:var(--pn);border:1px solid var(--ln);border-left:3px solid var(--ac);border-radius:8px;padding:10px 14px;max-width:320px}
+.ts.err{border-left-color:var(--er)}
+@media (max-width:899px){
+ .two{grid-template-columns:1fr}
+ .sms{grid-template-columns:1fr}.sms .list{border-right:0;max-height:none}
+ .sms.det .list,.sms:not(.det) .detail{display:none}.mob{display:inline-block;margin-bottom:8px}
+}
+@media (max-width:768px){
+ .side{position:fixed;left:0;top:0;z-index:50;transform:translateX(-100%);transition:transform .2s}
+ .side.open{transform:none}.burger{display:inline-block}
+ .top,main{padding-inline:14px}#gs{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
 </head>
 <body>
-  <div class="app-container">
-    <!-- Header -->
-    <header class="app-header">
-      <div class="header-left">
-        <div class="header-title-row">
-          <h1>SIM Inventory & SMS Hub</h1>
-          <span class="badge pool-badge">Foxcom 32-Port (Quectel M26)</span>
-        </div>
-        <p class="header-subtitle">Pemantauan perangkat keras modem pool, siklus kartu SIM, dan manajemen SMS.</p>
-      </div>
+<div class="app">
+<aside class="side" id="side" aria-label="Navigasi utama">
+ <div class="brand"><span class="logo">S</span>SIM Fleet</div>
+ <nav class="nav" id="nav"></nav>
+ <div class="sf">
+   <span>Foxcom 32-Port · Live</span>
+   <a href="https://scpool.ardh1337.cloud" target="_blank">🌐 scpool.ardh1337.cloud</a>
+ </div>
+</aside>
+<div class="main">
+ <header class="top">
+  <button class="btn ic burger" id="bg" aria-label="Buka menu"><svg class="i" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  <h1 id="title">Dashboard</h1>
+  <input id="gs" type="search" placeholder="Cari slot atau nomor…" aria-label="Pencarian global">
+  <button class="btn ic" id="top-sync" title="Sinkronkan Hardware"><svg class="i" viewBox="0 0 24 24"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg></button>
+  <button class="btn ic" id="top-poll" title="Periksa SMS Baru"><svg class="i" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></button>
+  <div class="pop"><button class="btn ic" data-pop="np" aria-label="Notifikasi" aria-expanded="false"><svg class="i" viewBox="0 0 24 24"><path d="M6 17V11a6 6 0 0112 0v6l2 2H4zM10 21h4"/></svg><span class="dot"></span></button><div class="pm" id="np" hidden></div></div>
+  <div class="pop"><button class="btn" data-pop="pp" aria-expanded="false">Admin Pool</button><div class="pm" id="pp" hidden><a href="#/pengaturan">Pengaturan</a><button id="lo">Status: Online</button></div></div>
+ </header>
+ <main id="view" tabindex="-1"></main>
+</div></div>
+<div id="dr"></div><dialog id="dlg"></dialog><div id="toasts" aria-live="polite"></div>
+<script>
+const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const IC={dashboard:'M4 4h7v7H4zM13 4h7v4h-7zM13 11h7v9h-7zM4 14h7v6H4z',inventaris:'M5 3h9l5 5v13H5zM9 13h6M9 17h6',sms:'M4 5h16v11H9l-5 4z',pengaturan:'M12 9a3 3 0 100 6 3 3 0 000-6zM19 12l2-1-2-4-2 1-2-1-1-2h-4l-1 2-2 1-2-1-2 4 2 1v2l-2 1 2 4 2-1 2 1 1 2h4l1-2 2-1 2 1 2-4-2-1z'};
+const ic=n=>`<svg class="i" viewBox="0 0 24 24"><path d="${IC[n]}"/></svg>`;
+const NAV=[['dashboard','Dashboard'],['inventaris','Inventaris SIM'],['sms','SMS Inbox'],['pengaturan','Pengaturan']];
+$('#nav').innerHTML=NAV.map(([k,l])=>`<a href="#/${k}" data-k="${k}">${ic(k)}${l}</a>`).join('');
 
-      <div class="header-actions">
-        <button id="btn-operator-settings" class="btn btn-secondary" onclick="openOperatorModal()">
-          <span class="icon">⚙️</span> Pengaturan Operator
-        </button>
-        <button id="btn-sync" class="btn btn-primary" onclick="syncHardware()">
-          <span class="icon">🔄</span> Sinkronkan Hardware
-        </button>
-        <button id="btn-poll-sms" class="btn btn-secondary" onclick="pollSMS()">
-          <span class="icon">📩</span> Periksa SMS Baru
-        </button>
-      </div>
-    </header>
+/* ---------- State & Integrasi Backend Live ---------- */
+const ST={active:['Aktif','ok'],empty:['Kosong','mute'],offline:['Offline','warn'],error:['Error','err']};
+const NOTE={active:'SIM terdeteksi dan terdaftar.',empty:'Tidak ada SIM terpasang.',offline:'Modem tidak merespons pada polling terakhir.',error:'Port melaporkan kesalahan; tidak diberi nomor urut.'};
 
-    <!-- Stats Bar -->
-    <section class="stats-bar">
-      <div class="stat-card">
-        <span class="stat-label">Total Slot Fisik</span>
-        <span class="stat-value" id="stat-total">32</span>
-      </div>
-      <div class="stat-card stat-ready">
-        <span class="stat-label">SIM Aktif (READY)</span>
-        <span class="stat-value" id="stat-ready">0</span>
-      </div>
-      <div class="stat-card stat-empty">
-        <span class="stat-label">Slot Kosong</span>
-        <span class="stat-value" id="stat-empty">0</span>
-      </div>
-      <div class="stat-card stat-sms">
-        <span class="stat-label">Total SMS Masuk</span>
-        <span class="stat-value" id="stat-sms">0</span>
-      </div>
-    </section>
+let slots = Array.from({length:32},(_,i)=>({
+ id:'P'+String(i+1).padStart(2,'0'),slot_index:i+1,st:'empty',num:'—',op:'—',dev:'COM-',iccid:'—',m:0,sms_count:0
+}));
+let sms = [];
+let operatorProfiles = [];
+let lastActivity = [];
 
-    <!-- Slot Sections (Chassis Bank 1: 1-16 & Bank 2: 17-32) -->
-    <main class="main-content">
-      <section class="bank-section">
-        <div class="bank-header">
-          <h2>Baris Atas &mdash; Slot 1 s.d. 16</h2>
-          <span class="bank-hint">Chip 1 s.d. Chip 4</span>
-        </div>
-        <div class="slots-grid" id="grid-bank-1">
-          <!-- Diisi via JavaScript -->
-        </div>
-      </section>
+const S={inv:{q:'',st:'all',sort:'id',dir:1,page:1,size:10,view:'table'},sms:{q:'',slot:'all',date:'all',type:'all',st:'all',sel:null,rev:false,state:'ok'},labels:{},
+ set:{org:'Foxcom 32-Port Pool',tz:'Asia/Jakarta (WIB)',theme:'dark',density:'comfortable',nAlert:true,nSms:true,nMail:false,prof:'32',poll:4,skip:true,ret:'90'}};
+const v=$('#view'),dlg=$('#dlg'),dr=$('#dr');
 
-      <section class="bank-section">
-        <div class="bank-header">
-          <h2>Baris Bawah &mdash; Slot 17 s.d. 32</h2>
-          <span class="bank-hint">Chip 5 s.d. Chip 8</span>
-        </div>
-        <div class="slots-grid" id="grid-bank-2">
-          <!-- Diisi via JavaScript -->
-        </div>
-      </section>
+const ago=m=>m<1?'Baru saja':m<60?m+' mnt lalu':m<1440?Math.floor(m/60)+' jam lalu':Math.floor(m/1440)+' hari lalu';
+const mask=s=>String(s).replace(/\d{4,}/g,'••••');
+const bd=st=>`<span class="b ${(ST[st]||ST.empty)[1]}">${(ST[st]||ST.empty)[0]}</span>`;
+const cnt=()=>slots.reduce((a,s)=>{const k=s.st in a?s.st:'empty';a[k]++;return a},{active:0,empty:0,offline:0,error:0});
 
-      <!-- Global SMS Feed Section -->
-      <section class="sms-feed-section">
-        <div class="sms-feed-header">
-          <h2>Feed Pesan SMS Terkini</h2>
-          <div class="sms-search-box">
-            <input type="text" id="sms-search" placeholder="Cari pengirim atau kata kunci..." oninput="filterSMS()">
-          </div>
-        </div>
-        <div class="sms-feed-list" id="sms-feed-list">
-          <p class="empty-text">Belum ada pesan SMS yang tersimpan.</p>
-        </div>
-      </section>
-    </main>
-  </div>
+/* ---------- Pengambilan Data Nyata dari FastAPI (/api/...) ---------- */
+async function fetchBackendData(){
+ try{
+  const [resStatus, resSlots, resSMS, resOps] = await Promise.all([
+   fetch('/api/status').then(r=>r.ok?r.json():null).catch(()=>null),
+   fetch('/api/slots').then(r=>r.ok?r.json():null).catch(()=>null),
+   fetch('/api/sms?limit=100').then(r=>r.ok?r.json():null).catch(()=>null),
+   fetch('/api/operators').then(r=>r.ok?r.json():null).catch(()=>null)
+  ]);
 
-  <!-- Modal Detail Slot & SMS -->
-  <div class="modal-overlay" id="slot-modal">
-    <div class="modal-card">
-      <div class="modal-header">
-        <div>
-          <h3 id="modal-slot-title">Detail Slot</h3>
-          <span class="modal-port-badge" id="modal-slot-port">COM-</span>
-        </div>
-        <button class="modal-close-btn" onclick="closeModal()">&times;</button>
-      </div>
+  if(resSlots && Array.isArray(resSlots)){
+   slots = resSlots.map(s => {
+    let st = 'empty';
+    if(s.status === 'READY') st = 'active';
+    else if(s.status === 'SIM_ERROR') st = 'error';
+    else if(s.status === 'PORT_ERROR') st = 'offline';
 
-      <div class="modal-body">
-        <div class="slot-info-summary">
-          <div class="info-row">
-            <span class="label">Nomor Telepon:</span>
-            <span class="val font-mono" id="modal-phone">BELUM DIKETAHUI</span>
-          </div>
-          <div class="info-row">
-            <span class="label">Operator:</span>
-            <span class="val" id="modal-operator">-</span>
-          </div>
-          <div class="info-row">
-            <span class="label">ICCID:</span>
-            <span class="val font-mono" id="modal-iccid">-</span>
-          </div>
-        </div>
+    const numDisplay = (st === 'active' && s.phone_number) ? s.phone_number : (st === 'active' ? 'BELUM DIKETAHUI' : '—');
+    return {
+     id: 'P' + String(s.slot_index).padStart(2,'0'),
+     slot_index: s.slot_index,
+     st: st,
+     num: numDisplay,
+     op: s.operator_name || (st === 'active' ? 'SIM' : '—'),
+     dev: s.port_name || 'COM-',
+     iccid: s.iccid_masked || '—',
+     seq: st === 'active' ? s.slot_index : null,
+     sms_count: s.sms_count || 0,
+     m: 1
+    };
+   });
+  }
 
-        <div class="modal-ussd-row">
-          <input type="text" id="ussd-input" value="*808*7*8#" placeholder="Kode USSD (misal: *808*7*8#)">
-          <button class="btn btn-outline" id="btn-run-ussd" onclick="runSlotUSSD()">Dial USSD</button>
-        </div>
-        <div id="ussd-result-banner" class="ussd-banner hidden"></div>
+  if(resSMS && Array.isArray(resSMS)){
+   sms = resSMS.map(m => {
+    const isOtp = /\b\d{4,8}\b/.test(m.body || '');
+    const minAgo = m.received_at ? Math.max(0, Math.floor((Date.now() - new Date(m.received_at).getTime()) / 60000)) : 0;
+    return {
+     id: m.id,
+     n: m.sender || 'Tanpa Pengirim',
+     l: S.labels[m.sender] || '',
+     type: isOtp ? 'OTP' : (m.status === 'PESAN BAWAAN' ? 'Bawaan' : 'Notifikasi'),
+     slot: 'P' + String(m.slot_index).padStart(2,'0'),
+     slot_index: m.slot_index,
+     port: m.port_name || 'COM-',
+     m: minAgo,
+     st: m.status === 'PESAN BAWAAN' ? 'Bawaan' : 'Diterima',
+     body: m.body || '',
+     received_at: m.received_at
+    };
+   });
+  }
 
-        <div class="slot-sms-list-header">
-          <h4>Pesan Masuk Pada Sesi Ini</h4>
-        </div>
-        <div class="slot-sms-list" id="modal-sms-list">
-          <p class="empty-text">Tidak ada pesan untuk slot ini.</p>
-        </div>
-      </div>
+  if(resOps && Array.isArray(resOps)){
+   operatorProfiles = resOps;
+  }
+
+  refreshBell();
+  // Refresh tampilan aktif bila tidak sedang interaksi dialog
+  if(!dr.innerHTML && !dlg.open){
+   const cur = location.hash.replace('#/','') || 'dashboard';
+   if(cur === 'dashboard') pDash();
+   else if(cur === 'inventaris') invRes();
+   else if(cur === 'sms') { smsList(); smsDet(); }
+  }
+ }catch(err){
+  console.warn('Backend sync poll:', err);
+ }
+}
+
+/* Polling data setiap 4 detik */
+setInterval(fetchBackendData, 4000);
+fetchBackendData();
+
+/* ---------- Util UI ---------- */
+function toast(msg,err){const t=document.createElement('div');t.className='ts'+(err?' err':'');t.textContent=msg;$('#toasts').append(t);setTimeout(()=>t.remove(),3500)}
+function modal({title,text='',ok='Konfirmasi',danger,field}){return new Promise(res=>{
+ dlg.innerHTML=`<form method="dialog"><h3>${title}</h3><p class="mu">${text}</p>${field?`<label class="f">${field.label}<input id="mf" maxlength="30" value="${esc(field.value||'')}"><small id="me"></small></label>`:''}<div class="row end"><button value="x" class="btn" formnovalidate>Batal</button><button value="ok" class="btn ${danger?'danger':'pri'}">${ok}</button></div></form>`;
+ $('form',dlg).onsubmit=e=>{if(field&&e.submitter&&e.submitter.value==='ok'&&!$('#mf').value.trim()){e.preventDefault();$('#me').textContent='Kolom tidak boleh kosong.';$('#mf').setAttribute('aria-invalid','true')}};
+ dlg.onclose=()=>res(dlg.returnValue==='ok'?(field?$('#mf').value.trim():true):false);
+ dlg.returnValue='';dlg.showModal()})}
+const goto=h=>{location.hash===h?route():location.hash=h};
+function side(o){$('#side').classList.toggle('open',o);$('#bg').setAttribute('aria-label',o?'Tutup menu':'Buka menu');let s=$('#sc');if(o&&!s){s=document.createElement('div');s.id='sc';s.className='scr';s.style.zIndex=45;s.onclick=()=>side(false);document.body.append(s)}if(!o&&s)s.remove()}
+$('#bg').onclick=()=>side(!$('#side').classList.contains('open'));
+$$('[data-pop]').forEach(b=>b.onclick=e=>{e.stopPropagation();const m=$('#'+b.dataset.pop),was=m.hidden;$$('.pm').forEach(x=>x.hidden=true);$$('[data-pop]').forEach(x=>x.setAttribute('aria-expanded','false'));m.hidden=!was;b.setAttribute('aria-expanded',String(was))});
+document.addEventListener('click',()=>$$('.pm').forEach(x=>x.hidden=true));
+$('#lo').onclick=()=>toast('Status sistem: Terhubung ke Foxcom 32-Port Pool.');
+$('#gs').onkeydown=e=>{if(e.key==='Enter'){Object.assign(S.inv,{q:e.target.value.trim(),st:'all',page:1});e.target.value='';goto('#/inventaris')}};
+
+// Topbar Trigger Action (Sinkronkan & Periksa SMS)
+$('#top-sync').onclick=async()=>{
+ const b=$('#top-sync');b.disabled=true;toast('Menyinkronkan 32 port hardware...');
+ try{await fetch('/api/sync',{method:'POST'});await fetchBackendData();toast('Sinkronisasi selesai.')}
+ catch(e){toast('Gagal sinkronisasi: '+e.message,1)}finally{b.disabled=false}
+};
+$('#top-poll').onclick=async()=>{
+ const b=$('#top-poll');b.disabled=true;toast('Membaca SMS masuk...');
+ try{await fetch('/api/poll-sms',{method:'POST'});await fetchBackendData();toast('Pemeriksaan SMS selesai.')}
+ catch(e){toast('Gagal baca SMS: '+e.message,1)}finally{b.disabled=false}
+};
+
+const alerts=()=>slots.filter(s=>s.st==='offline'||s.st==='error');
+const refreshBell=()=>{const a=alerts();$('#np').innerHTML=a.length?a.map(s=>`<a href="#/inventaris" data-s="${s.id}">${s.id} · ${ST[s.st][0]}<br><span class="mu">${NOTE[s.st]}</span></a>`).join(''):'<p class="mu" style="padding:8px">Semua port normal. Tidak ada peringatan.</p>';$$('#np a').forEach(a=>a.onclick=()=>{Object.assign(S.inv,{q:a.dataset.s,st:'all',page:1})});$('.dot').hidden=!a.length};
+
+/* ---------- Router ---------- */
+const R={dashboard:['Dashboard',pDash],inventaris:['Inventaris SIM',pInv],sms:['SMS Inbox',pSms],pengaturan:['Pengaturan',pSet]};
+function route(){const h=location.hash.replace('#/','');const k=R[h]?h:'dashboard';
+ $('#title').textContent=R[k][0];document.title=R[k][0]+' · SIM Fleet · SIM Inventory';
+ $$('#nav a').forEach(a=>{const on=a.dataset.k===k;a.classList.toggle('on',on);on?a.setAttribute('aria-current','page'):a.removeAttribute('aria-current')});
+ closeDrawer();side(false);refreshBell();R[k][1]();v.focus({preventScroll:true});scrollTo(0,0)}
+addEventListener('hashchange',route);
+
+/* ---------- Dashboard ---------- */
+function pDash(){const c=cnt(),prob=c.offline+c.error,today=sms.filter(m=>m.m<1440).length,al=alerts();
+ const cards=[['Total slot',slots.length],['SIM aktif',c.active],['Slot kosong',c.empty],['Port bermasalah',prob],['SMS tercatat',sms.length+' ('+today+' hari ini)']];
+ const seg=[['act','Aktif',c.active],['emp','Kosong',c.empty],['off','Offline',c.offline],['err','Error',c.error]];
+ v.innerHTML=`<div class="note"><b>SIM Fleet Live Hardware:</b> Terhubung ke 32-Port modem pool Foxcom. Auto-detector aktif di background.</div>
+ <div class="grid cards">${cards.map(x=>`<div class="card"><span>${x[0]}</span><b>${x[1]}</b></div>`).join('')}</div>
+ <div class="grid two"><section class="panel"><h3>Ringkasan status inventaris</h3>
+  <div class="bar" role="img" aria-label="Distribusi status slot">${seg.map(s=>`<i class="${s[0]}" style="width:${slots.length?s[2]/slots.length*100:0}%"></i>`).join('')}</div>
+  <div class="leg">${seg.map(s=>`<div><i class="${s[0]}"></i>${s[1]} <b>${s[2]}</b></div>`).join('')}</div>
+  <p class="mu" style="margin-top:14px">Koneksi modem pool: <span class="b ok">Terhubung (Foxcom 32-Port)</span></p></section>
+ <section class="panel"><h3>Peringatan perangkat</h3>${al.length?`<ul class="list0">${al.map(s=>`<li><span>${s.id} (${s.dev}) ${bd(s.st)}<br><span class="mu">${NOTE[s.st]}</span></span><button class="btn" data-q="${s.id}">Lihat</button></li>`).join('')}</ul>`:'<p class="mu">Semua port beroperasi normal.</p>'}</section></div>
+ <section class="panel" style="margin-top:12px"><h3>Pesan SMS Terbaru</h3>
+ ${sms.length?`<ul class="list0">${sms.slice(0,5).map(m=>`<li><span><b>${esc(m.n)}</b> <span class="mu">${m.slot} (${m.port})</span><br><span class="mu">${esc(m.body.slice(0,80))}${m.body.length>80?'...':''}</span></span><button class="btn" onclick="openSmsDetail(${m.id})">Baca</button></li>`).join('')}</ul>`:'<p class="mu">Belum ada pesan SMS tersimpan.</p>'}
+ </section>`;
+ $$('[data-q]',v).forEach(b=>b.onclick=()=>{Object.assign(S.inv,{q:b.dataset.q,st:'all',page:1});goto('#/inventaris')})}
+
+function openSmsDetail(smsId){
+ Object.assign(S.sms,{sel:smsId,rev:false});
+ goto('#/sms');
+}
+
+/* ---------- Inventaris ---------- */
+function pInv(){const s=S.inv,F=[['all','Semua'],['active','Aktif'],['empty','Kosong'],['offline','Offline'],['error','Error']];
+ v.innerHTML=`<div class="ph"><p>Daftar 32 slot fisik modem pool. Nomor urut sesuai deteksi kartu SIM aktif pada hardware.</p><button class="btn" id="btn-export-csv">📥 Ekspor CSV</button></div>
+ <section class="panel"><div class="tools"><input id="iq" type="search" placeholder="Cari slot, nomor SIM, operator, port, atau ICCID" aria-label="Cari inventaris" value="${esc(s.q)}">
+ <div class="chips" role="group" aria-label="Filter status">${F.map(f=>`<button data-f="${f[0]}" aria-pressed="${s.st===f[0]}">${f[1]}</button>`).join('')}</div>
+ <div class="chips" role="group" aria-label="Tampilan">${[['table','Tabel'],['grid','Grid']].map(f=>`<button data-vw="${f[0]}" aria-pressed="${s.view===f[0]}">${f[1]}</button>`).join('')}</div></div><div id="ires"></div></section>`;
+ $('#iq').oninput=e=>{s.q=e.target.value;s.page=1;invRes()};
+ $$('[data-f]',v).forEach(b=>b.onclick=()=>{s.st=b.dataset.f;s.page=1;$$('[data-f]',v).forEach(x=>x.setAttribute('aria-pressed',x===b));invRes()});
+ $$('[data-vw]',v).forEach(b=>b.onclick=()=>{s.view=b.dataset.vw;$$('[data-vw]',v).forEach(x=>x.setAttribute('aria-pressed',x===b));invRes()});
+ $('#btn-export-csv').onclick=exportCsv;
+ const r=$('#ires');
+ r.onclick=e=>{const t=e.target.closest('[data-s],[data-id],[data-pg],#rs');if(!t)return;
+  if(t.dataset.s){s.dir=s.sort===t.dataset.s?-s.dir:1;s.sort=t.dataset.s;invRes()}
+  else if(t.dataset.id)openDrawer(t.dataset.id);
+  else if(t.dataset.pg){s.page+=+t.dataset.pg;invRes()}
+  else{s.q='';s.st='all';$('#iq').value='';$$('[data-f]',v).forEach(x=>x.setAttribute('aria-pressed',x.dataset.f==='all'));invRes()}};
+ r.onkeydown=e=>{if(e.key==='Enter'&&e.target.dataset.id)openDrawer(e.target.dataset.id)};
+ r.onchange=e=>{if(e.target.id==='ps'){s.size=+e.target.value;s.page=1;invRes()}};
+ invRes()}
+
+function invRes(){const s=S.inv,q=s.q.toLowerCase();
+ const a=slots.filter(x=>(s.st==='all'||x.st===s.st)&&(!q||[x.id,x.num,x.op,x.dev,x.iccid].join(' ').toLowerCase().includes(q)));
+ const g={id:x=>x.slot_index,num:x=>x.num,op:x=>x.op,dev:x=>x.dev,st:x=>(ST[x.st]||ST.empty)[0],upd:x=>x.m};
+ a.sort((p,r)=>{const A=g[s.sort](p),B=g[s.sort](r);return(A>B?1:A<B?-1:0)*s.dir});
+ const pages=Math.max(1,Math.ceil(a.length/s.size));s.page=Math.min(s.page,pages);
+ const from=(s.page-1)*s.size,sl=a.slice(from,from+s.size);let h;
+ if(!a.length)h=`<div class="empty"><p>Tidak ada slot yang cocok dengan pencarian atau filter.</p><button class="btn" id="rs">Atur ulang filter</button></div>`;
+ else if(s.view==='grid')h=`<div class="tiles">${sl.map(x=>`<button class="tile" data-id="${x.id}"><span><b>${x.id}</b> <span class="mu">(${x.dev})</span></span><span class="mono">${x.num}</span><span>${bd(x.st)}</span></button>`).join('')}</div>`;
+ else{const th=[['id','Slot ID'],['num','Nomor SIM'],['op','Operator'],['dev','Port COM'],['st','Status'],['upd','ICCID']];
+  h=`<div class="tw"><table><thead><tr>${th.map(c=>`<th scope="col" aria-sort="${s.sort===c[0]?(s.dir>0?'ascending':'descending'):'none'}"><button data-s="${c[0]}">${c[1]}${s.sort===c[0]?(s.dir>0?' ▲':' ▼'):''}</button></th>`).join('')}</tr></thead><tbody>${sl.map(x=>`<tr tabindex="0" data-id="${x.id}"><td><b>${x.id}</b></td><td class="mono"><b>${x.num}</b></td><td>${x.op}</td><td><span class="mono mu">${x.dev}</span></td><td>${bd(x.st)}</td><td class="mu mono">${x.iccid}</td></tr>`).join('')}</tbody></table></div>`}
+ h+=a.length?`<div class="pg"><span>${from+1}–${from+sl.length} dari ${a.length} slot</span><div><label>Per halaman <select id="ps">${[10,16,32].map(n=>`<option${n===s.size?' selected':''}>${n}</option>`).join('')}</select></label><button class="btn" data-pg="-1"${s.page<=1?' disabled':''}>Sebelumnya</button><span>${s.page}/${pages}</span><button class="btn" data-pg="1"${s.page>=pages?' disabled':''}>Berikutnya</button></div></div>`:'';
+ $('#ires').innerHTML=h}
+
+let lastF=null;
+function openDrawer(id){const x=slots.find(s=>s.id===id);if(!x)return;lastF=document.activeElement;
+ dr.innerHTML=`<div class="scr" data-x></div><aside class="dw" role="dialog" aria-modal="true" aria-label="Detail slot ${x.id}">
+ <div class="dh"><h3>Detail Slot ${x.id}</h3><button class="btn ic" data-x aria-label="Tutup detail">×</button></div>
+ <dl>
+   <dt>Slot Fisik</dt><dd><b>${x.id} (Slot ${x.slot_index})</b></dd>
+   <dt>Nomor SIM</dt><dd class="mono"><b>${x.num}</b></dd>
+   <dt>Operator</dt><dd>${x.op}</dd>
+   <dt>Port COM</dt><dd class="mono">${x.dev}</dd>
+   <dt>ICCID</dt><dd class="mono">${x.iccid}</dd>
+   <dt>Status</dt><dd>${bd(x.st)}</dd>
+   <dt>Catatan</dt><dd>${NOTE[x.st]}</dd>
+ </dl>
+ 
+ <div style="margin-top:6px;border-top:1px solid var(--ln);padding-top:12px;">
+   <h3 style="font-size:13px;margin-bottom:6px;">Dial USSD Manual</h3>
+   <div class="row" style="gap:6px;">
+     <input id="in-ussd" value="*808*7*8#" style="flex:1;font-family:monospace;" placeholder="*808#">
+     <button class="btn pri" id="btn-dial"${x.st==='empty'?' disabled':''}>Dial</button>
+   </div>
+   <div id="ussd-msg" class="note" style="margin-top:8px;display:none;white-space:pre-wrap;"></div>
+ </div>
+
+ <div class="row" style="margin-top:8px;">
+   <button class="btn" id="cp"${x.st==='empty'||x.num==='—'||x.num==='BELUM DIKETAHUI'?' disabled':''}>Salin nomor</button>
+ </div>
+ </aside>`;
+ 
+ $$('[data-x]',dr).forEach(e=>e.onclick=closeDrawer);$('.dw .btn',dr).focus();
+ $('#cp').onclick=()=>{navigator.clipboard?.writeText(x.num).then(()=>toast('Nomor disalin.'),()=>toast('Gagal menyalin.',1))};
+ 
+ $('#btn-dial').onclick=async()=>{
+  const inp=$('#in-ussd').value.trim()||'*808*7*8#';
+  const btn=$('#btn-dial');btn.disabled=true;btn.textContent='...';
+  const box=$('#ussd-msg');box.style.display='block';box.textContent='Menghubungi jaringan seluler...';
+  try{
+   const r=await fetch(`/api/slots/${x.slot_index}/ussd?code=${encodeURIComponent(inp)}`,{method:'POST'});
+   const d=await r.json();
+   if(d.success){
+    box.textContent=`Balasan:\n${d.response_text}\n\n${d.phone_number?'Nomor: '+d.phone_number:''}`;
+    if(d.phone_number){x.num=d.phone_number;invRes()}
+    toast('Dial USSD berhasil.');
+   }else{
+    box.textContent='Gagal: '+(d.message||'Tidak ada respon.');
+   }
+  }catch(e){
+   box.textContent='Error: '+e.message;
+  }finally{
+   btn.disabled=false;btn.textContent='Dial';
+  }
+ };
+}
+
+function closeDrawer(){if(!dr.innerHTML)return;dr.innerHTML='';lastF&&lastF.isConnected&&lastF.focus();lastF=null}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDrawer();side(false)}});
+
+function exportCsv(){
+ const headers=['Slot','Nomor SIM','Operator','Port COM','Status','ICCID'];
+ const rows=slots.map(s=>[s.id,s.num,s.op,s.dev,(ST[s.st]||ST.empty)[0],s.iccid]);
+ const content="data:text/csv;charset=utf-8,"+headers.join(',')+"\n"+rows.map(r=>r.join(',')).join("\n");
+ const a=document.createElement('a');a.href=encodeURI(content);a.download=`sim_fleet_inventory_${new Date().toISOString().slice(0,10)}.csv`;
+ document.body.appendChild(a);a.click();document.body.removeChild(a);
+ toast('File CSV inventaris diunduh.');
+}
+
+/* ---------- SMS ---------- */
+const lab=n=>S.labels[n]||'';
+function pSms(){const s=S.sms,o=(a,cur)=>a.map(x=>`<option value="${x[0]}"${x[0]===cur?' selected':''}>${x[1]}</option>`).join('');
+ v.innerHTML=`<div class="ph"><p>Pesan masuk dari seluruh slot modem pool. Ekstraksi otomatis kode OTP dan filter per nomor pengirim.</p></div>
+ <section class="panel sms" id="sms"><div class="list"><div class="tools"><input id="sq" type="search" placeholder="Cari pengirim, nomor, isi pesan" aria-label="Cari SMS" value="${esc(s.q)}">
+ <select id="sslot" aria-label="Slot">${o([['all','Semua slot'],...slots.map(x=>[x.id,x.id+' ('+x.dev+')'])],s.slot)}</select>
+ <select id="stype" aria-label="Jenis">${o([['all','Semua jenis'],['OTP','OTP'],['Notifikasi','Notifikasi'],['Bawaan','Bawaan']],s.type)}</select></div><div id="sl"></div></div><div class="detail" id="sd"></div></section>`;
+ const m={sq:'q',sslot:'slot',stype:'type'};
+ Object.keys(m).forEach(id=>$('#'+id).oninput=e=>{s[m[id]]=e.target.value;smsList()});
+ $('#sms').onclick=async e=>{const t=e.target.closest('[data-m],#bk,#rv,#rl,#cp-sms,#cp-otp');if(!t)return;
+  if(t.dataset.m){s.sel=+t.dataset.m;s.rev=false;smsList();smsDet()}
+  else if(t.id==='bk'){s.sel=null;smsList();smsDet()}
+  else if(t.id==='rv'){s.rev=!s.rev;smsDet()}
+  else if(t.id==='cp-sms'){const x=sms.find(m=>m.id===s.sel);if(x){navigator.clipboard?.writeText(x.body);toast('Isi SMS disalin.')}}
+  else if(t.id==='cp-otp'){const x=sms.find(m=>m.id===s.sel);const match=(x?.body||'').match(/\b\d{4,8}\b/);if(match){navigator.clipboard?.writeText(match[0]);toast('Kode OTP disalin: '+match[0])}}
+  else if(t.id==='rl'){const x=sms.find(m=>m.id===s.sel);if(!x)return;const r=await modal({title:'Ubah label pengirim',text:'Label berlaku untuk pengirim '+x.n+'.',ok:'Simpan label',field:{label:'Label',value:lab(x.n)}});if(r){S.labels[x.n]=r;smsList();smsDet();toast('Label disimpan.')}}
+ };
+ smsList();smsDet()}
+
+function smsList(){const s=S.sms,q=s.q.toLowerCase(),el=$('#sl');
+ const a=sms.filter(x=>(s.slot==='all'||x.slot===s.slot)&&(s.type==='all'||x.type===s.type)&&(!q||(x.n+' '+lab(x.n)+' '+x.body).toLowerCase().includes(q)));
+ if(!a.length){el.innerHTML=`<div class="empty"><p>${sms.length?'Tidak ada pesan yang cocok dengan filter.':'Belum ada pesan SMS tersimpan.'}</p></div>`;return}
+ const G={};a.sort((p,r)=>p.m-r.m).forEach(x=>(G[x.n]=G[x.n]||[]).push(x));
+ el.innerHTML=Object.entries(G).map(([n,l])=>`<div class="gh"><span>${esc(lab(n)||n)}</span><span class="mu">${l.length}</span></div>${l.map(x=>`<button class="mr${x.id===s.sel?' on':''}" data-m="${x.id}"><span class="pv">${esc(s.rev?x.body:mask(x.body))}</span><small>${ago(x.m)} · ${x.slot} · ${x.type} · ${x.st}</small></button>`).join('')}`).join('')}
+
+function smsDet(){const s=S.sms,x=sms.find(m=>m.id===s.sel),d=$('#sd');$('#sms').classList.toggle('det',!!x);
+ if(!x){d.innerHTML='<div class="empty"><p>Pilih pesan untuk melihat detail rincian.</p></div>';return}
+ const otpMatch=(x.body||'').match(/\b\d{4,8}\b/);
+ d.innerHTML=`<button class="btn mob" id="bk">‹ Kembali</button><h3>${esc(lab(x.n)||'Pengirim: '+x.n)}</h3><p class="mu mono">${esc(x.n)}</p>
+ <dl style="margin-top:12px"><dt>Diterima</dt><dd>${x.received_at?new Date(x.received_at).toLocaleString('id-ID'):ago(x.m)}</dd><dt>Slot Fisik</dt><dd><b>${x.slot} (${x.port})</b></dd><dt>Status</dt><dd>${x.st}</dd></dl>
+ ${otpMatch?`<div class="note" style="border-left-color:var(--ac);display:flex;justify-content:space-between;align-items:center;margin:12px 0;"><div><span style="font-size:12px;color:var(--ac);display:block;font-weight:600;">KODE OTP TERDETEKSI:</span><b class="mono" style="font-size:22px;letter-spacing:2px;color:var(--tx);">${otpMatch[0]}</b></div><button class="btn pri" id="cp-otp">Salin OTP</button></div>`:''}
+ <div class="body">${esc(s.rev?x.body:mask(x.body))}</div>
+ <div class="row"><button class="btn" id="rv">${s.rev?'Samarkan angka':'Tampilkan lengkap'}</button><button class="btn" id="cp-sms">Salin teks</button><button class="btn" id="rl">Ubah label</button></div>`}
+
+/* ---------- Pengaturan ---------- */
+function pSet(){const c=S.set,sel=(id,a,cur,lb)=>`<label class="f">${lb}<select id="${id}">${a.map(x=>`<option${x===cur?' selected':''}>${x}</option>`).join('')}</select></label>`;
+ v.innerHTML=`<form class="sec" id="sf" novalidate>
+ <section class="panel"><h3>Konfigurasi USSD Operator</h3>
+ <p class="mu" style="margin-bottom:12px;">Kode USSD yang dijalankan otomatis saat kartu SIM baru terdeteksi di modem pool.</p>
+ <div class="grid" id="op-list">
+  ${operatorProfiles.map(p=>`
+    <div style="background:var(--p2);border:1px solid var(--ln);border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div><b>${esc(p.name)}</b> <span class="mu mono" style="font-size:12px;">(${p.iccid_prefixes||'-'})</span><br><span class="mu" style="font-size:12px;">${esc(p.description||'')}</span></div>
+      <div class="row" style="gap:6px;"><input id="op-code-${p.id}" value="${esc(p.ussd_code)}" style="font-family:monospace;width:130px;"><button type="button" class="btn pri" onclick="saveOp('${p.id}')">Simpan</button></div>
     </div>
-  </div>
+  `).join('')}
+ </div>
+ </section>
+ 
+ <section class="panel"><h3>Tampilan Dashboard</h3><div class="fg">${sel('theme',['dark','light'],c.theme,'Tema antarmuka')}${sel('density',['comfortable','compact'],c.density,'Kepadatan tabel')}</div></section>
+ 
+ <section class="panel"><h3>Hardware &amp; Modem Pool</h3>
+ <ul class="list0">
+   <li><span>Chassis</span><b>Foxcom 32-Port USB Rack</b></li>
+   <li><span>Chipset UART</span><span class="mono">Exar XR21V1414 (8-Port Quad UART)</span></li>
+   <li><span>Modul Seluler</span><span>Quectel M26 (GSM/GPRS/USSD)</span></li>
+   <li><span>Baudrate</span><span class="mono">115200 bps · 8-N-1</span></li>
+   <li><span>Auto-Detector</span><span class="b ok">Aktif (Daemon Background 4.0s)</span></li>
+   <li><span>Tautan Publik (Cloudflare)</span><a href="https://scpool.ardh1337.cloud" target="_blank" style="color:var(--ac);">https://scpool.ardh1337.cloud</a></li>
+ </ul>
+ </section>
 
-  <!-- Modal Pengaturan Operator & USSD -->
-  <div class="modal-overlay" id="operator-modal">
-    <div class="modal-card">
-      <div class="modal-header">
-        <div>
-          <h3>Pengaturan Dial USSD Operator</h3>
-          <span class="modal-port-badge">Format USSD Pengecekan Nomor</span>
-        </div>
-        <button class="modal-close-btn" onclick="closeOperatorModal()">&times;</button>
-      </div>
-      <div class="modal-body">
-        <p class="header-subtitle" style="margin-bottom: 16px;">
-          Konfigurasi kode dial USSD yang dijalankan otomatis saat SIM baru terdeteksi di setiap provider.
-        </p>
-        <div id="operator-list-container" class="operator-list-container">
-          <!-- Diisi via JavaScript -->
-        </div>
-        <div id="operator-save-status" class="ussd-banner hidden" style="margin-top: 14px;"></div>
-      </div>
-    </div>
-  </div>
+ <div class="row end"><button class="btn pri">Simpan preferensi tampilan</button></div></form>`;
 
-  <script src="/static/app.js"></script>
+ $('#sf').onsubmit=e=>{e.preventDefault();
+  Object.assign(S.set,{theme:$('#theme').value,density:$('#density').value});
+  apply();toast('Preferensi tampilan disimpan.');
+ };
+}
+
+async function saveOp(opId){
+ const inp=$('#op-code-'+opId);if(!inp)return;
+ const code=inp.value.trim();if(!code){toast('Kode USSD tidak boleh kosong.',1);return}
+ try{
+  const r=await fetch(`/api/operators/${opId}`,{
+   method:'PUT',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({ussd_code:code})
+  });
+  const d=await r.json();
+  if(r.ok&&d.success){
+   const p=operatorProfiles.find(x=>x.id===opId);if(p)p.ussd_code=code;
+   toast(`Kode USSD ${d.name} disimpan: ${code}`);
+  }else{
+   toast('Gagal simpan: '+(d.detail||'Error'),1);
+  }
+ }catch(e){toast('Error: '+e.message,1)}
+}
+
+function apply(){document.documentElement.dataset.theme=S.set.theme;document.documentElement.dataset.density=S.set.density}
+route();
+</script>
 </body>
 </html>
-
