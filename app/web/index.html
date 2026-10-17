@@ -2377,15 +2377,7 @@ function pStreamDash(){
               <b style="font-size:14px;">Daftar SIM & OTP</b>
             </div>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-              <div style="display:flex;gap:4px;flex-wrap:wrap;" id="fnum-filter-chips">
-                <button type="button" class="btn ${fastNumFilterOp==='all'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('all')">Semua</button>
-                <button type="button" class="btn ${fastNumFilterOp==='active'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('active')">Aktif</button>
-                <button type="button" class="btn ${fastNumFilterOp==='Telkomsel'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('Telkomsel')">Telkomsel</button>
-                <button type="button" class="btn ${fastNumFilterOp==='Indosat'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('Indosat')">Indosat</button>
-                <button type="button" class="btn ${fastNumFilterOp==='XL'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('XL')">XL/Axis</button>
-                <button type="button" class="btn ${fastNumFilterOp==='Tri'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('Tri')">Tri</button>
-                <button type="button" class="btn ${fastNumFilterOp==='Smartfren'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('Smartfren')">Smartfren</button>
-              </div>
+              <div style="display:flex;gap:4px;flex-wrap:wrap;" id="fnum-filter-chips"></div>
               <input type="search" id="fnum-search" placeholder="Cari nomor, port, operator…" style="width:200px;font-size:12px;padding:5px 10px;" oninput="updateUnifiedTable()">
             </div>
           </div>
@@ -2424,15 +2416,47 @@ function pStreamDash(){
   updateFastOtpFeed();
 }
 
+function renderFastFilterChips(){
+  const container = $('#fnum-filter-chips');
+  if(!container) return;
+
+  const opSet = new Set();
+  slots.forEach(s => {
+    if(s.st === 'active' && s.op && s.op !== '—' && s.op !== 'SIM' && s.op !== 'BELUM DIKETAHUI'){
+      opSet.add(s.op.trim());
+    }
+  });
+  const distinctOps = Array.from(opSet);
+
+  if(fastNumFilterOp !== 'all' && fastNumFilterOp !== 'active' && !distinctOps.some(o => o.toLowerCase() === fastNumFilterOp.toLowerCase())){
+    fastNumFilterOp = 'all';
+  }
+
+  let html = `
+    <button type="button" class="btn ${fastNumFilterOp==='all'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('all')">Semua</button>
+    <button type="button" class="btn ${fastNumFilterOp==='active'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('active')">Aktif</button>
+  `;
+
+  if(distinctOps.length > 1){
+    distinctOps.forEach(opName => {
+      const isSelected = fastNumFilterOp.toLowerCase() === opName.toLowerCase();
+      html += `
+        <button type="button" class="btn ${isSelected ? 'pri' : ''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('${esc(opName)}')">${esc(opName)}</button>
+      `;
+    });
+  }
+
+  container.innerHTML = html;
+}
+
 function setFastFilterOp(op){
   fastNumFilterOp = op;
-  $$('#fnum-filter-chips button').forEach(b => {
-    b.classList.toggle('pri', b.textContent.toLowerCase().includes(op.toLowerCase()) || (op==='all' && b.textContent==='Semua'));
-  });
+  renderFastFilterChips();
   updateUnifiedTable();
 }
 
 function updateUnifiedTable(){
+  renderFastFilterChips();
   const rowsEl = $('#unified-table-rows');
   if(!rowsEl) return;
   const q = ($('#fnum-search')?.value || '').toLowerCase().trim();
