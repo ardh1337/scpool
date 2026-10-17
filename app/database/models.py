@@ -431,7 +431,8 @@ def init_db(engine_override=None):
             elif not existing_s.value and s_val:
                 existing_s.value = s_val
 
-        admin_user = session.query(UserAccount).first()
+        # Pastikan akun administrator utama selalu ada dan aktif
+        admin_user = session.query(UserAccount).filter(UserAccount.username == "admin").first()
         if not admin_user:
             session.add(UserAccount(
                 username="admin",
@@ -442,6 +443,10 @@ def init_db(engine_override=None):
                 is_active=True
             ))
         else:
+            if admin_user.role != "superadmin":
+                admin_user.role = "superadmin"
+            if not admin_user.is_active:
+                admin_user.is_active = True
             if not admin_user.agent_token:
                 admin_user.agent_token = generate_agent_token()
             if not admin_user.pool_id:

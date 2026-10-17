@@ -5,7 +5,7 @@ Unit Test Otentikasi, Manajemen Pengguna & Isolasi Multi-Tenant
 import unittest
 from fastapi.testclient import TestClient
 from app.main import app
-from app.database.models import init_db, UserAccount
+from app.database.models import init_db, UserAccount, ModemPool
 from app.database.connection import SessionLocal
 
 
@@ -18,7 +18,13 @@ class TestAuthMultiTenant(unittest.TestCase):
         self._orig_admin_pwd = admin.password if admin else None
         if admin:
             admin.password = "admin123"
-            db.commit()
+        old_budi = db.query(UserAccount).filter(UserAccount.username == "teman_budi").first()
+        if old_budi:
+            db.delete(old_budi)
+        old_pool = db.query(ModemPool).filter(ModemPool.id == "pool_teman_budi").first()
+        if old_pool:
+            db.delete(old_pool)
+        db.commit()
         db.close()
         self.client = TestClient(app)
 
@@ -114,6 +120,12 @@ class TestAuthMultiTenant(unittest.TestCase):
         # 7. Bersihkan: admin menghapus user teman_budi
         del_resp = self.client.delete(f"/api/admin/users/{user_id}", headers=headers)
         self.assertEqual(del_resp.status_code, 200)
+
+        # 8. Verifikasi proteksi administrator: Admin tidak boleh dihapus (meskipun ID-nya bukan 1)
+        admin_id = login_resp.json()["user"]["id"]
+        del_admin_resp = self.client.delete(f"/api/admin/users/{admin_id}", headers=headers)
+        self.assertEqual(del_admin_resp.status_code, 400)
+        self.assertIn("Administrator", del_admin_resp.json()["detail"])
 
 
 if __name__ == "__main__":

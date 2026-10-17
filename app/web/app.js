@@ -1807,6 +1807,7 @@ async function loadAdminUsersList(){
         <tbody>
           ${users.map(u => {
             const isSuper = u.role === 'superadmin' || u.role === 'admin';
+            const isProtected = isSuper || (u.username && u.username.toLowerCase() === 'admin') || (currentUser && u.id === currentUser.id);
             const tokMask = u.agent_token ? (u.agent_token.slice(0, 14) + '...') : '—';
             return `
               <tr style="border-bottom:1px solid var(--ln);">
@@ -1839,7 +1840,7 @@ async function loadAdminUsersList(){
                   </span>
                 </td>
                 <td style="padding:14px 16px;text-align:right;">
-                  <div style="display:inline-flex;gap:6px;">
+                  <div style="display:inline-flex;gap:6px;align-items:center;">
                     ${!u.is_active ? `
                       <button type="button" class="btn pri" style="padding:4px 10px;font-size:11px;background:#10b981;border-color:#10b981;" onclick="approveUserAccount(${u.id}, '${esc(u.username)}')">
                         ✅ Setujui
@@ -1851,15 +1852,19 @@ async function loadAdminUsersList(){
                       <button type="button" class="btn" style="padding:4px 8px;font-size:11px;" onclick="regenerateUserToken(${u.id}, '${esc(u.username)}')">
                         Token Baru
                       </button>
-                      <button type="button" class="btn" style="padding:4px 8px;font-size:11px;" onclick="toggleUserActive(${u.id}, false)">
-                        Nonaktifkan
-                      </button>
+                      ${!isProtected ? `
+                        <button type="button" class="btn" style="padding:4px 8px;font-size:11px;" onclick="toggleUserActive(${u.id}, false)">
+                          Nonaktifkan
+                        </button>
+                      ` : ''}
                     `}
-                    ${u.id !== 1 ? `
+                    ${!isProtected ? `
                       <button type="button" class="btn danger" style="padding:4px 8px;font-size:11px;" onclick="deleteUserAccount(${u.id}, '${esc(u.username)}')">
                         Hapus
                       </button>
-                    ` : ''}
+                    ` : `
+                      <span class="mu mono" style="font-size:11px;padding:3px 8px;background:var(--p2);border:1px solid var(--ln);border-radius:4px;">Terproteksi</span>
+                    `}
                   </div>
                 </td>
               </tr>

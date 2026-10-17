@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database.connection import get_db
-from app.database.models import UserAccount, ModemPool, Slot, SlotStatus, SystemSetting
+from app.database.models import UserAccount, UserSession, ModemPool, Slot, SlotStatus, SystemSetting
 from app.auth.security import hash_password, generate_agent_token
 from app.auth.deps import require_admin
 from app.services.telegram_service import (
@@ -128,8 +128,8 @@ def update_admin_user(
     if payload.role:
         target.role = payload.role
     if payload.is_active is not None:
-        if target.id == 1 and not payload.is_active:
-            raise HTTPException(status_code=400, detail="Administrator utama tidak boleh dinonaktifkan.")
+        if (target.role in ["superadmin", "admin"] or target.username.lower() == "admin") and not payload.is_active:
+            raise HTTPException(status_code=400, detail="Akun Administrator tidak boleh dinonaktifkan.")
         target.is_active = payload.is_active
     if payload.pool_id:
         target.pool_id = payload.pool_id
@@ -146,17 +146,44 @@ def delete_admin_user(
     user: UserAccount = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
-    """Menghapus akun pengguna."""
-    if user_id == 1:
-        raise HTTPException(status_code=400, detail="Administrator utama tidak boleh dihapus.")
-
+    """Menghapus akun pengguna operator beserta pool pribadinya secara aman."""
     target = db.query(UserAccount).filter(UserAccount.id == user_id).first()
     if not target:
         raise HTTPException(status_code=404, detail="Pengguna tidak ditemukan.")
 
+    # 1. Proteksi ketat: Akun Administrator tidak boleh dihapus
+    if target.role in ["superadmin", "admin"] or target.username.lower() == "admin":
+        raise HTTPException(
+            status_code=400,
+            detail="Akun Administrator tidak boleh dihapus demi keamanan sistem."
+        )
+
+    # 2. Proteksi diri: Tidak boleh menghapus akun yang sedang digunakan login
+    if target.id == user.id:
+        raise HTTPException(
+            status_code=400,
+            detail="Anda tidak dapat menghapus akun Anda sendiri yang sedang digunakan untuk login."
+        )
+
+    target_pool_id = target.pool_id
+
+    # 3. Hapus sesi aktif user
+    db.query(UserSession).filter(UserSession.user_id == target.id).delete()
+
+    # 4. Hapus user
     db.delete(target)
     db.commit()
-    return {"success": True, "message": "Pengguna berhasil dihapus."}
+
+    # 5. Bersihkan Modem Pool dan Slot pribadi operator jika tidak digunakan oleh akun lain
+    if target_pool_id and target_pool_id != "foxcom_32":
+        other_users = db.query(UserAccount).filter(UserAccount.pool_id == target_pool_id).count()
+        if other_users == 0:
+            pool_obj = db.query(ModemPool).filter(ModemPool.id == target_pool_id).first()
+            if pool_obj:
+                db.delete(pool_obj)
+                db.commit()
+
+    return {"success": True, "message": f"Pengguna {target.username} berhasil dihapus."}
 
 
 @router.post("/admin/users/{user_id}/token")
@@ -226,19 +253,33 @@ def reject_user(
     user: UserAccount = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
-    """Menolak pendaftaran akun pengguna baru."""
-    if user_id == 1:
-        raise HTTPException(status_code=400, detail="Administrator utama tidak boleh ditolak.")
-
     target = db.query(UserAccount).filter(UserAccount.id == user_id).first()
     if not target:
         raise HTTPException(status_code=404, detail="Pengguna tidak ditemukan.")
 
-    target.is_active = False
-    target.updated_at = datetime.now(timezone.utc)
+    if target.role in ["superadmin", "admin"] or target.username.lower() == "admin":
+        raise HTTPException(status_code=400, detail="Akun Administrator tidak boleh ditolak.")
+
+    uname = target.username
+    target_pool_id = target.pool_id
+
+    # Hapus sesi jika ada
+    db.query(UserSession).filter(UserSession.user_id == target.id).delete()
+
+    # Hapus user pendaftaran
+    db.delete(target)
     db.commit()
 
-    return {"success": True, "message": f"Pendaftaran {target.username} telah dinonaktifkan/ditolak."}
+    # Bersihkan pool pribadi jika tidak digunakan oleh akun lain
+    if target_pool_id and target_pool_id != "foxcom_32":
+        other_users = db.query(UserAccount).filter(UserAccount.pool_id == target_pool_id).count()
+        if other_users == 0:
+            pool_obj = db.query(ModemPool).filter(ModemPool.id == target_pool_id).first()
+            if pool_obj:
+                db.delete(pool_obj)
+                db.commit()
+
+    return {"success": True, "message": f"Pendaftaran akun {uname} telah ditolak dan dibersihkan."}
 
 
 class SettingsUpdateRequest(BaseModel):
