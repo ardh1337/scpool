@@ -597,6 +597,44 @@ const ago=m=>m<1?'Baru saja':m<60?m+' mnt lalu':m<1440?Math.floor(m/60)+' jam la
 const bd=st=>`<span class="sb-pill" style="display:inline-block;">${(ST[st]||ST.empty)[0]}</span>`;
 const cnt=()=>slots.reduce((a,s)=>{const k=s.st in a?s.st:'empty';a[k]++;return a},{active:0,empty:0,offline:0,error:0});
 
+/* Deteksi kode OTP cerdas berbasis konteks kata kunci dan filter data non-OTP */
+function extractOTP(text){
+ if(!text || typeof text !== 'string') return null;
+ 
+ const kwRegex = /\b(otp|kode(?!\s*promo|\s*voucher)|code(?!\s*promo|\s*voucher)|verifikasi|verification|passcode|one-time|rahasia|pin|konfirmasi|confirmation|security\s+code)\b/i;
+ if(!kwRegex.test(text)) return null;
+
+ const gMatch = text.match(/\b(?:G-|c-)([0-9]{6})\b/i);
+ if(gMatch) return gMatch[1];
+
+ const preMatch = text.match(/\b([0-9]{3}[-\s]?[0-9]{3}|[0-9]{4,8})\b\s*(?:adalah|is\s+(?:your\s+)?[\w\s]{0,25}?(?:code|kode|otp|pin|passcode|verifikasi|verification|password))/i);
+ if(preMatch){
+  const c = preMatch[1].replace(/[-\s]/g, '');
+  if(!/^(?:199\d|20[2-3]\d)$/.test(c)) return c;
+ }
+
+ const postMatch = text.match(/(?:otp|kode|code|pin|passcode|verifikasi|verification|security\s+code)[^\d\n:=]{0,35}[:=is|adalah\-]?\s*([0-9]{3}[-\s]?[0-9]{3}|[0-9]{4,8})\b/i);
+ if(postMatch){
+  const c = postMatch[1].replace(/[-\s]/g, '');
+  if(!/^(?:199\d|20[2-3]\d)$/.test(c)) return c;
+ }
+
+ if(/\b(otp|verifikasi|verification|rahasia)\b/i.test(text)){
+  const candidates = text.match(/\b[0-9]{4,8}\b/g) || [];
+  for(const c of candidates){
+   if(/^(?:199\d|20[2-3]\d)$/.test(c)) continue;
+   if(/^\d000+$/.test(c)) continue;
+   if(c.startsWith('08') || c.startsWith('62')) continue;
+   if(new RegExp('(?:rp\\.?|idr)\\s*' + c, 'i').test(text)) continue;
+   if(new RegExp(c + '\\s*(?:gb|mb|kb|hr|hari|bln|bulan|thn|tahun|menit|mnt|detik|sec)', 'i').test(text)) continue;
+   if(new RegExp('(?:sn|ref|trx|id|no)\\s*[:=.]?\\s*' + c, 'i').test(text)) continue;
+   return c;
+  }
+ }
+
+ return null;
+}
+
 /* ---------- Pengambilan Data Nyata dari Backend (/api/...) ---------- */
 async function fetchBackendData(){
  try{
@@ -639,13 +677,14 @@ async function fetchBackendData(){
 
   if(resSMS && Array.isArray(resSMS)){
    sms = resSMS.map(m => {
-    const isOtp = /\b\d{4,8}\b/.test(m.body || '');
+    const otpCode = extractOTP(m.body || '');
     const minAgo = m.received_at ? Math.max(0, Math.floor((Date.now() - new Date(m.received_at).getTime()) / 60000)) : 0;
     return {
      id: m.id,
      n: m.sender || 'Tanpa Pengirim',
      l: S.labels[m.sender] || '',
-     type: isOtp ? 'OTP' : (m.status === 'PESAN BAWAAN' ? 'Bawaan' : 'Notifikasi'),
+     type: otpCode ? 'OTP' : (m.status === 'PESAN BAWAAN' ? 'Bawaan' : 'Notifikasi'),
+     otp: otpCode,
      slot: 'P' + String(m.slot_index).padStart(2,'0'),
      slot_index: m.slot_index,
      port: m.port_name || 'COM-',
@@ -1220,7 +1259,7 @@ async function loadDrawerSMS(slotIndex, slotId, showFeedback = false){
   }
 
   listEl.innerHTML = data.map((m, idx) => {
-   const otpMatch = (m.body || '').match(/\b\d{4,8}\b/);
+   const otpCode = extractOTP(m.body || '');
    const timeStr = m.received_at ? new Date(m.received_at).toLocaleString('id-ID', {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : 'Baru saja';
    const senderName = m.sender || 'Tanpa Pengirim';
    const safeBody = esc(m.body || '');
@@ -1233,13 +1272,13 @@ async function loadDrawerSMS(slotIndex, slotId, showFeedback = false){
           <span class="mu" style="display:block;font-size:11px;">${timeStr}</span>
         </div>
         <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
-          ${otpMatch ? `<span class="sb-pill" style="background:#059669;color:#fff;font-size:10.5px;padding:2px 7px;">OTP ${esc(otpMatch[0])}</span>` : ''}
+          ${otpCode ? `<span class="sb-pill" style="background:#059669;color:#fff;font-size:10.5px;padding:2px 7px;">OTP ${esc(otpCode)}</span>` : ''}
           <span class="sb-pill" style="font-size:10.5px;">${esc(m.status || 'Diterima')}</span>
         </div>
       </div>
       <div class="mono" style="background:var(--bg);border:1px solid var(--ln);border-radius:6px;padding:9px 11px;font-size:12.5px;line-height:1.55;white-space:pre-wrap;word-break:break-word;color:var(--tx);user-select:text;">${safeBody}</div>
       <div class="row end" style="gap:6px;margin-top:2px;">
-        ${otpMatch ? `<button type="button" class="btn pri copy-otp-btn" data-idx="${idx}" style="padding:4px 8px;font-size:11px;">Salin OTP</button>` : ''}
+        ${otpCode ? `<button type="button" class="btn pri copy-otp-btn" data-idx="${idx}" style="padding:4px 8px;font-size:11px;">Salin OTP</button>` : ''}
         <button type="button" class="btn copy-sms-btn" data-idx="${idx}" style="padding:4px 8px;font-size:11px;">Salin SMS</button>
       </div>
     </div>
@@ -1252,8 +1291,8 @@ async function loadDrawerSMS(slotIndex, slotId, showFeedback = false){
   });
   listEl.querySelectorAll('.copy-otp-btn').forEach(btn => {
    const idx = +btn.dataset.idx;
-   const match = (data[idx].body || '').match(/\b\d{4,8}\b/);
-   if(match) btn.onclick = () => copyToClipboard(match[0], 'Kode OTP disalin: ' + match[0]);
+   const otpCode = extractOTP(data[idx].body || '');
+   if(otpCode) btn.onclick = () => copyToClipboard(otpCode, 'Kode OTP disalin: ' + otpCode);
   });
 
  } catch(err) {
@@ -1305,8 +1344,8 @@ function pSms(){
   const t=e.target.closest('[data-m],#bk,#rl,#cp-sms,#cp-otp');if(!t)return;
   if(t.dataset.m){s.sel=+t.dataset.m;smsList();smsDet()}
   else if(t.id==='bk'){s.sel=null;smsList();smsDet()}
-  else if(t.id==='cp-sms'){const x=sms.find(m=>m.id===s.sel);if(x){navigator.clipboard?.writeText(x.body);toast('Isi SMS disalin ke clipboard.')}}
-  else if(t.id==='cp-otp'){const x=sms.find(m=>m.id===s.sel);const match=(x?.body||'').match(/\b\d{4,8}\b/);if(match){navigator.clipboard?.writeText(match[0]);toast('Kode OTP disalin: '+match[0])}}
+  else if(t.id==='cp-sms'){const x=sms.find(m=>m.id===s.sel);if(x){copyToClipboard(x.body,'Isi SMS disalin ke clipboard.')}}
+  else if(t.id==='cp-otp'){const x=sms.find(m=>m.id===s.sel);const otpCode=extractOTP(x?.body||'');if(otpCode){copyToClipboard(otpCode,'Kode OTP disalin: '+otpCode)}}
   else if(t.id==='rl'){const x=sms.find(m=>m.id===s.sel);if(!x)return;const r=await modal({title:'Ubah label pengirim',text:'Label berlaku untuk pengirim '+x.n+'.',ok:'Simpan label',field:{label:'Label',value:lab(x.n)}});if(r){S.labels[x.n]=r;smsList();smsDet();toast('Label disimpan.')}}
  };
  smsList();smsDet();
@@ -1324,11 +1363,11 @@ function smsList(){
 function smsDet(){
  const s=S.sms,x=sms.find(m=>m.id===s.sel),d=$('#sd');$('#sms').classList.toggle('det',!!x);
  if(!x){d.innerHTML='<div class="empty"><p>Pilih pesan untuk melihat detail rincian.</p></div>';return}
- const otpMatch=(x.body||'').match(/\b\d{4,8}\b/);
+ const otpCode=extractOTP(x.body||'');
  // Isi pesan ditampilkan langsung sepenuhnya tanpa tombol samarkan kode
  d.innerHTML=`<button class="btn mob" id="bk">‹ Kembali</button><h3>${esc(lab(x.n)||'Pengirim: '+x.n)}</h3><p class="mu mono">${esc(x.n)}</p>
  <dl style="margin-top:12px"><dt>Diterima</dt><dd>${x.received_at?new Date(x.received_at).toLocaleString('id-ID'):ago(x.m)}</dd><dt>Slot Fisik</dt><dd><b>${x.slot} (${x.port})</b></dd><dt>Status</dt><dd>${x.st}</dd></dl>
- ${otpMatch?`<div class="note" style="border-left-color:var(--ac);display:flex;justify-content:space-between;align-items:center;margin:12px 0;"><div><span style="font-size:12px;color:var(--ac);display:block;font-weight:600;">KODE OTP TERDETEKSI:</span><b class="mono" style="font-size:24px;letter-spacing:2px;color:var(--tx);">${otpMatch[0]}</b></div><button class="btn pri" id="cp-otp">📋 Salin OTP</button></div>`:''}
+ ${otpCode?`<div class="note" style="border-left-color:var(--ac);display:flex;justify-content:space-between;align-items:center;margin:12px 0;"><div><span style="font-size:12px;color:var(--ac);display:block;font-weight:600;">KODE OTP TERDETEKSI:</span><b class="mono" style="font-size:24px;letter-spacing:2px;color:var(--tx);">${otpCode}</b></div><button class="btn pri" id="cp-otp">📋 Salin OTP</button></div>`:''}
  <div class="body">${esc(x.body)}</div>
  <div class="row"><button class="btn" id="cp-sms">Salin teks</button><button class="btn" id="rl">Ubah label</button></div>`;
 }
