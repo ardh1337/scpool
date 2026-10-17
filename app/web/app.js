@@ -1498,9 +1498,11 @@ function switchAuthTab(tab){
       tabReg.style.color = 'var(--mu)';
       tabReg.style.fontWeight = 'normal';
     }
-    $('#login-uname')?.focus();
   }
 }
+window.switchAuthTab = switchAuthTab;
+window.hideLoginOverlay = hideLoginOverlay;
+window.showLoginOverlay = showLoginOverlay;
 
 function renderLoggedOutState(){
   slots = [];
@@ -1654,23 +1656,36 @@ function copyRegToken(){
 }
 window.copyRegToken = copyRegToken;
 
-const regForm = $('#reg-fields') || $('#form-register');
-if(regForm){
-  regForm.onsubmit = async (e) => {
+const regFormEl = $('#form-register');
+if(regFormEl){
+  regFormEl.onsubmit = async (e) => {
     e.preventDefault();
-    const uname = $('#reg-uname').value.trim();
-    const pwd = $('#reg-pwd').value;
-    const poolName = $('#reg-pool-name').value.trim();
-    const portCount = parseInt($('#reg-port-count').value, 10) || 16;
+    const uname = ($('#reg-uname')?.value || '').trim();
+    const pwd = $('#reg-pwd')?.value || '';
+    const poolName = ($('#reg-pool-name')?.value || '').trim();
+    const portCount = parseInt($('#reg-port-count')?.value, 10) || 16;
     const msgEl = $('#reg-msg');
     const btn = $('#btn-reg-submit');
     const regFields = $('#reg-fields');
     const regSuccess = $('#reg-success-card');
 
-    msgEl.style.display = 'none';
-    msgEl.textContent = '';
-    btn.disabled = true;
-    btn.textContent = 'Mendaftarkan...';
+    if(!uname || !pwd){
+      if(msgEl){
+        msgEl.style.display = 'block';
+        msgEl.style.color = 'var(--er)';
+        msgEl.textContent = 'Harap isi username dan password.';
+      }
+      return;
+    }
+
+    if(msgEl){
+      msgEl.style.display = 'none';
+      msgEl.textContent = '';
+    }
+    if(btn){
+      btn.disabled = true;
+      btn.textContent = 'Mendaftarkan...';
+    }
 
     try {
       const res = await fetch('/api/auth/register', {
@@ -1714,10 +1729,11 @@ if(regForm){
       msgEl.style.background = 'rgba(239,68,68,0.15)';
       msgEl.style.border = '1px solid var(--er)';
       msgEl.style.color = 'var(--er)';
-      msgEl.textContent = 'Gagal menghubungi server: ' + err.message;
     } finally {
-      btn.disabled = false;
-      btn.textContent = 'Daftar Akun Klien';
+      if(btn){
+        btn.disabled = false;
+        btn.textContent = 'Daftar Akun Klien';
+      }
     }
   };
 }
