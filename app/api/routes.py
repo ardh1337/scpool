@@ -6,9 +6,9 @@ Menyediakan REST API untuk dashboard web lokal:
 - Trigger sinkronisasi hardware & eksekusi USSD
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -16,8 +16,10 @@ from sqlalchemy import desc
 from app.database.connection import get_db
 from app.database.models import (
     ModemPool, Slot, Port, SIMCard, SIMSession, SMSMessage, SlotStatus, NumberStatus,
-    OperatorProfile, UserAccount
+    OperatorProfile, UserAccount, UserSession
 )
+from app.auth.security import hash_password, verify_password, generate_token, generate_agent_token
+from app.auth.deps import get_current_user_optional, require_user, require_admin
 from app.services.hardware_sync import sync_single_slot, sync_modem_pool_hardware
 from app.services.sms_service import poll_slot_sms, poll_all_active_slots_sms
 from app.services.numbering import get_display_label
@@ -30,14 +32,35 @@ router = APIRouter(prefix="/api")
 
 
 @router.get("/status")
-def get_system_status(db: Session = Depends(get_db)):
-    """Mengembalikan ringkasan status operasional modem pool."""
-    pool = db.query(ModemPool).first()
-    total_slots = db.query(Slot).count()
-    ready_slots = db.query(Slot).filter(Slot.status == SlotStatus.READY).count()
-    empty_slots = db.query(Slot).filter(Slot.status == SlotStatus.EMPTY).count()
-    error_slots = db.query(Slot).filter(Slot.status.in_([SlotStatus.SIM_ERROR, SlotStatus.PORT_ERROR])).count()
-    total_sms = db.query(SMSMessage).count()
+def get_system_status(
+    pool_id: Optional[str] = Query(None),
+    user: Optional[UserAccount] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """Mengembalikan ringkasan status operasional modem pool berdasarkan hak akses pool."""
+    target_pool_id = pool_id
+    if user and user.role not in ["superadmin", "admin"]:
+        target_pool_id = user.pool_id
+
+    pool_query = db.query(ModemPool)
+    if target_pool_id:
+        pool = pool_query.filter(ModemPool.id == target_pool_id).first()
+    else:
+        pool = pool_query.first()
+
+    slot_query = db.query(Slot)
+    if pool:
+        slot_query = slot_query.filter(Slot.pool_id == pool.id)
+
+    total_slots = slot_query.count()
+    ready_slots = slot_query.filter(Slot.status == SlotStatus.READY).count()
+    empty_slots = slot_query.filter(Slot.status == SlotStatus.EMPTY).count()
+    error_slots = slot_query.filter(Slot.status.in_([SlotStatus.SIM_ERROR, SlotStatus.PORT_ERROR])).count()
+
+    sms_query = db.query(SMSMessage)
+    if pool:
+        sms_query = sms_query.join(Slot, SMSMessage.slot_id == Slot.id).filter(Slot.pool_id == pool.id)
+    total_sms = sms_query.count()
 
     return {
         "pool_id": pool.id if pool else "foxcom_32",
@@ -51,9 +74,26 @@ def get_system_status(db: Session = Depends(get_db)):
 
 
 @router.get("/slots")
-def list_slots(db: Session = Depends(get_db)):
-    """Mengembalikan daftar 32 slot fisik lengkap dengan status dan informasi kartu."""
-    slots = db.query(Slot).order_by(Slot.slot_index).all()
+def list_slots(
+    pool_id: Optional[str] = Query(None),
+    user: Optional[UserAccount] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """Mengembalikan daftar slot fisik berdasarkan pool milik pengguna yang aktif."""
+    target_pool_id = pool_id
+    if user and user.role not in ["superadmin", "admin"]:
+        target_pool_id = user.pool_id
+
+    query = db.query(Slot)
+    if target_pool_id:
+        query = query.filter(Slot.pool_id == target_pool_id)
+    else:
+        # Fallback default ke pool pertama untuk kompatibilitas backward
+        first_pool = db.query(ModemPool).first()
+        if first_pool:
+            query = query.filter(Slot.pool_id == first_pool.id)
+
+    slots = query.order_by(Slot.slot_index).all()
     results = []
 
     for s in slots:
@@ -118,11 +158,19 @@ def get_slot_sms(slot_index: int, db: Session = Depends(get_db)):
 @router.get("/sms")
 def list_all_sms(
     q: Optional[str] = Query(None, description="Pencarian kata kunci"),
+    pool_id: Optional[str] = Query(None),
     limit: int = 50,
+    user: Optional[UserAccount] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
-    """Feed gabungan semua SMS masuk."""
+    """Feed gabungan semua SMS masuk yang terisolasi per pool pengguna."""
+    target_pool_id = pool_id
+    if user and user.role not in ["superadmin", "admin"]:
+        target_pool_id = user.pool_id
+
     query = db.query(SMSMessage).join(Slot, SMSMessage.slot_id == Slot.id)
+    if target_pool_id:
+        query = query.filter(Slot.pool_id == target_pool_id)
 
     if q:
         search_fmt = f"%{q}%"
@@ -371,5 +419,278 @@ def update_auth_credentials(payload: CredentialsUpdate, db: Session = Depends(ge
         "username": user.username,
         "password": user.password
     }
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class UserCreateRequest(BaseModel):
+    username: str
+    password: str
+    role: str = "operator"  # "superadmin" atau "operator"
+    pool_name: Optional[str] = None
+    port_count: int = 32
+
+
+class UserUpdateRequest(BaseModel):
+    password: Optional[str] = None
+    role: Optional[str] = None
+    is_active: Optional[bool] = None
+    pool_id: Optional[str] = None
+
+
+@router.post("/auth/login")
+def login(payload: LoginRequest, response: Response, db: Session = Depends(get_db)):
+    """Otentikasi login pengguna dan penerbitan session token."""
+    uname = payload.username.strip().lower()
+    user = db.query(UserAccount).filter(UserAccount.username == uname).first()
+    if not user or not verify_password(payload.password, user.password):
+        raise HTTPException(status_code=401, detail="Username atau password salah.")
+
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="Akun dinonaktifkan oleh administrator.")
+
+    # Otomatis tingkatkan password plaintext legacy ke PBKDF2 hash
+    if not user.password.startswith("pbkdf2$"):
+        user.password = hash_password(payload.password)
+        db.commit()
+
+    token = generate_token(32)
+    session = UserSession(
+        token=token,
+        user_id=user.id,
+        expires_at=datetime.now(timezone.utc) + timedelta(days=7)
+    )
+    db.add(session)
+    db.commit()
+
+    response.set_cookie(
+        key="session_token",
+        value=token,
+        max_age=7 * 86400,
+        httponly=True,
+        samesite="lax"
+    )
+
+    return {
+        "success": True,
+        "token": token,
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "role": user.role,
+            "pool_id": user.pool_id,
+            "agent_token": user.agent_token if user.role in ["superadmin", "admin"] else None
+        }
+    }
+
+
+@router.get("/auth/me")
+def get_current_user_profile(user: Optional[UserAccount] = Depends(get_current_user_optional)):
+    """Mengembalikan informasi sesi pengguna yang sedang login."""
+    if not user:
+        return {"logged_in": False}
+    return {
+        "logged_in": True,
+        "id": user.id,
+        "username": user.username,
+        "role": user.role,
+        "pool_id": user.pool_id,
+        "agent_token": user.agent_token
+    }
+
+
+@router.post("/auth/logout")
+def logout(request: Request, response: Response, db: Session = Depends(get_db)):
+    """Mengakhiri sesi pengguna aktif."""
+    token = request.cookies.get("session_token")
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header[7:].strip()
+
+    if token:
+        sess = db.query(UserSession).filter(UserSession.token == token).first()
+        if sess:
+            db.delete(sess)
+            db.commit()
+
+    response.delete_cookie("session_token")
+    return {"success": True, "message": "Berhasil logout."}
+
+
+@router.get("/admin/users")
+def list_admin_users(
+    user: Optional[UserAccount] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """Mengembalikan daftar semua akun pengguna (khusus Superadmin)."""
+    if user and user.role not in ["superadmin", "admin"]:
+        raise HTTPException(status_code=403, detail="Akses ditolak.")
+
+    users = db.query(UserAccount).order_by(UserAccount.id).all()
+    return [
+        {
+            "id": u.id,
+            "username": u.username,
+            "role": u.role,
+            "pool_id": u.pool_id,
+            "pool_name": u.pool.name if u.pool else (u.pool_id or "—"),
+            "agent_token": u.agent_token,
+            "is_active": u.is_active,
+            "created_at": u.created_at.isoformat() if u.created_at else None,
+            "updated_at": u.updated_at.isoformat() if u.updated_at else None
+        }
+        for u in users
+    ]
+
+
+@router.post("/admin/users")
+def create_admin_user(
+    payload: UserCreateRequest,
+    user: Optional[UserAccount] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """Membuat pengguna baru dan otomatis mengalokasikan Modem Pool baru."""
+    if user and user.role not in ["superadmin", "admin"]:
+        raise HTTPException(status_code=403, detail="Akses ditolak.")
+
+    uname = payload.username.strip().lower()
+    if len(uname) < 3:
+        raise HTTPException(status_code=400, detail="Username minimal 3 karakter.")
+    if len(payload.password) < 4:
+        raise HTTPException(status_code=400, detail="Password minimal 4 karakter.")
+
+    if db.query(UserAccount).filter(UserAccount.username == uname).first():
+        raise HTTPException(status_code=400, detail=f"Username '{uname}' sudah digunakan.")
+
+    pool_id = f"pool_{uname}"
+    existing_pool = db.query(ModemPool).filter(ModemPool.id == pool_id).first()
+    if not existing_pool:
+        pool_name = payload.pool_name.strip() if payload.pool_name else f"Modem Pool {uname.capitalize()}"
+        new_pool = ModemPool(
+            id=pool_id,
+            name=pool_name,
+            port_count=payload.port_count,
+            description=f"Modem Pool milik {uname}"
+        )
+        db.add(new_pool)
+        db.flush()
+
+        for idx in range(1, payload.port_count + 1):
+            db.add(Slot(pool_id=pool_id, slot_index=idx, status=SlotStatus.EMPTY))
+
+    new_user = UserAccount(
+        username=uname,
+        password=hash_password(payload.password),
+        role=payload.role,
+        pool_id=pool_id,
+        agent_token=generate_agent_token(),
+        is_active=True
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return {
+        "success": True,
+        "message": f"Pengguna {uname} berhasil dibuat.",
+        "user_id": new_user.id,
+        "agent_token": new_user.agent_token,
+        "pool_id": new_user.pool_id
+    }
+
+
+@router.put("/admin/users/{user_id}")
+def update_admin_user(
+    user_id: int,
+    payload: UserUpdateRequest,
+    user: Optional[UserAccount] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """Memperbarui data pengguna, status aktif, atau password."""
+    if user and user.role not in ["superadmin", "admin"]:
+        raise HTTPException(status_code=403, detail="Akses ditolak.")
+
+    target = db.query(UserAccount).filter(UserAccount.id == user_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="Pengguna tidak ditemukan.")
+
+    if payload.password and len(payload.password.strip()) >= 4:
+        target.password = hash_password(payload.password.strip())
+    if payload.role:
+        target.role = payload.role
+    if payload.is_active is not None:
+        if target.id == 1 and not payload.is_active:
+            raise HTTPException(status_code=400, detail="Administrator utama tidak boleh dinonaktifkan.")
+        target.is_active = payload.is_active
+    if payload.pool_id:
+        target.pool_id = payload.pool_id
+
+    target.updated_at = datetime.now(timezone.utc)
+    db.commit()
+
+    return {"success": True, "message": "Data pengguna berhasil diperbarui."}
+
+
+@router.delete("/admin/users/{user_id}")
+def delete_admin_user(
+    user_id: int,
+    user: Optional[UserAccount] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """Menghapus akun pengguna."""
+    if user and user.role not in ["superadmin", "admin"]:
+        raise HTTPException(status_code=403, detail="Akses ditolak.")
+    if user_id == 1:
+        raise HTTPException(status_code=400, detail="Administrator utama tidak boleh dihapus.")
+
+    target = db.query(UserAccount).filter(UserAccount.id == user_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="Pengguna tidak ditemukan.")
+
+    db.delete(target)
+    db.commit()
+    return {"success": True, "message": "Pengguna berhasil dihapus."}
+
+
+@router.post("/admin/users/{user_id}/token")
+def regenerate_admin_user_token(
+    user_id: int,
+    user: Optional[UserAccount] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """Membuat ulang Agent Token baru untuk pengguna tertentu."""
+    if user and user.role not in ["superadmin", "admin"]:
+        raise HTTPException(status_code=403, detail="Akses ditolak.")
+
+    target = db.query(UserAccount).filter(UserAccount.id == user_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="Pengguna tidak ditemukan.")
+
+    target.agent_token = generate_agent_token()
+    db.commit()
+    return {"success": True, "agent_token": target.agent_token}
+
+
+@router.get("/admin/pools")
+def list_admin_pools(
+    user: Optional[UserAccount] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """Mengembalikan daftar seluruh modem pool yang terdaftar."""
+    pools = db.query(ModemPool).order_by(ModemPool.id).all()
+    return [
+        {
+            "id": p.id,
+            "name": p.name,
+            "port_count": p.port_count,
+            "description": p.description,
+            "slot_count": len(p.slots)
+        }
+        for p in pools
+    ]
+
 
 

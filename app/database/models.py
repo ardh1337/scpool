@@ -350,9 +350,27 @@ class UserAccount(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     username = Column(String(50), unique=True, nullable=False, default="admin")
-    password = Column(String(100), nullable=False, default="admin123")
-    role = Column(String(20), nullable=False, default="superadmin")
+    password = Column(String(128), nullable=False, default="admin123")
+    role = Column(String(20), nullable=False, default="superadmin")  # "superadmin", "operator"
+    pool_id = Column(String(50), ForeignKey("modem_pools.id"), nullable=True)
+    agent_token = Column(String(64), unique=True, nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+    pool = relationship("ModemPool")
+    sessions = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
+
+
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+
+    token = Column(String(64), primary_key=True)
+    user_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+
+    user = relationship("UserAccount", back_populates="sessions")
 
 
 def init_db(engine_override=None):
@@ -360,10 +378,28 @@ def init_db(engine_override=None):
     target_engine = engine_override or from_connection_engine()
     Base.metadata.create_all(bind=target_engine)
 
+    from sqlalchemy import text
     from sqlalchemy.orm import sessionmaker
+    from app.auth.security import hash_password, generate_agent_token
+
     SessionClass = sessionmaker(bind=target_engine)
     session = SessionClass()
     try:
+        # Migrasi SQLite otomatis & non-destruktif jika kolom baru belum ada
+        try:
+            existing_cols = [row[1] for row in session.execute(text("PRAGMA table_info(user_accounts)")).fetchall()]
+            if "pool_id" not in existing_cols:
+                session.execute(text("ALTER TABLE user_accounts ADD COLUMN pool_id VARCHAR(50) REFERENCES modem_pools(id)"))
+            if "agent_token" not in existing_cols:
+                session.execute(text("ALTER TABLE user_accounts ADD COLUMN agent_token VARCHAR(64)"))
+            if "is_active" not in existing_cols:
+                session.execute(text("ALTER TABLE user_accounts ADD COLUMN is_active BOOLEAN DEFAULT 1"))
+            if "created_at" not in existing_cols:
+                session.execute(text("ALTER TABLE user_accounts ADD COLUMN created_at DATETIME"))
+            session.commit()
+        except Exception:
+            session.rollback()
+
         for prof in DEFAULT_OPERATOR_PROFILES:
             existing = session.query(OperatorProfile).filter(OperatorProfile.id == prof["id"]).first()
             if not existing:
@@ -371,7 +407,19 @@ def init_db(engine_override=None):
 
         admin_user = session.query(UserAccount).first()
         if not admin_user:
-            session.add(UserAccount(username="admin", password="admin123", role="superadmin"))
+            session.add(UserAccount(
+                username="admin",
+                password=hash_password("admin123"),
+                role="superadmin",
+                pool_id="foxcom_32",
+                agent_token=generate_agent_token(),
+                is_active=True
+            ))
+        else:
+            if not admin_user.agent_token:
+                admin_user.agent_token = generate_agent_token()
+            if not admin_user.pool_id:
+                admin_user.pool_id = "foxcom_32"
 
         session.commit()
     except Exception:
@@ -383,3 +431,4 @@ def init_db(engine_override=None):
 def from_connection_engine():
     from app.database.connection import engine
     return engine
+
