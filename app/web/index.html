@@ -43,6 +43,100 @@ main{padding:20px 24px 40px;max-width:1280px;outline:none}
 .cards{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:12px}
 .card{background:var(--pn);border:1px solid var(--ln);border-radius:var(--rp);padding:14px 16px}
 .card span{color:var(--mu);font-size:12px}.card b{display:block;font-size:24px;font-weight:600;margin-top:2px}
+
+/* Vibrant Luminous Stat Cards */
+.cards-vibrant{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:16px}
+.card-stat{position:relative;border-radius:var(--rp);padding:16px 18px;overflow:hidden;transition:all .2s cubic-bezier(0.16,1,0.3,1);user-select:none}
+.card-stat:hover{transform:translateY(-2px)}
+.card-stat span{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;display:block}
+.card-stat b{display:block;font-size:30px;font-weight:800;margin-top:4px;letter-spacing:-0.02em}
+
+.card-blue{
+  background:linear-gradient(135deg, rgba(30, 64, 175, 0.38) 0%, rgba(15, 23, 42, 0.9) 100%);
+  border:1px solid rgba(59, 130, 246, 0.55);
+  box-shadow:0 4px 18px rgba(37, 99, 235, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+.card-blue span{color:#93c5fd}
+.card-blue b{color:#60a5fa;text-shadow:0 0 16px rgba(96, 165, 250, 0.5)}
+.card-blue:hover{border-color:#60a5fa;box-shadow:0 8px 24px rgba(37, 99, 235, 0.4)}
+
+.card-green{
+  background:linear-gradient(135deg, rgba(5, 150, 105, 0.38) 0%, rgba(6, 78, 59, 0.9) 100%);
+  border:1px solid rgba(16, 185, 129, 0.55);
+  box-shadow:0 4px 18px rgba(16, 185, 129, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+.card-green span{color:#a7f3d0}
+.card-green b{color:#34d399;text-shadow:0 0 16px rgba(52, 211, 153, 0.5)}
+.card-green:hover{border-color:#34d399;box-shadow:0 8px 24px rgba(16, 185, 129, 0.4)}
+
+.card-purple{
+  background:linear-gradient(135deg, rgba(147, 51, 234, 0.38) 0%, rgba(88, 28, 135, 0.9) 100%);
+  border:1px solid rgba(168, 85, 247, 0.55);
+  box-shadow:0 4px 18px rgba(168, 85, 247, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+.card-purple span{color:#e9d5ff}
+.card-purple b{color:#c084fc;text-shadow:0 0 16px rgba(192, 132, 252, 0.5)}
+.card-purple:hover{border-color:#c084fc;box-shadow:0 8px 24px rgba(168, 85, 247, 0.4)}
+
+.card-red{
+  background:linear-gradient(135deg, rgba(220, 38, 38, 0.38) 0%, rgba(127, 29, 29, 0.9) 100%);
+  border:1px solid rgba(239, 68, 68, 0.55);
+  box-shadow:0 4px 18px rgba(239, 68, 68, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+.card-red span{color:#fecaca}
+.card-red b{color:#f87171;text-shadow:0 0 16px rgba(248, 113, 113, 0.5)}
+.card-red:hover{border-color:#f87171;box-shadow:0 8px 24px rgba(239, 68, 68, 0.4)}
+
+/* Pools Container & 16-Row Columns */
+.pools-container{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
+.pool-rack{flex:1 1 360px;max-width:520px;background:var(--pn);border:1px solid var(--ln);border-radius:var(--rp);padding:16px;box-shadow:0 4px 18px rgba(0,0,0,0.22)}
+.pool-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--ln)}
+.pool-header h4{margin:0;font-size:15px;font-weight:700;color:var(--tx)}
+.pool-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pool-col{display:flex;flex-direction:column;gap:7px}
+
+/* Port Box Styling */
+.port-box{display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;border-radius:8px;padding:7px 4px;min-height:46px;cursor:pointer;user-select:none;transition:all .18s cubic-bezier(0.16,1,0.3,1)}
+.port-box:hover{transform:translateY(-1.5px)}
+.port-num{font-size:15px;font-weight:800;font-family:monospace;line-height:1}
+.port-op{font-size:11px;font-weight:600;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;letter-spacing:0.01em}
+
+.port-active{
+  background:linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(6, 78, 59, 0.4) 100%);
+  border:1px solid rgba(16, 185, 129, 0.55);
+  box-shadow:0 2px 8px rgba(16, 185, 129, 0.16);
+}
+.port-active .port-num{color:#34d399}
+.port-active .port-op{color:#a7f3d0}
+.port-active:hover{border-color:#34d399;box-shadow:0 4px 16px rgba(16, 185, 129, 0.45)}
+
+.port-empty{
+  background:linear-gradient(135deg, rgba(168, 85, 247, 0.16) 0%, rgba(88, 28, 135, 0.35) 100%);
+  border:1px solid rgba(168, 85, 247, 0.45);
+  box-shadow:0 2px 8px rgba(168, 85, 247, 0.14);
+}
+.port-empty .port-num{color:#c084fc}
+.port-empty .port-op{color:#e9d5ff;opacity:0.85}
+.port-empty:hover{border-color:#c084fc;box-shadow:0 4px 16px rgba(168, 85, 247, 0.45)}
+
+.port-error{
+  background:linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(127, 29, 29, 0.4) 100%);
+  border:1px solid rgba(239, 68, 68, 0.55);
+  box-shadow:0 2px 8px rgba(239, 68, 68, 0.18);
+}
+.port-error .port-num{color:#f87171}
+.port-error .port-op{color:#fecaca}
+.port-error:hover{border-color:#f87171;box-shadow:0 4px 16px rgba(239, 68, 68, 0.45)}
+
+.port-offline{
+  background:linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(120, 53, 15, 0.4) 100%);
+  border:1px solid rgba(245, 158, 11, 0.55);
+  box-shadow:0 2px 8px rgba(245, 158, 11, 0.16);
+}
+.port-offline .port-num{color:#fbbf24}
+.port-offline .port-op{color:#fde68a}
+.port-offline:hover{border-color:#fbbf24;box-shadow:0 4px 16px rgba(245, 158, 11, 0.45)}
+
 .two{grid-template-columns:3fr 2fr}
 .note{border:1px solid var(--ln);border-left:3px solid var(--wn);background:var(--pn);border-radius:8px;padding:10px 14px;margin-bottom:12px;color:var(--mu)}
 .note b{color:var(--tx)}
@@ -154,7 +248,7 @@ const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelecto
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const IC={dashboard:'M4 4h7v7H4zM13 4h7v4h-7zM13 11h7v9h-7zM4 14h7v6H4z',inventaris:'M5 3h9l5 5v13H5zM9 13h6M9 17h6',sms:'M4 5h16v11H9l-5 4z',pengaturan:'M12 9a3 3 0 100 6 3 3 0 000-6zM19 12l2-1-2-4-2 1-2-1-1-2h-4l-1 2-2 1-2-1-2 4 2 1v2l-2 1 2 4 2-1 2 1 1 2h4l1-2 2-1 2 1 2-4-2-1z'};
 const ic=n=>`<svg class="i" viewBox="0 0 24 24"><path d="${IC[n]}"/></svg>`;
-const NAV=[['dashboard','Dashboard'],['inventaris','Inventaris SIM'],['sms','SMS Inbox'],['pengaturan','Pengaturan']];
+const NAV=[['dashboard','Dashboard'],['sms','SMS Inbox'],['pengaturan','Pengaturan']];
 $('#nav').innerHTML=NAV.map(([k,l])=>`<a href="#/${k}" data-k="${k}">${ic(k)}${l}</a>`).join('');
 
 /* ---------- State & Integrasi Backend Live ---------- */
@@ -239,7 +333,6 @@ async function fetchBackendData(){
   if(!dr.innerHTML && !dlg.open){
    const cur = location.hash.replace('#/','') || 'dashboard';
    if(cur === 'dashboard') pDash();
-   else if(cur === 'inventaris') invRes();
    else if(cur === 'sms') { smsList(); smsDet(); }
   }
  }catch(err){
@@ -264,7 +357,12 @@ $('#bg').onclick=()=>side(!$('#side').classList.contains('open'));
 $$('[data-pop]').forEach(b=>b.onclick=e=>{e.stopPropagation();const m=$('#'+b.dataset.pop),was=m.hidden;$$('.pm').forEach(x=>x.hidden=true);$$('[data-pop]').forEach(x=>x.setAttribute('aria-expanded','false'));m.hidden=!was;b.setAttribute('aria-expanded',String(was))});
 document.addEventListener('click',()=>$$('.pm').forEach(x=>x.hidden=true));
 $('#lo').onclick=()=>toast('Status sistem: Terhubung ke Foxcom 32-Port Pool.');
-$('#gs').onkeydown=e=>{if(e.key==='Enter'){Object.assign(S.inv,{q:e.target.value.trim(),st:'all',page:1});e.target.value='';goto('#/inventaris')}};
+$('#gs').onkeydown=e=>{if(e.key==='Enter'){
+  const q=e.target.value.trim().toLowerCase();if(!q)return;
+  const match=slots.find(s=>[s.id,s.num,s.op,s.dev,s.iccid].join(' ').toLowerCase().includes(q));
+  if(match){goto('#/dashboard');openDrawer(match.id);toast('Membuka slot '+match.id)}
+  else{toast('Slot "'+q+'" tidak ditemukan.',1)}
+}};
 
 // Topbar Trigger Action (Sinkronkan & Periksa SMS)
 $('#top-sync').onclick=async()=>{
@@ -279,10 +377,15 @@ $('#top-poll').onclick=async()=>{
 };
 
 const alerts=()=>slots.filter(s=>s.st==='offline'||s.st==='error');
-const refreshBell=()=>{const a=alerts();$('#np').innerHTML=a.length?a.map(s=>`<a href="#/inventaris" data-s="${s.id}">${s.id} · ${ST[s.st][0]}<br><span class="mu">${NOTE[s.st]}</span></a>`).join(''):'<p class="mu" style="padding:8px">Semua port normal. Tidak ada peringatan.</p>';$$('#np a').forEach(a=>a.onclick=()=>{Object.assign(S.inv,{q:a.dataset.s,st:'all',page:1})});$('.dot').hidden=!a.length};
+const refreshBell=()=>{
+ const a=alerts();
+ $('#np').innerHTML=a.length?a.map(s=>`<a href="javascript:void(0)" data-s="${s.id}"><b>${s.id}</b> (${s.dev}) · ${ST[s.st][0]}<br><span class="mu">${NOTE[s.st]}</span></a>`).join(''):'<p class="mu" style="padding:8px">Semua port normal. Tidak ada peringatan.</p>';
+ $$('#np a').forEach(a=>a.onclick=()=>{openDrawer(a.dataset.s);$$('.pm').forEach(x=>x.hidden=true)});
+ $('.dot').hidden=!a.length;
+};
 
 /* ---------- Router ---------- */
-const R={dashboard:['Dashboard',pDash],inventaris:['Inventaris SIM',pInv],sms:['SMS Inbox',pSms],pengaturan:['Pengaturan',pSet]};
+const R={dashboard:['Dashboard',pDash],sms:['SMS Inbox',pSms],pengaturan:['Pengaturan',pSet]};
 function route(){const h=location.hash.replace('#/','');const k=R[h]?h:'dashboard';
  $('#title').textContent=R[k][0];document.title=R[k][0]+' · SIM Fleet · SIM Inventory';
  $$('#nav a').forEach(a=>{const on=a.dataset.k===k;a.classList.toggle('on',on);on?a.setAttribute('aria-current','page'):a.removeAttribute('aria-current')});
@@ -290,58 +393,65 @@ function route(){const h=location.hash.replace('#/','');const k=R[h]?h:'dashboar
 addEventListener('hashchange',route);
 
 /* ---------- Dashboard ---------- */
-function pDash(){const c=cnt(),prob=c.offline+c.error,today=sms.filter(m=>m.m<1440).length,al=alerts();
- const cards=[['Total slot',slots.length],['SIM aktif',c.active],['Slot kosong',c.empty],['Port bermasalah',prob],['SMS tercatat',sms.length+' ('+today+' hari ini)']];
- const seg=[['act','Aktif',c.active],['emp','Kosong',c.empty],['off','Offline',c.offline],['err','Error',c.error]];
+function pDash(){
+ const c=cnt(),prob=c.offline+c.error;
  v.innerHTML=`<div class="note"><b>SIM Fleet Live Hardware:</b> Terhubung ke 32-Port modem pool Foxcom. Auto-detector aktif di background.</div>
- <div class="grid cards">${cards.map(x=>`<div class="card"><span>${x[0]}</span><b>${x[1]}</b></div>`).join('')}</div>
- <div class="grid two"><section class="panel"><h3>Ringkasan status inventaris</h3>
-  <div class="bar" role="img" aria-label="Distribusi status slot">${seg.map(s=>`<i class="${s[0]}" style="width:${slots.length?s[2]/slots.length*100:0}%"></i>`).join('')}</div>
-  <div class="leg">${seg.map(s=>`<div><i class="${s[0]}"></i>${s[1]} <b>${s[2]}</b></div>`).join('')}</div>
-  <p class="mu" style="margin-top:14px">Koneksi modem pool: <span class="b ok">Terhubung (Foxcom 32-Port)</span></p></section>
- <section class="panel"><h3>Peringatan perangkat</h3>${al.length?`<ul class="list0">${al.map(s=>`<li><span>${s.id} (${s.dev}) ${bd(s.st)}<br><span class="mu">${NOTE[s.st]}</span></span><button class="btn" data-q="${s.id}">Lihat</button></li>`).join('')}</ul>`:'<p class="mu">Semua port beroperasi normal.</p>'}</section></div>
- <section class="panel" style="margin-top:12px"><h3>Pesan SMS Terbaru</h3>
- ${sms.length?`<ul class="list0">${sms.slice(0,5).map(m=>`<li><span><b>${esc(m.n)}</b> <span class="mu">${m.slot} (${m.port})</span><br><span class="mu">${esc(m.body.slice(0,80))}${m.body.length>80?'...':''}</span></span><button class="btn" onclick="openSmsDetail(${m.id})">Baca</button></li>`).join('')}</ul>`:'<p class="mu">Belum ada pesan SMS tersimpan.</p>'}
- </section>`;
- $$('[data-q]',v).forEach(b=>b.onclick=()=>{Object.assign(S.inv,{q:b.dataset.q,st:'all',page:1});goto('#/inventaris')})}
+ <div class="cards-vibrant">
+   <div class="card-stat card-blue"><span>Total Slot</span><b>${slots.length}</b></div>
+   <div class="card-stat card-green"><span>SIM Aktif</span><b>${c.active}</b></div>
+   <div class="card-stat card-purple"><span>Slot Kosong</span><b>${c.empty}</b></div>
+   <div class="card-stat card-red"><span>Perangkat Bermasalah</span><b>${prob}</b></div>
+ </div>
+ <div class="pools-container">
+   ${renderModemPools()}
+ </div>`;
+
+ $$('.port-box',v).forEach(b=>b.onclick=()=>openDrawer(b.dataset.slotId));
+}
+
+function renderModemPools(){
+ const POOL_SIZE=32;
+ const numPools=Math.max(1,Math.ceil(slots.length/POOL_SIZE));
+ let html='';
+ for(let p=0;p<numPools;p++){
+  const poolSlots=slots.slice(p*POOL_SIZE,(p+1)*POOL_SIZE);
+  const startIdx=p*POOL_SIZE+1;
+  const endIdx=Math.min(slots.length,(p+1)*POOL_SIZE);
+  const col1=poolSlots.slice(0,16);
+  const col2=poolSlots.slice(16,32);
+  html+=`<div class="pool-rack">
+   <div class="pool-header">
+     <div>
+       <h4>Modem Pool ${p+1}</h4>
+       <span class="mu" style="font-size:12px;">Port ${startIdx}–${endIdx} (${poolSlots.length} Port Foxcom)</span>
+     </div>
+     <button class="btn ic" onclick="exportCsv()" title="Ekspor CSV Inventaris">📥 CSV</button>
+   </div>
+   <div class="pool-grid">
+     <div class="pool-col">${col1.map(s=>renderPortBox(s)).join('')}</div>
+     <div class="pool-col">${col2.map(s=>renderPortBox(s)).join('')}</div>
+   </div>
+  </div>`;
+ }
+ return html;
+}
+
+function renderPortBox(s){
+ let provider='—';
+ if(s.st==='active') provider=(s.op&&s.op!=='—')?s.op:'SIM Aktif';
+ else if(s.st==='empty') provider='Kosong';
+ else if(s.st==='error') provider='SIM Error';
+ else if(s.st==='offline') provider='Offline';
+ return `<div class="port-box port-${s.st}" data-slot-id="${s.id}" title="${s.id} (${s.dev}) · ${s.num} · ${provider}">
+  <div class="port-num">${s.slot_index}</div>
+  <div class="port-op">${esc(provider)}</div>
+ </div>`;
+}
 
 function openSmsDetail(smsId){
  Object.assign(S.sms,{sel:smsId,rev:false});
  goto('#/sms');
 }
-
-/* ---------- Inventaris ---------- */
-function pInv(){const s=S.inv,F=[['all','Semua'],['active','Aktif'],['empty','Kosong'],['offline','Offline'],['error','Error']];
- v.innerHTML=`<div class="ph"><p>Daftar 32 slot fisik modem pool. Nomor urut sesuai deteksi kartu SIM aktif pada hardware.</p><button class="btn" id="btn-export-csv">📥 Ekspor CSV</button></div>
- <section class="panel"><div class="tools"><input id="iq" type="search" placeholder="Cari slot, nomor SIM, operator, port, atau ICCID" aria-label="Cari inventaris" value="${esc(s.q)}">
- <div class="chips" role="group" aria-label="Filter status">${F.map(f=>`<button data-f="${f[0]}" aria-pressed="${s.st===f[0]}">${f[1]}</button>`).join('')}</div>
- <div class="chips" role="group" aria-label="Tampilan">${[['table','Tabel'],['grid','Grid']].map(f=>`<button data-vw="${f[0]}" aria-pressed="${s.view===f[0]}">${f[1]}</button>`).join('')}</div></div><div id="ires"></div></section>`;
- $('#iq').oninput=e=>{s.q=e.target.value;s.page=1;invRes()};
- $$('[data-f]',v).forEach(b=>b.onclick=()=>{s.st=b.dataset.f;s.page=1;$$('[data-f]',v).forEach(x=>x.setAttribute('aria-pressed',x===b));invRes()});
- $$('[data-vw]',v).forEach(b=>b.onclick=()=>{s.view=b.dataset.vw;$$('[data-vw]',v).forEach(x=>x.setAttribute('aria-pressed',x===b));invRes()});
- $('#btn-export-csv').onclick=exportCsv;
- const r=$('#ires');
- r.onclick=e=>{const t=e.target.closest('[data-s],[data-id],[data-pg],#rs');if(!t)return;
-  if(t.dataset.s){s.dir=s.sort===t.dataset.s?-s.dir:1;s.sort=t.dataset.s;invRes()}
-  else if(t.dataset.id)openDrawer(t.dataset.id);
-  else if(t.dataset.pg){s.page+=+t.dataset.pg;invRes()}
-  else{s.q='';s.st='all';$('#iq').value='';$$('[data-f]',v).forEach(x=>x.setAttribute('aria-pressed',x.dataset.f==='all'));invRes()}};
- r.onkeydown=e=>{if(e.key==='Enter'&&e.target.dataset.id)openDrawer(e.target.dataset.id)};
- r.onchange=e=>{if(e.target.id==='ps'){s.size=+e.target.value;s.page=1;invRes()}};
- invRes()}
-
-function invRes(){const s=S.inv,q=s.q.toLowerCase();
- const a=slots.filter(x=>(s.st==='all'||x.st===s.st)&&(!q||[x.id,x.num,x.op,x.dev,x.iccid].join(' ').toLowerCase().includes(q)));
- const g={id:x=>x.slot_index,num:x=>x.num,op:x=>x.op,dev:x=>x.dev,st:x=>(ST[x.st]||ST.empty)[0],upd:x=>x.m};
- a.sort((p,r)=>{const A=g[s.sort](p),B=g[s.sort](r);return(A>B?1:A<B?-1:0)*s.dir});
- const pages=Math.max(1,Math.ceil(a.length/s.size));s.page=Math.min(s.page,pages);
- const from=(s.page-1)*s.size,sl=a.slice(from,from+s.size);let h;
- if(!a.length)h=`<div class="empty"><p>Tidak ada slot yang cocok dengan pencarian atau filter.</p><button class="btn" id="rs">Atur ulang filter</button></div>`;
- else if(s.view==='grid')h=`<div class="tiles">${sl.map(x=>`<button class="tile" data-id="${x.id}"><span><b>${x.id}</b> <span class="mu">(${x.dev})</span></span><span class="mono">${x.num}</span><span>${bd(x.st)}</span></button>`).join('')}</div>`;
- else{const th=[['id','Slot ID'],['num','Nomor SIM'],['op','Operator'],['dev','Port COM'],['st','Status'],['upd','ICCID']];
-  h=`<div class="tw"><table><thead><tr>${th.map(c=>`<th scope="col" aria-sort="${s.sort===c[0]?(s.dir>0?'ascending':'descending'):'none'}"><button data-s="${c[0]}">${c[1]}${s.sort===c[0]?(s.dir>0?' ▲':' ▼'):''}</button></th>`).join('')}</tr></thead><tbody>${sl.map(x=>`<tr tabindex="0" data-id="${x.id}"><td><b>${x.id}</b></td><td class="mono"><b>${x.num}</b></td><td>${x.op}</td><td><span class="mono mu">${x.dev}</span></td><td>${bd(x.st)}</td><td class="mu mono">${x.iccid}</td></tr>`).join('')}</tbody></table></div>`}
- h+=a.length?`<div class="pg"><span>${from+1}–${from+sl.length} dari ${a.length} slot</span><div><label>Per halaman <select id="ps">${[10,16,32].map(n=>`<option${n===s.size?' selected':''}>${n}</option>`).join('')}</select></label><button class="btn" data-pg="-1"${s.page<=1?' disabled':''}>Sebelumnya</button><span>${s.page}/${pages}</span><button class="btn" data-pg="1"${s.page>=pages?' disabled':''}>Berikutnya</button></div></div>`:'';
- $('#ires').innerHTML=h}
 
 let lastF=null;
 function openDrawer(id){const x=slots.find(s=>s.id===id);if(!x)return;lastF=document.activeElement;
@@ -383,7 +493,7 @@ function openDrawer(id){const x=slots.find(s=>s.id===id);if(!x)return;lastF=docu
    const d=await r.json();
    if(d.success){
     box.textContent=`Balasan:\n${d.response_text}\n\n${d.phone_number?'Nomor: '+d.phone_number:''}`;
-    if(d.phone_number){x.num=d.phone_number;invRes()}
+    if(d.phone_number){x.num=d.phone_number;pDash()}
     toast('Dial USSD berhasil.');
    }else{
     box.textContent='Gagal: '+(d.message||'Tidak ada respon.');
@@ -420,7 +530,6 @@ function pSms(){const s=S.sms,o=(a,cur)=>a.map(x=>`<option value="${x[0]}"${x[0]
  $('#sms').onclick=async e=>{const t=e.target.closest('[data-m],#bk,#rv,#rl,#cp-sms,#cp-otp');if(!t)return;
   if(t.dataset.m){s.sel=+t.dataset.m;s.rev=false;smsList();smsDet()}
   else if(t.id==='bk'){s.sel=null;smsList();smsDet()}
-  else if(t.id==='rv'){s.rev=!s.rev;smsDet()}
   else if(t.id==='cp-sms'){const x=sms.find(m=>m.id===s.sel);if(x){navigator.clipboard?.writeText(x.body);toast('Isi SMS disalin.')}}
   else if(t.id==='cp-otp'){const x=sms.find(m=>m.id===s.sel);const match=(x?.body||'').match(/\b\d{4,8}\b/);if(match){navigator.clipboard?.writeText(match[0]);toast('Kode OTP disalin: '+match[0])}}
   else if(t.id==='rl'){const x=sms.find(m=>m.id===s.sel);if(!x)return;const r=await modal({title:'Ubah label pengirim',text:'Label berlaku untuk pengirim '+x.n+'.',ok:'Simpan label',field:{label:'Label',value:lab(x.n)}});if(r){S.labels[x.n]=r;smsList();smsDet();toast('Label disimpan.')}}
@@ -431,7 +540,7 @@ function smsList(){const s=S.sms,q=s.q.toLowerCase(),el=$('#sl');
  const a=sms.filter(x=>(s.slot==='all'||x.slot===s.slot)&&(s.type==='all'||x.type===s.type)&&(!q||(x.n+' '+lab(x.n)+' '+x.body).toLowerCase().includes(q)));
  if(!a.length){el.innerHTML=`<div class="empty"><p>${sms.length?'Tidak ada pesan yang cocok dengan filter.':'Belum ada pesan SMS tersimpan.'}</p></div>`;return}
  const G={};a.sort((p,r)=>p.m-r.m).forEach(x=>(G[x.n]=G[x.n]||[]).push(x));
- el.innerHTML=Object.entries(G).map(([n,l])=>`<div class="gh"><span>${esc(lab(n)||n)}</span><span class="mu">${l.length}</span></div>${l.map(x=>`<button class="mr${x.id===s.sel?' on':''}" data-m="${x.id}"><span class="pv">${esc(s.rev?x.body:mask(x.body))}</span><small>${ago(x.m)} · ${x.slot} · ${x.type} · ${x.st}</small></button>`).join('')}`).join('')}
+ el.innerHTML=Object.entries(G).map(([n,l])=>`<div class="gh"><span>${esc(lab(n)||n)}</span><span class="mu">${l.length}</span></div>${l.map(x=>`<button class="mr${x.id===s.sel?' on':''}" data-m="${x.id}"><span class="pv">${esc(x.body)}</span><small>${ago(x.m)} · ${x.slot} · ${x.type} · ${x.st}</small></button>`).join('')}`).join('')}
 
 function smsDet(){const s=S.sms,x=sms.find(m=>m.id===s.sel),d=$('#sd');$('#sms').classList.toggle('det',!!x);
  if(!x){d.innerHTML='<div class="empty"><p>Pilih pesan untuk melihat detail rincian.</p></div>';return}
@@ -439,8 +548,8 @@ function smsDet(){const s=S.sms,x=sms.find(m=>m.id===s.sel),d=$('#sd');$('#sms')
  d.innerHTML=`<button class="btn mob" id="bk">‹ Kembali</button><h3>${esc(lab(x.n)||'Pengirim: '+x.n)}</h3><p class="mu mono">${esc(x.n)}</p>
  <dl style="margin-top:12px"><dt>Diterima</dt><dd>${x.received_at?new Date(x.received_at).toLocaleString('id-ID'):ago(x.m)}</dd><dt>Slot Fisik</dt><dd><b>${x.slot} (${x.port})</b></dd><dt>Status</dt><dd>${x.st}</dd></dl>
  ${otpMatch?`<div class="note" style="border-left-color:var(--ac);display:flex;justify-content:space-between;align-items:center;margin:12px 0;"><div><span style="font-size:12px;color:var(--ac);display:block;font-weight:600;">KODE OTP TERDETEKSI:</span><b class="mono" style="font-size:22px;letter-spacing:2px;color:var(--tx);">${otpMatch[0]}</b></div><button class="btn pri" id="cp-otp">Salin OTP</button></div>`:''}
- <div class="body">${esc(s.rev?x.body:mask(x.body))}</div>
- <div class="row"><button class="btn" id="rv">${s.rev?'Samarkan angka':'Tampilkan lengkap'}</button><button class="btn" id="cp-sms">Salin teks</button><button class="btn" id="rl">Ubah label</button></div>`}
+ <div class="body">${esc(x.body)}</div>
+ <div class="row"><button class="btn" id="cp-sms">Salin teks</button><button class="btn" id="rl">Ubah label</button></div>`}
 
 /* ---------- Pengaturan ---------- */
 function pSet(){const c=S.set,sel=(id,a,cur,lb)=>`<label class="f">${lb}<select id="${id}">${a.map(x=>`<option${x===cur?' selected':''}>${x}</option>`).join('')}</select></label>`;
