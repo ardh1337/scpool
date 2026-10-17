@@ -367,7 +367,7 @@ input[aria-invalid=true]{border-color:var(--er)}
 .scr{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);z-index:40}
 .dw{
   position:fixed;top:0;right:0;bottom:0;
-  width:min(420px,100%);
+  width:min(480px,100%);
   background:var(--pn);
   border-left:1px solid var(--ln);
   z-index:41;
@@ -565,8 +565,8 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 const IC={dashboard:'M4 4h7v7H4zM13 4h7v4h-7zM13 11h7v9h-7zM4 14h7v6H4z',sms:'M4 5h16v11H9l-5 4z',pengaturan:'M12 9a3 3 0 100 6 3 3 0 000-6zM19 12l2-1-2-4-2 1-2-1-1-2h-4l-1 2-2 1-2-1-2 4 2 1v2l-2 1 2 4 2-1 2 1 1 2h4l1-2 2-1 2 1 2-4-2-1z'};
 const ic=n=>`<svg class="i" viewBox="0 0 24 24"><path d="${IC[n]}"/></svg>`;
 
-/* Navigasi: Inventaris SIM dihilangkan sesuai permintaan karena sudah tampil di dashboard */
-const NAV=[['dashboard','Dashboard'],['sms','SMS Inbox'],['pengaturan','Pengaturan']];
+/* Navigasi: Inventaris SIM & SMS Inbox dihilangkan dari sidebar navigasi karena sudah terintegrasi langsung di dashboard */
+const NAV=[['dashboard','Dashboard'],['pengaturan','Pengaturan']];
 $('#nav').innerHTML=NAV.map(([k,l])=>`<a href="#/${k}" data-k="${k}">${ic(k)}${l}</a>`).join('');
 
 /* ---------- State & Integrasi Backend Live ---------- */
@@ -587,6 +587,7 @@ let poolInfo = {
 const selectedSlots = new Set();
 let isBulkCancelled = false;
 let isSelectMode = false;
+let currentDrawerSlot = null;
 
 const S={sms:{q:'',slot:'all',st:'all',sel:null},labels:{},
  set:{org:'Foxcom 32-Port Pool',tz:'Asia/Jakarta (WIB)',theme:'dark',density:'comfortable'}};
@@ -629,7 +630,7 @@ async function fetchBackendData(){
      num: numDisplay,
      op: s.operator_name || (st === 'active' ? 'SIM' : '—'),
      dev: s.port_name || 'COM-',
-     iccid: s.iccid_masked || '—',
+     iccid: s.iccid || s.iccid_masked || '—',
      sms_count: s.sms_count || 0,
      m: 1
     };
@@ -661,10 +662,12 @@ async function fetchBackendData(){
   }
 
   refreshBell();
+  if(currentDrawerSlot){
+   loadDrawerSMS(currentDrawerSlot.slot_index, currentDrawerSlot.id, false);
+  }
   if(!dr.innerHTML && !dlg.open && !isSelectMode){
    const cur = location.hash.replace('#/','') || 'dashboard';
    if(cur === 'dashboard') pDash();
-   else if(cur === 'sms') { smsList(); smsDet(); }
   }
  }catch(err){
   console.warn('Backend polling sync:', err);
@@ -717,7 +720,7 @@ const refreshBell=()=>{
 };
 
 /* ---------- Router ---------- */
-const R={dashboard:['Dashboard',pDash],sms:['SMS Inbox',pSms],pengaturan:['Pengaturan',pSet],inventaris:['Dashboard',pDash]};
+const R={dashboard:['Dashboard',pDash],pengaturan:['Pengaturan',pSet],sms:['Dashboard',pDash],inventaris:['Dashboard',pDash]};
 function route(){const h=location.hash.replace('#/','');const k=R[h]?h:'dashboard';
  $('#title').textContent=R[k][0];document.title=R[k][0]+' · SIM Fleet · SIM Inventory & SMS Hub';
  $$('#nav a').forEach(a=>{const on=a.dataset.k===k;a.classList.toggle('on',on);on?a.setAttribute('aria-current','page'):a.removeAttribute('aria-current')});
@@ -1127,61 +1130,149 @@ async function runBulkDialExecution(targetSlots, ussdCode){
  };
 }
 
+function copyToClipboard(text, successMsg = 'Disalin ke clipboard.'){
+ if(!text) return;
+ if(navigator.clipboard && navigator.clipboard.writeText){
+  navigator.clipboard.writeText(text).then(
+   () => toast(successMsg),
+   () => toast('Gagal menyalin.', 1)
+  );
+ } else {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+   document.execCommand('copy');
+   toast(successMsg);
+  } catch(e) {
+   toast('Gagal menyalin.', 1);
+  }
+  document.body.removeChild(ta);
+ }
+}
+
 let lastF=null;
 function openDrawer(id){
  const x=slots.find(s=>s.id===id);if(!x)return;lastF=document.activeElement;
+ currentDrawerSlot = x;
+
  dr.innerHTML=`<div class="scr" data-x></div><aside class="dw" role="dialog" aria-modal="true" aria-label="Detail slot ${x.id}">
  <div class="dh"><h3>Rincian Slot ${x.id}</h3><button class="btn ic" data-x aria-label="Tutup detail">×</button></div>
  <dl>
    <dt>Slot Fisik</dt><dd><b>${x.id} (Port ${x.slot_index})</b></dd>
-   <dt>Nomor SIM</dt><dd class="mono"><b style="color:var(--ac);font-size:15px;">${x.num}</b></dd>
-   <dt>Provider</dt><dd>${x.op}</dd>
-   <dt>Port COM</dt><dd class="mono">${x.dev}</dd>
-   <dt>ICCID</dt><dd class="mono">${x.iccid}</dd>
+   <dt>Nomor SIM</dt><dd class="mono"><b style="color:var(--ac);font-size:15px;">${esc(x.num)}</b></dd>
+   <dt>Provider</dt><dd><b>${esc(x.op)}</b></dd>
+   <dt>Port COM</dt><dd class="mono">${esc(x.dev)}</dd>
+   <dt>ICCID</dt><dd class="mono" style="word-break:break-all;font-size:12.5px;">${esc(x.iccid)}</dd>
    <dt>Status</dt><dd>${bd(x.st)}</dd>
-   <dt>Modul</dt><dd class="mono">${poolInfo.model}</dd>
+   <dt>Modul</dt><dd class="mono">${esc(poolInfo.model)}</dd>
  </dl> 
- 
- <div style="margin-top:6px;border-top:1px solid var(--ln);padding-top:14px;">
-   <h3 style="font-size:13px;margin-bottom:8px;">Dial USSD Cepat</h3>
-   <div class="row" style="gap:6px;">
-     <input id="in-ussd" value="*808*7*8#" style="flex:1;font-family:monospace;" placeholder="*808#">
-     <button class="btn pri" id="btn-dial"${x.st==='empty'?' disabled':''}>Dial</button>
-   </div>
-   <div id="ussd-msg" class="note" style="margin-top:8px;display:none;white-space:pre-wrap;"></div>
+
+ <div class="row" style="margin-top:2px;">
+   <button type="button" class="btn" id="cp"${x.st==='empty'||x.num==='—'||x.num==='BELUM DIKETAHUI'?' disabled':''}>📋 Salin Nomor</button>
+   <button type="button" class="btn" id="btn-refresh-drawer-sms">🔄 Segarkan SMS</button>
  </div>
 
- <div class="row" style="margin-top:10px;">
-   <button class="btn" id="cp"${x.st==='empty'||x.num==='—'||x.num==='BELUM DIKETAHUI'?' disabled':''}>📋 Salin nomor</button>
+ <div style="border-top:1px solid var(--ln);margin-top:8px;padding-top:12px;display:flex;flex-direction:column;gap:10px;">
+   <div style="display:flex;justify-content:space-between;align-items:center;">
+     <h3 style="font-size:14px;margin:0;display:flex;align-items:center;gap:6px;">
+       <svg class="i" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg>
+       Kotak Masuk SMS
+     </h3>
+     <span id="drawer-sms-count" class="bulk-count-badge" style="font-size:11px;">0</span>
+   </div>
+   <div id="drawer-sms-list" style="display:flex;flex-direction:column;gap:10px;max-height:55vh;overflow-y:auto;padding-right:2px;">
+     <div class="note" style="margin:0;text-align:center;padding:16px;color:var(--mu);font-size:12.5px;">Memuat pesan masuk...</div>
+   </div>
  </div>
  </aside>`;
- 
- $$('[data-x]',dr).forEach(e=>e.onclick=closeDrawer);$('.dw .btn',dr).focus();
- $('#cp').onclick=()=>{navigator.clipboard?.writeText(x.num).then(()=>toast('Nomor telepon disalin ke clipboard.'),()=>toast('Gagal menyalin.',1))};
- 
- $('#btn-dial').onclick=async()=>{
-  const inp=$('#in-ussd').value.trim()||'*808*7*8#';
-  const btn=$('#btn-dial');btn.disabled=true;btn.textContent='Dialing...';
-  const box=$('#ussd-msg');box.style.display='block';box.textContent='Menghubungi operator seluler...';
-  try{
-   const r=await fetch(`/api/slots/${x.slot_index}/ussd?code=${encodeURIComponent(inp)}`,{method:'POST'});
-   const d=await r.json();
-   if(d.success){
-    box.textContent=`Balasan:\n${d.response_text}\n\n${d.phone_number?'Nomor: '+d.phone_number:''}`;
-    if(d.phone_number){x.num=d.phone_number;pDash()}
-    toast('Dial USSD berhasil.');
-   }else{
-    box.textContent='Gagal: '+(d.message||'Tidak ada respon.');
-   }
-  }catch(e){
-   box.textContent='Error: '+e.message;
-  }finally{
-   btn.disabled=false;btn.textContent='Dial';
-  }
- };
+
+ $$('[data-x]',dr).forEach(e=>e.onclick=closeDrawer);
+ $('.dw .btn',dr).focus();
+ $('#cp').onclick=()=>copyToClipboard(x.num, 'Nomor telepon disalin ke clipboard.');
+ $('#btn-refresh-drawer-sms').onclick=()=>loadDrawerSMS(x.slot_index, x.id, true);
+
+ loadDrawerSMS(x.slot_index, x.id, false);
 }
 
-function closeDrawer(){if(!dr.innerHTML)return;dr.innerHTML='';lastF&&lastF.isConnected&&lastF.focus();lastF=null}
+async function loadDrawerSMS(slotIndex, slotId, showFeedback = false){
+ const listEl = $('#drawer-sms-list');
+ const countEl = $('#drawer-sms-count');
+ if(!listEl) return;
+ if(showFeedback) toast(`Menyegarkan SMS Port ${slotIndex}...`);
+
+ try {
+  const res = await fetch(`/api/slots/${slotIndex}/sms`);
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  const data = await res.json();
+  
+  if(!listEl || !countEl) return;
+  countEl.textContent = data.length;
+
+  if(!data.length){
+   listEl.innerHTML = `
+    <div class="note" style="margin:0;text-align:center;padding:18px 12px;color:var(--mu);font-size:12.5px;background:var(--p2);border-radius:8px;">
+      Belum ada pesan SMS masuk pada slot ini.
+    </div>
+   `;
+   return;
+  }
+
+  listEl.innerHTML = data.map((m, idx) => {
+   const otpMatch = (m.body || '').match(/\b\d{4,8}\b/);
+   const timeStr = m.received_at ? new Date(m.received_at).toLocaleString('id-ID', {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : 'Baru saja';
+   const senderName = m.sender || 'Tanpa Pengirim';
+   const safeBody = esc(m.body || '');
+   
+   return `
+    <div style="background:var(--p2);border:1px solid var(--ln);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+        <div>
+          <b style="color:var(--tx);font-size:13px;">${esc(senderName)}</b>
+          <span class="mu" style="display:block;font-size:11px;">${timeStr}</span>
+        </div>
+        <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+          ${otpMatch ? `<span class="sb-pill" style="background:#059669;color:#fff;font-size:10.5px;padding:2px 7px;">OTP ${esc(otpMatch[0])}</span>` : ''}
+          <span class="sb-pill" style="font-size:10.5px;">${esc(m.status || 'Diterima')}</span>
+        </div>
+      </div>
+      <div class="mono" style="background:var(--bg);border:1px solid var(--ln);border-radius:6px;padding:9px 11px;font-size:12.5px;line-height:1.55;white-space:pre-wrap;word-break:break-word;color:var(--tx);user-select:text;">${safeBody}</div>
+      <div class="row end" style="gap:6px;margin-top:2px;">
+        ${otpMatch ? `<button type="button" class="btn pri copy-otp-btn" data-idx="${idx}" style="padding:4px 8px;font-size:11px;">Salin OTP</button>` : ''}
+        <button type="button" class="btn copy-sms-btn" data-idx="${idx}" style="padding:4px 8px;font-size:11px;">Salin SMS</button>
+      </div>
+    </div>
+   `;
+  }).join('');
+
+  listEl.querySelectorAll('.copy-sms-btn').forEach(btn => {
+   const idx = +btn.dataset.idx;
+   btn.onclick = () => copyToClipboard(data[idx].body, 'Isi SMS disalin ke clipboard.');
+  });
+  listEl.querySelectorAll('.copy-otp-btn').forEach(btn => {
+   const idx = +btn.dataset.idx;
+   const match = (data[idx].body || '').match(/\b\d{4,8}\b/);
+   if(match) btn.onclick = () => copyToClipboard(match[0], 'Kode OTP disalin: ' + match[0]);
+  });
+
+ } catch(err) {
+  if(!listEl) return;
+  listEl.innerHTML = `
+   <div class="note" style="margin:0;color:var(--er);padding:12px;font-size:12px;">
+     Gagal memuat pesan: ${esc(err.message)}
+   </div>
+  `;
+ }
+}
+
+function closeDrawer(){
+ if(!dr.innerHTML) return;
+ dr.innerHTML = '';
+ currentDrawerSlot = null;
+ lastF && lastF.isConnected && lastF.focus();
+ lastF = null;
+}
 document.addEventListener('keydown',e=>{
  if(e.key==='Escape'){closeDrawer();side(false)}
  if(e.key==='/'&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)){

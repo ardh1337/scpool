@@ -59,7 +59,7 @@ def list_slots(db: Session = Depends(get_db)):
     for s in slots:
         phone_num = None
         num_status = "BELUM DIKETAHUI"
-        iccid_masked = None
+        iccid_val = None
         operator_name = None
 
         # Ambil sesi aktif jika slot READY
@@ -68,7 +68,7 @@ def list_slots(db: Session = Depends(get_db)):
             sim = active_sess[0].sim_card
             phone_num = sim.phone_number
             num_status = sim.number_status.value
-            iccid_masked = mask_sensitive(sim.iccid)
+            iccid_val = sim.iccid
             operator_name = sim.operator_name or ("XL / AXIS" if phone_num and "838" in phone_num else None)
 
         sms_count = db.query(SMSMessage).filter(SMSMessage.slot_id == s.id).count()
@@ -82,7 +82,8 @@ def list_slots(db: Session = Depends(get_db)):
             "phone_number": phone_num,
             "number_status": num_status,
             "operator_name": operator_name,
-            "iccid_masked": iccid_masked,
+            "iccid": iccid_val,
+            "iccid_masked": iccid_val,
             "sms_count": sms_count,
             "updated_at": s.updated_at.isoformat() if s.updated_at else None
         })
