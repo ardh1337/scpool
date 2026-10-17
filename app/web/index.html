@@ -72,7 +72,6 @@ svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stro
 .main{flex:1;min-width:0;display:flex;flex-direction:column}
 .top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;display:flex;align-items:center;gap:10px;padding:11px 24px;background:var(--bg);border-bottom:1px solid var(--ln)}
 .top h1{font-size:17px;font-weight:700;margin-right:auto;letter-spacing:-0.01em}
-.burger{display:none}
 #gs{width:240px;max-width:32vw}
 main{padding:20px 24px 44px;max-width:1440px;outline:none}
 .ph{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;color:var(--mu)}
@@ -527,7 +526,7 @@ dialog::backdrop{background:rgba(0,0,0,.6)}dialog form{display:grid;gap:12px}
 }
 @media (max-width:768px){
  .side{position:fixed;left:0;top:0;z-index:50;transform:translateX(-100%);transition:transform .2s}
- .side.open{transform:none}.burger{display:inline-block}
+ .side.open{transform:none}
  .top,main{padding-inline:16px}#gs{display:none}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -546,13 +545,12 @@ dialog::backdrop{background:rgba(0,0,0,.6)}dialog form{display:grid;gap:12px}
 </aside>
 <div class="main">
  <header class="top">
-  <button class="btn ic burger" id="bg" aria-label="Buka menu"><svg class="i" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   <h1 id="title">Dashboard</h1>
   <input id="gs" type="search" placeholder="Cari slot, nomor, atau provider…" aria-label="Pencarian cepat">
   <button class="btn ic" id="top-sync" title="Sinkronkan Hardware"><svg class="i" viewBox="0 0 24 24"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg></button>
   <button class="btn ic" id="top-poll" title="Periksa SMS Baru"><svg class="i" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></button>
   <div class="pop"><button class="btn ic" data-pop="np" aria-label="Notifikasi" aria-expanded="false"><svg class="i" viewBox="0 0 24 24"><path d="M6 17V11a6 6 0 0112 0v6l2 2H4zM10 21h4"/></svg><span class="dot"></span></button><div class="pm" id="np" hidden></div></div>
-  <div class="pop"><button class="btn" data-pop="pp" aria-expanded="false">Admin Pool</button><div class="pm" id="pp" hidden><a href="#/pengaturan">Pengaturan</a><button id="lo">Status: Online</button></div></div>
+  <div class="pop"><button class="btn" data-pop="pp" aria-expanded="false">Admin Pool</button><div class="pm" id="pp" hidden><a href="#/dashboard">Dashboard</a><a href="#/pengaturan">Pengaturan</a><button id="lo">Status: Online</button></div></div>
  </header>
  <main id="view" tabindex="-1"></main>
 </div></div>
@@ -727,8 +725,7 @@ function modal({title,text='',ok='Konfirmasi',danger,field}){return new Promise(
  dlg.onclose=()=>res(dlg.returnValue==='ok'?(field?$('#mf').value.trim():true):false);
  dlg.returnValue='';dlg.showModal()})}
 const goto=h=>{location.hash===h?route():location.hash=h};
-function side(o){$('#side').classList.toggle('open',o);$('#bg').setAttribute('aria-label',o?'Tutup menu':'Buka menu');let s=$('#sc');if(o&&!s){s=document.createElement('div');s.id='sc';s.className='scr';s.style.zIndex=45;s.onclick=()=>side(false);document.body.append(s)}if(!o&&s)s.remove()}
-$('#bg').onclick=()=>side(!$('#side').classList.contains('open'));
+function side(o){$('#side')?.classList.toggle('open',o);let s=$('#sc');if(o&&!s){s=document.createElement('div');s.id='sc';s.className='scr';s.style.zIndex=45;s.onclick=()=>side(false);document.body.append(s)}if(!o&&s)s.remove()}
 $$('[data-pop]').forEach(b=>b.onclick=e=>{e.stopPropagation();const m=$('#'+b.dataset.pop),was=m.hidden;$$('.pm').forEach(x=>x.hidden=true);$$('[data-pop]').forEach(x=>x.setAttribute('aria-expanded','false'));m.hidden=!was;b.setAttribute('aria-expanded',String(was))});
 document.addEventListener('click',()=>$$('.pm').forEach(x=>x.hidden=true));
 $('#lo').onclick=()=>toast(`Status sistem: Terhubung ke ${poolInfo.pool}.`);
