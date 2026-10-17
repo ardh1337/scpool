@@ -889,6 +889,10 @@ let currentThemeMode = 'auto';
 let userCredentials = { username: 'admin', password: '••••••••', realPassword: 'admin123' };
 let isPasswordVisible = false;
 let currentApiLang = 'curl';
+let currentDashMode = localStorage.getItem('simfleet_dash_mode') || 'grid';
+let soundEnabled = localStorage.getItem('simfleet_sound') !== 'false';
+let lastSeenOtpIds = new Set();
+let fastNumFilterOp = 'all';
 
 const S={sms:{q:'',slot:'all',st:'all',sel:null},labels:{},
  set:{org:'Foxcom 32-Port Pool',tz:'Asia/Jakarta (WIB)',theme:'auto'}};
@@ -2064,16 +2068,12 @@ function apply(){
  const activeTheme = currentThemeMode === 'auto' ? getSystemTheme() : currentThemeMode;
  document.documentElement.dataset.theme = activeTheme;
 }
-setThemeMode('auto');
-route();
+
 
 /* ==========================================================================
    MODE 2 JAVASCRIPT: FAST OTP STREAM & NUMBER LIST AUTO-COPY
    ========================================================================== */
-let currentDashMode = localStorage.getItem('simfleet_dash_mode') || 'grid';
-let soundEnabled = localStorage.getItem('simfleet_sound') !== 'false';
-let lastSeenOtpIds = new Set();
-let fastNumFilterOp = 'all';
+
 
 function switchDashMode(mode){
   currentDashMode = mode;
@@ -2462,6 +2462,8 @@ function copyFullSMS(text, btn){
   toast('Seluruh isi pesan SMS disalin.');
 }
 
+setThemeMode('auto');
+route();
 </script>
 </body>
 </html>
