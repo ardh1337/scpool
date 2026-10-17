@@ -989,19 +989,19 @@ dialog::backdrop{background:rgba(0,0,0,.6)}dialog form{display:grid;gap:12px}
   <div style="display:flex;align-items:center;gap:12px;margin-right:auto;">
    <h1 id="title" style="margin-right:0;">Dashboard</h1>
    <div class="dash-mode-toggle" id="dash-mode-toggle">
-    <button type="button" class="dmode-btn on" id="btn-mode-grid" onclick="switchDashMode('grid')" title="Mode 1: Grid Fisik Hardware 32-Port">
+    <button type="button" class="dmode-btn on" id="btn-mode-grid" onclick="switchDashMode('grid')" title="Grid Port">
      <svg class="i" viewBox="0 0 24 24"><path d="M4 4h7v7H4zM13 4h7v4h-7zM13 11h7v9h-7zM4 14h7v6H4z"/></svg>
      <span>Grid Port</span>
     </button>
-    <button type="button" class="dmode-btn" id="btn-mode-stream" onclick="switchDashMode('stream')" title="Mode 2: Fast OTP & List Nomor (Auto-Copy)">
+    <button type="button" class="dmode-btn" id="btn-mode-stream" onclick="switchDashMode('stream')" title="Fast OTP">
      <svg class="i" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
      <span>Fast OTP</span>
     </button>
    </div>
   </div>
-  <input id="gs" type="search" placeholder="Cari slot, nomor, atau provider…" aria-label="Pencarian cepat">
-  <button class="btn ic" id="top-sync" title="Sinkronkan Hardware"><svg class="i" viewBox="0 0 24 24"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg></button>
-  <button class="btn ic" id="top-poll" title="Periksa SMS Baru"><svg class="i" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></button>
+  <input id="gs" type="search" placeholder="Cari slot, nomor, operator…" aria-label="Pencarian cepat">
+  <button class="btn ic" id="top-sync" title="Sinkronkan"><svg class="i" viewBox="0 0 24 24"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg></button>
+  <button class="btn ic" id="top-poll" title="Periksa SMS"><svg class="i" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></button>
   <div class="pop"><button class="btn ic" data-pop="np" aria-label="Notifikasi" aria-expanded="false"><svg class="i" viewBox="0 0 24 24"><path d="M6 17V11a6 6 0 0112 0v6l2 2H4zM10 21h4"/></svg><span class="dot"></span></button><div class="pm" id="np" hidden></div></div>
   <div class="pop"><button class="btn" data-pop="pp" aria-expanded="false">Admin Pool</button><div class="pm" id="pp" hidden><a href="#/dashboard">Dashboard</a><a href="#/pengaturan">Pengaturan</a><button id="lo">Status: Online</button></div></div>
  </header>
@@ -1431,12 +1431,12 @@ function pDash(){
  const c = cnt(), prob = c.offline + c.error;
  v.innerHTML = `
   <div class="note" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-    <div><b>SIM Fleet Live Hardware:</b> Terhubung ke ${esc(poolInfo.pool)} (${esc(poolInfo.model)}). Background detector aktif.</div>
+    <div><b>Perangkat:</b> ${esc(poolInfo.pool)} (${esc(poolInfo.model)})</div>
     <div class="row" style="gap:8px;">
       <button type="button" class="btn ${isSelectMode ? '' : 'pri'}" id="btn-bulk-toggle" onclick="toggleSelectMode()">
-        ${isSelectMode ? '✖ Tutup Mode Pilih' : '📞 Dial Massal USSD'}
+        ${isSelectMode ? 'Tutup Pilihan' : 'Dial USSD Massal'}
       </button>
-      <button type="button" class="btn" onclick="exportCsv()">📥 Ekspor CSV</button>
+      <button type="button" class="btn" onclick="exportCsv()">Ekspor CSV</button>
     </div>
   </div>
   
@@ -2374,8 +2374,7 @@ function pStreamDash(){
         <div class="fast-unified-table-box">
           <div class="unified-table-header">
             <div>
-              <b style="font-size:14.5px;display:block;">Tabel Terpadu Nomor SIM & Koleksi OTP</b>
-              <span class="mu" style="font-size:11.5px;">Klik baris nomor di kiri untuk langsung auto-copy nomor ke clipboard</span>
+              <b style="font-size:14px;">Daftar SIM & OTP</b>
             </div>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
               <div style="display:flex;gap:4px;flex-wrap:wrap;" id="fnum-filter-chips">
@@ -2387,13 +2386,13 @@ function pStreamDash(){
                 <button type="button" class="btn ${fastNumFilterOp==='Tri'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('Tri')">Tri</button>
                 <button type="button" class="btn ${fastNumFilterOp==='Smartfren'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('Smartfren')">Smartfren</button>
               </div>
-              <input type="search" id="fnum-search" placeholder="Cari nomor, port, atau apps…" style="width:200px;font-size:12px;padding:5px 10px;" oninput="updateUnifiedTable()">
+              <input type="search" id="fnum-search" placeholder="Cari nomor, port, operator…" style="width:200px;font-size:12px;padding:5px 10px;" oninput="updateUnifiedTable()">
             </div>
           </div>
 
           <div class="unified-table-columns-header">
-            <div>📋 Kolom Nomor SIM & Status (Klik = Salin)</div>
-            <div>⚡ Koleksi & Riwayat OTP Khusus Nomor Ini (Vertikal)</div>
+            <div>Nomor SIM & Status</div>
+            <div>OTP Terakhir</div>
           </div>
 
           <div class="unified-table-body" id="unified-table-rows"></div>
@@ -2404,15 +2403,15 @@ function pStreamDash(){
           <div class="stream-bottom-head">
             <div style="display:flex;align-items:center;gap:10px;">
               <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#10b981;box-shadow:0 0 10px #10b981;animation:appPulse 1.5s infinite;"></span>
-              <b style="font-size:15px;letter-spacing:-0.01em;">Live Stream OTP Masuk (Real-time)</b>
+              <b style="font-size:14.5px;letter-spacing:-0.01em;">OTP Masuk</b>
               <span class="mu" style="font-size:12px;" id="otp-total-count"></span>
             </div>
             <div style="display:flex;align-items:center;gap:8px;">
               <button type="button" class="btn" style="padding:4px 10px;font-size:11.5px;" id="btn-toggle-sound" onclick="toggleOtpSound()">
-                ${soundEnabled ? '🔔 Suara: Aktif' : '🔕 Suara: Bisu'}
+                ${soundEnabled ? 'Suara: On' : 'Suara: Off'}
               </button>
               <button type="button" class="btn" style="padding:4px 10px;font-size:11.5px;" onclick="$('#top-poll').click()">
-                🔄 Cek SMS Baru
+                Periksa SMS
               </button>
             </div>
           </div>
@@ -2488,7 +2487,6 @@ function updateUnifiedTable(){
 
     const appBadgesHtml = uniqueApps.length ? `
       <div class="app-badges-row">
-        <span class="mu" style="font-size:11px;font-weight:600;">Apps:</span>
         ${uniqueApps.map(app => `
           <span class="app-tag-badge" style="background:${app.bg};border-color:${app.color}40;color:${app.color};">
             ${renderAnimatedAppLogo(app.key, app.color)}
@@ -2496,7 +2494,7 @@ function updateUnifiedTable(){
           </span>
         `).join('')}
       </div>
-    ` : `<span class="mu" style="font-size:11.5px;">${isAct ? 'Belum ada kode OTP masuk' : 'Slot tidak aktif'}</span>`;
+    ` : `<span class="mu" style="font-size:11.5px;">${isAct ? 'Belum ada OTP' : 'Slot kosong'}</span>`;
 
     // Kontainer OTP bergulir: tinggi tepat 1 kartu (44px), namun jika ada lebih dari 1 OTP tetap dapat digulir
     const otpsListHtml = slotOtps.length ? `
@@ -2514,7 +2512,7 @@ function updateUnifiedTable(){
                     <div style="font-weight:700;font-size:12px;color:var(--tx);display:flex;gap:6px;align-items:center;">
                       <span>${esc(app.name)}</span>
                       <span class="mu" style="font-size:10.5px;font-weight:normal;">• ${ago(m.m)}</span>
-                      ${slotOtps.length > 1 ? `<span class="mu mono" style="font-size:10px;padding:0 5px;background:rgba(255,255,255,0.06);border-radius:6px;" title="Gulir mouse untuk melihat OTP lainnya">↕ ${idx + 1}/${slotOtps.length}</span>` : ''}
+                      ${slotOtps.length > 1 ? `<span class="mu mono" style="font-size:10px;padding:0 5px;background:rgba(255,255,255,0.06);border-radius:6px;" title="Gulir untuk melihat OTP lain">↕ ${idx + 1}/${slotOtps.length}</span>` : ''}
                     </div>
                     <div class="mu mono" style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px;" title="${esc(m.body)}">${esc(m.body)}</div>
                   </div>
@@ -2522,7 +2520,7 @@ function updateUnifiedTable(){
                 <div style="display:flex;align-items:center;gap:6px;flex:none;">
                   <span class="mini-otp-digits">${esc(m.otp)}</span>
                   <button type="button" class="btn pri" style="padding:3px 8px;font-size:11.5px;font-weight:700;" id="btn-mini-otp-${m.id}" onclick="event.stopPropagation();copyFastOTP('${esc(m.otp)}', 'btn-mini-otp-${m.id}')" title="Salin kode ${m.otp}">
-                    📋 Salin
+                    Salin
                   </button>
                 </div>
               </div>
@@ -2644,11 +2642,10 @@ function updateFastOtpFeed(){
             <div style="min-width:0;">
               <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
                 <b style="font-size:13.5px;color:var(--tx);">${esc(app.name)}</b>
-                <span style="font-size:9.5px;padding:1px 6px;border-radius:10px;background:${app.color}20;color:${app.color};font-weight:700;">VERIFIKASI</span>
                 <span class="mu" style="font-size:11px;">• ${ago(m.m)}</span>
               </div>
               <div class="mu" style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                Pengirim: <b style="color:var(--tx);">${esc(m.n)}</b>
+                ${esc(m.n)}
               </div>
             </div>
           </div>
@@ -2667,7 +2664,6 @@ function updateFastOtpFeed(){
               <span class="fnum-port">${m.slot}</span>
               <span class="mono" style="font-size:13px;font-weight:700;">${esc(targetNum)}</span>
             </div>
-            <span class="mu" style="font-size:10.5px;">Nomor Penerima</span>
           </div>
         </div>
 
