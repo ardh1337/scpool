@@ -421,17 +421,17 @@ dialog::backdrop{background:rgba(0,0,0,.6)}dialog form{display:grid;gap:12px}
   background:var(--pn);
   border:1px solid var(--ac);
   border-radius:12px;
-  padding:10px 18px;
-  box-shadow:0 12px 36px rgba(0,0,0,0.6),0 0 20px rgba(16,185,129,0.25);
+  padding:11px 18px;
+  box-shadow:0 14px 40px rgba(0,0,0,0.65),0 0 24px rgba(16,185,129,0.3);
   display:flex;
   align-items:center;
   gap:14px;
   z-index:35;
-  animation:slideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  animation:slideUp 0.24s cubic-bezier(0.16, 1, 0.3, 1);
   flex-wrap:wrap;
 }
 @keyframes slideUp{
-  from{transform:translate(-50%,20px);opacity:0}
+  from{transform:translate(-50%,24px);opacity:0}
   to{transform:translate(-50%,0);opacity:1}
 }
 .bulk-bar-info{
@@ -450,18 +450,77 @@ dialog::backdrop{background:rgba(0,0,0,.6)}dialog form{display:grid;gap:12px}
   font-size:12px;
   font-weight:800;
 }
-.slot-chk{
-  width:16px;
-  height:16px;
-  accent-color:var(--ac);
-  cursor:pointer;
-  margin:0;
+
+/* Smooth Animated Checkbox Container */
+.slot-chk-wrap{
+  width:0;
+  opacity:0;
+  transform:scale(0.6) translateX(-6px);
+  overflow:hidden;
+  transition:all 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  margin-right:0;
+  pointer-events:none;
 }
+.select-mode-active .slot-chk-wrap{
+  width:20px;
+  opacity:1;
+  transform:scale(1) translateX(0);
+  margin-right:7px;
+  pointer-events:auto;
+}
+
+/* Custom Smooth Animated Checkbox */
+.custom-chk{
+  appearance:none;
+  -webkit-appearance:none;
+  width:17px;
+  height:17px;
+  border:1.5px solid var(--ln);
+  border-radius:5px;
+  background:var(--p2);
+  cursor:pointer;
+  position:relative;
+  transition:all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  display:grid;
+  place-items:center;
+  margin:0;
+  flex:none;
+}
+.custom-chk:hover{
+  border-color:var(--ac);
+  background:rgba(16, 185, 129, 0.14);
+}
+.custom-chk:checked{
+  background:var(--ac);
+  border-color:var(--ac);
+  box-shadow:0 0 10px rgba(16, 185, 129, 0.5);
+}
+.custom-chk:checked::after{
+  content:"";
+  width:4px;
+  height:8px;
+  border:solid var(--ai);
+  border-width:0 2px 2px 0;
+  transform:rotate(45deg) translate(-0.5px, -1px);
+  display:block;
+}
+.custom-chk:disabled{
+  opacity:0.3;
+  cursor:not-allowed;
+}
+
 .slot-box.selected{
   outline:2px solid var(--ac);
   outline-offset:1px;
-  box-shadow:0 0 16px rgba(16,185,129,0.35)!important;
+  box-shadow:0 0 18px rgba(16,185,129,0.38)!important;
 }
+.select-mode-active .slot-box{
+  cursor:pointer;
+}
+
 
 @media (max-width:899px){
  .sms{grid-template-columns:1fr}.sms .list{border-right:0;max-height:none}
@@ -527,6 +586,7 @@ let poolInfo = {
 
 const selectedSlots = new Set();
 let isBulkCancelled = false;
+let isSelectMode = false;
 
 const S={sms:{q:'',slot:'all',st:'all',sel:null},labels:{},
  set:{org:'Foxcom 32-Port Pool',tz:'Asia/Jakarta (WIB)',theme:'dark',density:'comfortable'}};
@@ -601,7 +661,7 @@ async function fetchBackendData(){
   }
 
   refreshBell();
-  if(!dr.innerHTML && !dlg.open){
+  if(!dr.innerHTML && !dlg.open && !isSelectMode){
    const cur = location.hash.replace('#/','') || 'dashboard';
    if(cur === 'dashboard') pDash();
    else if(cur === 'sms') { smsList(); smsDet(); }
@@ -661,56 +721,88 @@ const R={dashboard:['Dashboard',pDash],sms:['SMS Inbox',pSms],pengaturan:['Penga
 function route(){const h=location.hash.replace('#/','');const k=R[h]?h:'dashboard';
  $('#title').textContent=R[k][0];document.title=R[k][0]+' · SIM Fleet · SIM Inventory & SMS Hub';
  $$('#nav a').forEach(a=>{const on=a.dataset.k===k;a.classList.toggle('on',on);on?a.setAttribute('aria-current','page'):a.removeAttribute('aria-current')});
+ if(k !== 'dashboard' && isSelectMode) exitSelectMode();
  closeDrawer();side(false);refreshBell();R[k][1]();v.focus({preventScroll:true});scrollTo(0,0)}
 addEventListener('hashchange',route);
 
-/* ---------- Dashboard ---------- */
+/* ---------- Dashboard & Mode Checklist Dial Massal ---------- */
+function toggleSelectMode(){
+ if(isSelectMode){
+  exitSelectMode();
+ } else {
+  enterSelectMode();
+ }
+}
+
+function enterSelectMode(){
+ isSelectMode = true;
+ const container = $('#pools-container');
+ if(container) container.classList.add('select-mode-active');
+ const btnToggle = $('#btn-bulk-toggle');
+ if(btnToggle){
+  btnToggle.className = 'btn';
+  btnToggle.innerHTML = '✖ Tutup Mode Pilih';
+ }
+ updateSelectedVisuals();
+ toast('Mode checklist aktif: Pilih slot yang ingin didial.');
+}
+
+function exitSelectMode(){
+ isSelectMode = false;
+ selectedSlots.clear();
+ const container = $('#pools-container');
+ if(container) container.classList.remove('select-mode-active');
+ const btnToggle = $('#btn-bulk-toggle');
+ if(btnToggle){
+  btnToggle.className = 'btn pri';
+  btnToggle.innerHTML = '📞 Dial Massal USSD';
+ }
+ updateSelectedVisuals();
+}
+
 function toggleSelectSlot(e, id){
  e.stopPropagation();
- if(selectedSlots.has(id)) selectedSlots.delete(id);
- else selectedSlots.add(id);
+ const s = slots.find(x => x.id === id);
+ if(s && s.st === 'empty') return;
+ if(e.target.checked){
+  selectedSlots.add(id);
+ } else {
+  selectedSlots.delete(id);
+ }
  updateSelectedVisuals();
 }
 
 function onSlotClick(e, id){
  if(e.target.closest('.slot-chk')) return;
+ if(isSelectMode){
+  const s = slots.find(x => x.id === id);
+  if(s && s.st === 'empty'){
+   toast('Slot kosong tidak dapat dipilih.', 0);
+   return;
+  }
+  if(selectedSlots.has(id)){
+   selectedSlots.delete(id);
+  } else {
+   selectedSlots.add(id);
+  }
+  updateSelectedVisuals();
+  return;
+ }
  openDrawer(id);
 }
 
-function updateSelectedVisuals(){
- $$('.slot-box').forEach(el => {
-  const id = el.dataset.id;
-  const isSel = selectedSlots.has(id);
-  el.classList.toggle('selected', isSel);
-  const chk = el.querySelector('.slot-chk');
-  if(chk) chk.checked = isSel;
- });
- updateBulkBar();
-}
-
-function updateBulkBar(){
- const bar = $('#bulk-bar');
- if(!bar) return;
- if(selectedSlots.size === 0){
-  bar.style.display = 'none';
+function toggleSelectAll(){
+ const active = slots.filter(s => s.st === 'active');
+ if(!active.length){
+  toast('Tidak ada SIM aktif di pool.', 1);
   return;
  }
- bar.style.display = 'flex';
- bar.innerHTML = `
-  <div class="bulk-bar-info">
-   <span class="bulk-count-badge">${selectedSlots.size}</span>
-   <span>slot dipilih</span>
-  </div>
-  <div class="row" style="gap:6px;">
-   <button type="button" class="btn" onclick="selectAllActiveSlots()">Pilih Semua Aktif</button>
-   <button type="button" class="btn" onclick="clearSelectedSlots()">Batal</button>
-   <button type="button" class="btn pri" onclick="openBulkDialModal(true)">📞 Dial USSD (${selectedSlots.size})</button>
-  </div>
- `;
-}
-
-function selectAllActiveSlots(){
- slots.filter(s => s.st === 'active').forEach(s => selectedSlots.add(s.id));
+ const allSelected = active.every(s => selectedSlots.has(s.id));
+ if(allSelected){
+  selectedSlots.clear();
+ } else {
+  active.forEach(s => selectedSlots.add(s.id));
+ }
  updateSelectedVisuals();
 }
 
@@ -719,16 +811,55 @@ function clearSelectedSlots(){
  updateSelectedVisuals();
 }
 
+function updateSelectedVisuals(){
+ $$('.slot-box').forEach(el => {
+  const id = el.dataset.id;
+  const isSel = selectedSlots.has(id);
+  el.classList.toggle('selected', isSel);
+  const chk = el.querySelector('.slot-chk');
+  if(chk && chk.checked !== isSel) chk.checked = isSel;
+ });
+ updateBulkBar();
+}
+
+function updateBulkBar(){
+ const bar = $('#bulk-bar');
+ if(!bar) return;
+ if(!isSelectMode){
+  bar.style.display = 'none';
+  return;
+ }
+ bar.style.display = 'flex';
+ const active = slots.filter(s => s.st === 'active');
+ const allSelected = active.length > 0 && active.every(s => selectedSlots.has(s.id));
+ const selCount = selectedSlots.size;
+ const selectAllText = allSelected ? '◻ Batal Pilih' : `✓ Pilih Semua (${active.length})`;
+ 
+ bar.innerHTML = `
+  <div class="bulk-bar-info">
+   <span class="bulk-count-badge">${selCount}</span>
+   <span>slot dipilih</span>
+  </div>
+  <div class="row" style="gap:8px;align-items:center;">
+   <button type="button" class="btn" onclick="toggleSelectAll()">${selectAllText}</button>
+   <button type="button" class="btn pri" ${selCount===0?'disabled':''} onclick="openBulkDialModal(true)">📞 Dial USSD (${selCount})</button>
+   <button type="button" class="btn danger" onclick="exitSelectMode()">✖ Selesai</button>
+  </div>
+ `;
+}
+
 function renderSlotBox(s){
  const stLabel = (ST[s.st]||ST.empty)[0];
  const numDisplay = s.num || '—';
  const provDisplay = (s.st === 'active' && s.op && s.op !== '—') ? s.op : (s.st === 'empty' ? 'Tidak Ada Kartu' : 'Port Offline');
  const isSelected = selectedSlots.has(s.id);
  return `
-  <div class="slot-box ${s.st}${isSelected ? ' selected' : ''}" data-id="${s.id}" onclick="onSlotClick(event, '${s.id}')" tabindex="0" title="Klik untuk rincian ${s.id}">
+  <div class="slot-box ${s.st}${isSelected ? ' selected' : ''}" data-id="${s.id}" onclick="onSlotClick(event, '${s.id}')" tabindex="0" title="${isSelectMode ? 'Pilih/Batalkan ' + s.id : 'Klik untuk rincian ' + s.id}">
    <div class="sb-top">
-    <div style="display:flex;align-items:center;gap:6px;">
-     <input type="checkbox" class="slot-chk" data-chk-id="${s.id}" ${s.st==='empty'?'disabled':''} ${isSelected ? 'checked' : ''} onclick="toggleSelectSlot(event, '${s.id}')" title="Pilih slot">
+    <div style="display:flex;align-items:center;">
+     <span class="slot-chk-wrap">
+      <input type="checkbox" class="custom-chk slot-chk" data-chk-id="${s.id}" ${s.st==='empty'?'disabled':''} ${isSelected ? 'checked' : ''} onclick="toggleSelectSlot(event, '${s.id}')" title="Pilih slot">
+     </span>
      <span class="sb-id">Port ${String(s.slot_index).padStart(2,'0')}</span>
     </div>
     <span class="sb-pill">${stLabel}</span>
@@ -747,7 +878,7 @@ function renderPools(){
  const POOL_SIZE = 32;
  const HALF_POOL = 16;
  const poolCount = Math.max(1, Math.ceil(slots.length / POOL_SIZE));
- let html = '<div class="pools-wrapper">';
+ let html = `<div class="pools-wrapper${isSelectMode ? ' select-mode-active' : ''}" id="pools-container">`;
  
  for(let p = 0; p < poolCount; p++){
   const startIdx = p * POOL_SIZE;
@@ -790,7 +921,9 @@ function pDash(){
   <div class="note" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
     <div><b>SIM Fleet Live Hardware:</b> Terhubung ke ${esc(poolInfo.pool)} (${esc(poolInfo.model)}). Background detector aktif.</div>
     <div class="row" style="gap:8px;">
-      <button type="button" class="btn pri" onclick="openBulkDialModal(false)">📞 Dial Massal USSD</button>
+      <button type="button" class="btn ${isSelectMode ? '' : 'pri'}" id="btn-bulk-toggle" onclick="toggleSelectMode()">
+        ${isSelectMode ? '✖ Tutup Mode Pilih' : '📞 Dial Massal USSD'}
+      </button>
       <button type="button" class="btn" onclick="exportCsv()">📥 Ekspor CSV</button>
     </div>
   </div>
@@ -987,8 +1120,9 @@ async function runBulkDialExecution(targetSlots, ussdCode){
 
  $('#btn-done-bulk').onclick = () => {
   dlg.close();
+  exitSelectMode();
   pDash();
-  clearSelectedSlots();
+  fetchBackendData();
   toast(`Dial massal selesai: ${successCount} port berhasil didial.`);
  };
 }
