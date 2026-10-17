@@ -43,7 +43,7 @@ def generate_token(nbytes: int = 32) -> str:
 
 def generate_agent_token() -> str:
     """Menghasilkan token otentikasi unik untuk koneksi agent remote modem pool."""
-    return "tok_live_" + secrets.token_hex(16)
+    return "scpool_" + secrets.token_hex(16)
 
 
 def is_https_request(request) -> bool:

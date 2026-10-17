@@ -127,23 +127,32 @@
     </p>
    </div>
 
-   <!-- Sukses Registrasi: Unduh Token & Script -->
+   <!-- Sukses Registrasi: Unduh Satu File Agen Siap Pakai -->
    <div id="reg-success-card" style="display:none;flex-direction:column;gap:12px;">
     <div style="background:rgba(16,185,129,0.15);border:1px solid var(--ac);border-radius:8px;padding:12px;color:var(--tx);font-size:12.5px;line-height:1.4;" id="reg-success-desc">
      Pendaftaran berhasil! Akun menunggu persetujuan Administrator via Telegram.
     </div>
-    <label class="f">
-      <span style="font-size:11.5px;color:var(--mu);font-weight:600;">Agent Token Klien</span>
-      <div style="display:flex;gap:6px;">
-        <input type="text" id="reg-token-display" readonly style="flex:1;font-family:monospace;font-size:11.5px;padding:8px 10px;background:var(--p2);border:1px solid var(--ln);border-radius:6px;color:var(--ac);">
-        <button type="button" class="btn" onclick="copyRegToken()" style="padding:8px 12px;font-size:11.5px;">Salin</button>
+    <div style="background:var(--p2);border:1px solid var(--ln);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:8px;">
+      <span style="font-size:12px;font-weight:700;color:var(--tx);">⚡ Satu File Siap Running</span>
+      <p style="font-size:11.5px;color:var(--mu);margin:0;line-height:1.4;">
+        Token akun Anda telah tertanam otomatis di dalam file ini. Tidak perlu input token manual — cukup unduh dan klik dua kali (double-click) untuk langsung menghubungkan modem pool.
+      </p>
+      <a id="btn-dl-bat" class="btn pri" download="scpool_agent.bat" style="text-align:center;padding:11px 14px;font-size:13px;font-weight:700;text-decoration:none;margin-top:4px;">
+        ⬇️ Unduh Agen Siap Pakai (.bat)
+      </a>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;font-size:11px;">
+        <span style="color:var(--mu);">Pengguna Linux / Python:</span>
+        <a id="btn-dl-script" download="scpool_agent.py" style="color:var(--ac);text-decoration:underline;">Unduh .py mandiri</a>
       </div>
-    </label>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;">
-      <a id="btn-dl-bat" class="btn pri" download style="text-align:center;padding:9px 12px;font-size:12px;font-weight:700;">⬇️ run_agent.bat</a>
-      <a id="btn-dl-script" class="btn" download style="text-align:center;padding:9px 12px;font-size:12px;">⬇️ agent_forwarder.py</a>
     </div>
-    <button type="button" class="btn" onclick="switchAuthTab('login')" style="margin-top:6px;padding:9px;font-size:12px;">Kembali ke Login</button>
+    <details style="font-size:11.5px;color:var(--mu);cursor:pointer;">
+      <summary style="font-weight:600;">Lihat Token Agen Anda (Opsional)</summary>
+      <div style="display:flex;gap:6px;margin-top:6px;">
+        <input type="text" id="reg-token-display" readonly style="flex:1;font-family:monospace;font-size:11px;padding:6px 8px;background:var(--bg);border:1px solid var(--ln);border-radius:6px;color:var(--ac);">
+        <button type="button" class="btn" onclick="copyRegToken()" style="padding:6px 10px;font-size:11px;">Salin</button>
+      </div>
+    </details>
+    <button type="button" class="btn" onclick="switchAuthTab('login')" style="margin-top:4px;padding:9px;font-size:12px;">Kembali ke Login</button>
    </div>
   </form>
  </div>

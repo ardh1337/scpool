@@ -60,38 +60,70 @@ def download_agent_file(
 
     domain = get_setting("public_domain", "https://scpool.ardh1337.cloud", db=db).rstrip("/")
     ws_domain = domain.replace("https://", "wss://").replace("http://", "ws://") + "/ws/agent"
-    active_token = target_token or "GANTI_DENGAN_TOKEN_ANDA"
-
-    if file_type == "bat":
-        bat_content = (
-            "@echo off\r\n"
-            "title SCPool - Remote Modem Agent\r\n"
-            "echo ======================================================\r\n"
-            "echo           SCPOOL REMOTE MODEM POOL AGENT               \r\n"
-            "echo           Coded By Ardh1337                            \r\n"
-            "echo ======================================================\r\n"
-            "echo Menghubungkan modem pool lokal ke server SaaS...\r\n"
-            f"python agent_forwarder.py --server {ws_domain} --token {active_token}\r\n"
-            "if errorlevel 1 (\r\n"
-            "    echo.\r\n"
-            "    echo [ERROR] Agent terhenti atau python/pyserial belum terpasang.\r\n"
-            "    echo Jalankan: pip install pyserial websockets\r\n"
-            ")\r\n"
-            "pause\r\n"
-        )
-        return PlainTextResponse(
-            bat_content,
-            media_type="application/x-bat",
-            headers={"Content-Disposition": "attachment; filename=run_agent.bat"}
-        )
+    active_token = target_token or "scpool_UNCONFIGURED"
 
     agent_path = Path(__file__).resolve().parent.parent.parent / "tools" / "agent_forwarder.py"
-    if agent_path.exists():
-        return FileResponse(
-            str(agent_path),
-            filename="agent_forwarder.py",
-            media_type="text/x-python",
-            headers={"Content-Disposition": "attachment; filename=agent_forwarder.py"}
+    if not agent_path.exists():
+        raise HTTPException(status_code=404, detail="File tools/agent_forwarder.py tidak ditemukan di server.")
+
+    raw_python_code = agent_path.read_text(encoding="utf-8")
+
+    # Injeksi token dan domain server secara dinamis ke dalam file kode
+    configured_code = raw_python_code.replace(
+        'DEFAULT_SERVER = "wss://scpool.ardh1337.cloud/ws/agent"',
+        f'DEFAULT_SERVER = "{ws_domain}"'
+    )
+    configured_code = configured_code.replace(
+        'DEFAULT_TOKEN = ""',
+        f'DEFAULT_TOKEN = "{active_token}"'
+    )
+
+    # 1. Unduhan format .bat (Single-File Launcher Windows Mandiri)
+    if file_type in ["bat", "windows"]:
+        bat_header = (
+            "@echo off\r\n"
+            "rem ============================================================================\r\n"
+            "rem   SCPOOL // QUANTUM MODEM ENGINE - CLIENT HARDWARE BRIDGE\r\n"
+            "rem   Coded By Ardh1337\r\n"
+            "rem ============================================================================\r\n"
+            "setlocal enabledelayedexpansion\r\n"
+            "title SCPool Modem Pool Bridge\r\n\r\n"
+            "where python >nul 2>&1\r\n"
+            "if %ERRORLEVEL% neq 0 (\r\n"
+            "    echo.\r\n"
+            "    echo  [!] ERROR: Python 3 tidak ditemukan di sistem Windows ini.\r\n"
+            "    echo      Silakan unduh dan pasang Python dari: https://www.python.org/\r\n"
+            "    echo      (PENTING: Centang opsi 'Add Python to PATH' saat instalasi)\r\n"
+            "    echo.\r\n"
+            "    pause\r\n"
+            "    exit /b 1\r\n"
+            ")\r\n\r\n"
+            "python -c \"import serial, websockets\" >nul 2>&1\r\n"
+            "if %ERRORLEVEL% neq 0 (\r\n"
+            "    echo.\r\n"
+            "    echo  [*] Menyiapkan pustaka serial dan websockets (otomatis)...\r\n"
+            "    python -m pip install pyserial websockets --quiet\r\n"
+            ")\r\n\r\n"
+            "python -x \"%~f0\" %*\r\n"
+            "if %ERRORLEVEL% neq 0 (\r\n"
+            "    echo.\r\n"
+            "    echo  [!] Sesi bridge terhenti dengan kode keluar %ERRORLEVEL%.\r\n"
+            "    pause\r\n"
+            ")\r\n"
+            "exit /b %ERRORLEVEL%\r\n"
+            "# --- PYTHON QUANTUM BRIDGE ENGINE BELOW ---\r\n"
         )
-    raise HTTPException(status_code=404, detail="File agent_forwarder.py tidak ditemukan.")
+        single_file_content = bat_header + configured_code
+        return PlainTextResponse(
+            single_file_content,
+            media_type="application/x-bat",
+            headers={"Content-Disposition": "attachment; filename=scpool_agent.bat"}
+        )
+
+    # 2. Unduhan format .py (Single Python File untuk Linux/Mac/Pengembang)
+    return PlainTextResponse(
+        configured_code,
+        media_type="text/x-python",
+        headers={"Content-Disposition": "attachment; filename=scpool_agent.py"}
+    )
 

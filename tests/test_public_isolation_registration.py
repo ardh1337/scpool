@@ -26,7 +26,11 @@ class TestPublicIsolationAndRegistration(unittest.TestCase):
         if admin:
             admin.is_active = True
             admin.password = "admin123"
-            db.commit()
+        # Pastikan klien_baru_test dibersihkan jika sisa run sebelumnya
+        old_test_user = db.query(UserAccount).filter(UserAccount.username == "klien_baru_test").first()
+        if old_test_user:
+            db.delete(old_test_user)
+        db.commit()
         db.close()
 
     def tearDown(self):
@@ -107,7 +111,7 @@ class TestPublicIsolationAndRegistration(unittest.TestCase):
         self.assertTrue(reg_data["success"])
         self.assertFalse(reg_data["is_active"])  # Wajib pending!
         self.assertEqual(reg_data["username"], "klien_baru_test")
-        self.assertTrue(reg_data["agent_token"].startswith("tok_live_"))
+        self.assertTrue(reg_data["agent_token"].startswith("scpool_"))
         self.assertIn("download_script", reg_data)
         self.assertIn("download_bat", reg_data)
 
@@ -121,7 +125,7 @@ class TestPublicIsolationAndRegistration(unittest.TestCase):
         self.assertEqual(dl_pre_script.status_code, 200)
 
         # Token palsu ditolak 403
-        dl_fake = self.client.get("/api/download/agent?file_type=bat&token=tok_live_palsu_12345")
+        dl_fake = self.client.get("/api/download/agent?file_type=bat&token=scpool_palsu_12345")
         self.assertEqual(dl_fake.status_code, 403)
 
         # 2. Coba login sebelum disetujui -> 403
@@ -169,15 +173,16 @@ class TestPublicIsolationAndRegistration(unittest.TestCase):
         klien_slots = klien_slots_resp.json()
         self.assertEqual(len(klien_slots), 16)
 
-        # 5. Klien mengunduh script forwarder & run_agent.bat
+        # 5. Klien mengunduh script forwarder & scpool_agent.bat
         dl_script = self.client.get("/api/download/agent?file_type=script", headers=klien_headers)
         self.assertEqual(dl_script.status_code, 200)
-        self.assertIn("SCPool - Lightweight Remote Modem Pool Forwarder", dl_script.text)
+        self.assertIn("SCPool", dl_script.text)
+        self.assertIn("Quantum Modem Engine", dl_script.text)
 
         dl_bat = self.client.get("/api/download/agent?file_type=bat", headers=klien_headers)
         self.assertEqual(dl_bat.status_code, 200)
         self.assertIn(klien_auth["user"]["agent_token"], dl_bat.text)
-        self.assertIn("python agent_forwarder.py", dl_bat.text)
+        self.assertIn("python -x", dl_bat.text)
 
         # Bersihkan test data
         del_resp = self.client.delete(f"/api/admin/users/{klien_id}", headers=admin_headers)

@@ -83,7 +83,7 @@ class TestAuthMultiTenant(unittest.TestCase):
         self.assertEqual(create_resp.status_code, 200)
         created = create_resp.json()
         self.assertTrue(created["success"])
-        self.assertIn("tok_live_", created["agent_token"])
+        self.assertIn("scpool_", created["agent_token"])
         self.assertEqual(created["pool_id"], "pool_teman_budi")
 
         user_id = created["user_id"]

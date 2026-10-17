@@ -499,20 +499,20 @@ function pDash(){
           🚀 Setup Remote Modem Pool (${esc(currentUser.pool_id || 'Pool Anda')})
         </div>
         <p class="mu" style="font-size:12.5px;margin-top:4px;line-height:1.5;">
-          Jalankan Agent Forwarder di komputer tempat perangkat modem pool fisik Anda dicolokkan.
+          File agen sudah dilengkapi token akun Anda secara otomatis. Cukup unduh satu file dan jalankan (double-click) di komputer yang terhubung ke modem pool fisik.
         </p>
-        <div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <span style="font-size:12px;font-weight:600;color:var(--mu);">Token Agent Anda:</span>
-          <code class="mono" style="background:var(--p2);padding:4px 8px;border-radius:6px;border:1px solid var(--ln);font-size:12px;color:var(--tx);font-weight:700;">${esc(currentUser.agent_token || '—')}</code>
-          <button type="button" class="btn" style="padding:4px 10px;font-size:11.5px;" onclick="copyToClipboard('${esc(currentUser.agent_token || '')}', 'Token agent disalin.')">📋 Salin Token</button>
+        <div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span style="font-size:12px;font-weight:600;color:var(--mu);">Token Agent:</span>
+          <code class="mono" style="background:var(--p2);padding:3px 8px;border-radius:6px;border:1px solid var(--ln);font-size:11.5px;color:var(--ac);font-weight:700;">${esc(currentUser.agent_token || '—')}</code>
+          <button type="button" class="btn" style="padding:3px 8px;font-size:11px;" onclick="copyToClipboard('${esc(currentUser.agent_token || '')}', 'Token agent disalin.')">📋 Salin</button>
         </div>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <a href="/api/download/agent?file_type=script" download="agent_forwarder.py" class="btn pri" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;font-size:12px;">
-          ⬇ Unduh agent_forwarder.py
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <a href="/api/download/agent?file_type=bat" download="scpool_agent.bat" class="btn pri" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:8px 12px;">
+          ⬇ Unduh Agen Siap Pakai (scpool_agent.bat)
         </a>
-        <a href="/api/download/agent?file_type=bat" download="run_agent.bat" class="btn" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;font-size:12px;">
-          ⬇ Unduh run_agent.bat
+        <a href="/api/download/agent?file_type=py" download="scpool_agent.py" class="btn" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:8px 12px;">
+          ⬇ Versi Python (.py)
         </a>
       </div>
     </div>
@@ -1709,11 +1709,11 @@ if(regFormEl){
         const descEl = $('#reg-success-desc');
         if(descEl) descEl.textContent = data.message || 'Pendaftaran berhasil. Akun menunggu verifikasi Admin.';
         
-        const dlScript = $('#btn-dl-script');
-        if(dlScript) dlScript.href = data.download_script || `/api/download/agent?file_type=script&token=${encodeURIComponent(data.agent_token || '')}`;
-        
         const dlBat = $('#btn-dl-bat');
-        if(dlBat) dlBat.href = data.download_bat || `/api/download/agent?file_type=bat&token=${encodeURIComponent(data.agent_token || '')}`;
+        if(dlBat) dlBat.href = `/api/download/agent?file_type=bat&token=${encodeURIComponent(data.agent_token || '')}`;
+
+        const dlScript = $('#btn-dl-script');
+        if(dlScript) dlScript.href = `/api/download/agent?file_type=py&token=${encodeURIComponent(data.agent_token || '')}`;
 
         $('#reg-pwd').value = '';
         $('#login-uname').value = uname;

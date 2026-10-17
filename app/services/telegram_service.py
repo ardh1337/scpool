@@ -198,12 +198,10 @@ def process_telegram_updates(db: Session) -> int:
                                     f"🕒 *Waktu Disetujui:* `{now_str}`\n"
                                     f"👮 *Disetujui Oleh:* `@{from_user}`\n"
                                     f"📌 *Status:* `AKTIF (Siap Digunakan)`\n"
-                                    "━━━━━━━━━━━━━━━━━━━━\n"
-                                    "📥 *Tautan File Agen Klien:*\n"
-                                    f"• [Unduh run_agent.bat]({domain}/api/download/agent?file_type=bat&token={target_user.agent_token})\n"
-                                    f"• [Unduh agent_forwarder.py]({domain}/api/download/agent?file_type=script&token={target_user.agent_token})\n\n"
-                                    f"🌐 *Target WebSocket:* `{ws_domain}`\n"
-                                    f"📊 *Dashboard:* {domain}/#settings\n\n"
+                                    "📥 *File Agen Klien (Siap Pakai & Token Tertanam):*\n"
+                                    f"• [Unduh scpool_agent.bat]({domain}/api/download/agent?file_type=bat&token={target_user.agent_token})\n"
+                                    f"• [Unduh scpool_agent.py]({domain}/api/download/agent?file_type=py&token={target_user.agent_token})\n\n"
+                                    "⚡ _Klien cukup double-click file .bat untuk langsung menghubungkan modem pool ke sistem._\n\n"
                                     "— *Coded By Ardh1337*"
                                 )
 

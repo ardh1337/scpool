@@ -115,3 +115,37 @@ def test_agent_status_endpoint(client, db_session):
     assert data["pool_id"] == "foxcom_32"
     assert "is_online" in data
 
+
+def test_download_agent_single_ready_file(client, db_session):
+    # Buat user baru dengan token scpool
+    user = UserAccount(
+        username="ready_tester",
+        password=hash_password("password123"),
+        role="operator",
+        agent_token="scpool_abcd1234efgh5678",
+        is_active=True
+    )
+    db_session.add(user)
+    db_session.commit()
+
+    # 1. Download file .bat mandiri
+    resp_bat = client.get(f"/api/download/agent?file_type=bat&token={user.agent_token}")
+    assert resp_bat.status_code == 200
+    assert "scpool_agent.bat" in resp_bat.headers.get("Content-Disposition", "")
+    content_bat = resp_bat.text
+    assert "@echo off" in content_bat
+    assert 'DEFAULT_TOKEN = "scpool_abcd1234efgh5678"' in content_bat
+    assert "QUANTUM HARDWARE BRIDGE" in content_bat
+
+    # 2. Download file .py mandiri
+    resp_py = client.get(f"/api/download/agent?file_type=py&token={user.agent_token}")
+    assert resp_py.status_code == 200
+    assert "scpool_agent.py" in resp_py.headers.get("Content-Disposition", "")
+    content_py = resp_py.text
+    assert 'DEFAULT_TOKEN = "scpool_abcd1234efgh5678"' in content_py
+    assert "QUANTUM HARDWARE BRIDGE" in content_py
+
+    # 3. Download dengan token tidak terdaftar
+    resp_invalid = client.get("/api/download/agent?file_type=bat&token=scpool_invalidtoken999")
+    assert resp_invalid.status_code == 403
+
