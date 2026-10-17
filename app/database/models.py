@@ -373,6 +373,18 @@ class UserSession(Base):
     user = relationship("UserAccount", back_populates="sessions")
 
 
+class SystemSetting(Base):
+    """
+    Penyimpanan konfigurasi dinamis sistem (misal Telegram bot, domain publik, dsb).
+    """
+    __tablename__ = "system_settings"
+
+    key = Column(String(50), primary_key=True)
+    value = Column(Text, nullable=True)
+    description = Column(String(255), nullable=True)
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+
 def init_db(engine_override=None):
     """Inisialisasi tabel di database dan seed data awal profil operator serta akun admin."""
     target_engine = engine_override or from_connection_engine()
@@ -404,6 +416,18 @@ def init_db(engine_override=None):
             existing = session.query(OperatorProfile).filter(OperatorProfile.id == prof["id"]).first()
             if not existing:
                 session.add(OperatorProfile(**prof))
+
+        # Default system settings
+        default_settings = [
+            ("telegram_bot_token", "", "Token Bot Telegram untuk notifikasi"),
+            ("telegram_chat_id", "", "Chat ID Admin Telegram untuk persetujuan"),
+            ("public_domain", "https://scpool.ardh1337.cloud", "Domain publik akses remote"),
+            ("registration_auto_approve", "false", "Otomatis setujui registrasi tanpa persetujuan manual (true/false)")
+        ]
+        for s_key, s_val, s_desc in default_settings:
+            existing_s = session.query(SystemSetting).filter(SystemSetting.key == s_key).first()
+            if not existing_s:
+                session.add(SystemSetting(key=s_key, value=s_val, description=s_desc))
 
         admin_user = session.query(UserAccount).first()
         if not admin_user:

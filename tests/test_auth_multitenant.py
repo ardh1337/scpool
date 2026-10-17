@@ -15,11 +15,21 @@ class TestAuthMultiTenant(unittest.TestCase):
         init_db()
         db = SessionLocal()
         admin = db.query(UserAccount).filter(UserAccount.username == "admin").first()
+        self._orig_admin_pwd = admin.password if admin else None
         if admin:
             admin.password = "admin123"
             db.commit()
         db.close()
         self.client = TestClient(app)
+
+    def tearDown(self):
+        if self._orig_admin_pwd:
+            db = SessionLocal()
+            admin = db.query(UserAccount).filter(UserAccount.username == "admin").first()
+            if admin:
+                admin.password = self._orig_admin_pwd
+                db.commit()
+            db.close()
 
     def test_login_success_and_logout(self):
         """Memastikan login admin berhasil mendapatkan token dan bisa logout."""

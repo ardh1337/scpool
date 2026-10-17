@@ -1,5 +1,6 @@
 """
-SIM Fleet - Lightweight Remote Modem Pool Forwarder (agent.exe)
+SCPool - Lightweight Remote Modem Pool Forwarder (agent.exe)
+Coded By Ardh1337
 Berjalan di komputer lokal tempat modem pool fisik dicolok.
 Meneruskan I/O port serial ke Server SaaS secara aman via WebSocket.
 Tidak memerlukan akses ke database pusat maupun source code dashboard.
@@ -214,3 +215,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

@@ -42,6 +42,13 @@ def _auto_detector_loop(interval: float = 4.0):
 
                     sync_single_slot(db, slot, timeout=1.0, auto_fetch_number=True)
 
+                # Proses tombol callback persetujuan Telegram (jika ada pendaftaran baru)
+                try:
+                    from app.services.telegram_service import process_telegram_updates
+                    process_telegram_updates(db)
+                except Exception:
+                    pass
+
             finally:
                 db.close()
 

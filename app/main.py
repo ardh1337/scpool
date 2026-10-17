@@ -5,7 +5,7 @@ Menjalankan server web lokal untuk dashboard Foxcom 32-Port.
 
 from contextlib import asynccontextmanager
 from pathlib import Path
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,20 +24,28 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="SIM Inventory & SMS Dashboard",
-    description="Sistem Pengelolaan Modem Pool Foxcom 32-Port & SMS Hub",
+    title="SCPool - SIM Inventory & SMS Dashboard",
+    description="Sistem Pengelolaan Modem Pool Foxcom 32-Port & SMS Hub — Coded By Ardh1337",
     version="1.0.0",
     lifespan=lifespan
 )
 
-# CORS middleware untuk akses lokal aman
+# CORS middleware untuk akses lokal aman dan domain tunnel terpercaya
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|.*\.ardh1337\.cloud)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def add_signature_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Application"] = "SCPool"
+    response.headers["X-Signature"] = "Coded By Ardh1337"
+    return response
+
 
 # Registrasi API endpoints
 app.include_router(router)
@@ -104,6 +112,13 @@ def serve_dashboard():
     if index_path.exists():
         return FileResponse(str(index_path))
     return {"message": "SIM Inventory API aktif. File antarmuka web sedang disiapkan."}
+
+
+@app.get("/download/agent")
+def direct_download_agent(request: Request):
+    from fastapi.responses import RedirectResponse
+    query_str = f"?{request.url.query}" if request.url.query else ""
+    return RedirectResponse(url=f"/api/download/agent{query_str}")
 
 
 if __name__ == "__main__":

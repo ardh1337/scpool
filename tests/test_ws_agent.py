@@ -114,3 +114,4 @@ def test_agent_status_endpoint(client, db_session):
     data = resp.json()
     assert data["pool_id"] == "foxcom_32"
     assert "is_online" in data
+
