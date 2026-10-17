@@ -985,3 +985,30 @@ dialog::backdrop{background:rgba(0,0,0,.6)}dialog form{display:grid;gap:12px}
   transition:all 0.16s ease;
 }
 
+/* Modal Auth Forms Layout */
+#form-login, #form-register{
+  display:flex !important;
+  flex-direction:column !important;
+  gap:12px !important;
+  width:100% !important;
+}
+#form-login[style*="display: none"], #form-register[style*="display: none"],
+#form-login[style*="display:none"], #form-register[style*="display:none"]{
+  display:none !important;
+}
+#form-login .f, #form-register .f{
+  display:flex !important;
+  flex-direction:column !important;
+  gap:5px !important;
+  width:100% !important;
+}
+#form-login input, #form-register input, #form-register select{
+  width:100% !important;
+  box-sizing:border-box !important;
+  background:var(--p2) !important;
+  border:1px solid var(--ln) !important;
+  border-radius:8px !important;
+  color:var(--tx) !important;
+}
+
+
