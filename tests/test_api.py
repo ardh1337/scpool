@@ -72,6 +72,15 @@ class TestAPIEndpoints(unittest.TestCase):
         not_found_resp = self.client.put("/api/operators/non_existent_provider", json={"ussd_code": "*123#"})
         self.assertEqual(not_found_resp.status_code, 404)
 
+    def test_bulk_ussd_endpoint(self):
+        """Memastikan endpoint /api/ussd/bulk merespon dengan benar."""
+        resp = self.client.post("/api/ussd/bulk", json={"slot_indices": [999], "code": "*808#"})
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data["success"])
+        self.assertEqual(data["total_dialed"], 0)
+        self.assertEqual(data["results"], [])
+
 
 if __name__ == "__main__":
     unittest.main()

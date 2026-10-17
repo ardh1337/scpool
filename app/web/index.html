@@ -412,6 +412,57 @@ dialog::backdrop{background:rgba(0,0,0,.6)}dialog form{display:grid;gap:12px}
 .ts{background:var(--pn);border:1px solid var(--ln);border-left:3px solid var(--ac);border-radius:8px;padding:11px 16px;max-width:340px;box-shadow:0 6px 20px rgba(0,0,0,.3)}
 .ts.err{border-left-color:var(--er)}
 
+/* Bulk Action Floating Bar */
+.bulk-floating-bar{
+  position:fixed;
+  bottom:24px;
+  left:50%;
+  transform:translateX(-50%);
+  background:var(--pn);
+  border:1px solid var(--ac);
+  border-radius:12px;
+  padding:10px 18px;
+  box-shadow:0 12px 36px rgba(0,0,0,0.6),0 0 20px rgba(16,185,129,0.25);
+  display:flex;
+  align-items:center;
+  gap:14px;
+  z-index:35;
+  animation:slideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-wrap:wrap;
+}
+@keyframes slideUp{
+  from{transform:translate(-50%,20px);opacity:0}
+  to{transform:translate(-50%,0);opacity:1}
+}
+.bulk-bar-info{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-weight:600;
+  color:var(--tx);
+  font-size:13px;
+}
+.bulk-count-badge{
+  background:var(--ac);
+  color:var(--ai);
+  border-radius:20px;
+  padding:2px 8px;
+  font-size:12px;
+  font-weight:800;
+}
+.slot-chk{
+  width:16px;
+  height:16px;
+  accent-color:var(--ac);
+  cursor:pointer;
+  margin:0;
+}
+.slot-box.selected{
+  outline:2px solid var(--ac);
+  outline-offset:1px;
+  box-shadow:0 0 16px rgba(16,185,129,0.35)!important;
+}
+
 @media (max-width:899px){
  .sms{grid-template-columns:1fr}.sms .list{border-right:0;max-height:none}
  .sms.det .list,.sms:not(.det) .detail{display:none}.mob{display:inline-block;margin-bottom:8px}
@@ -447,6 +498,7 @@ dialog::backdrop{background:rgba(0,0,0,.6)}dialog form{display:grid;gap:12px}
  </header>
  <main id="view" tabindex="-1"></main>
 </div></div>
+<div id="bulk-bar" class="bulk-floating-bar" style="display:none;"></div>
 <div id="dr"></div><dialog id="dlg"></dialog><div id="toasts" aria-live="polite"></div>
 <script>
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
@@ -472,6 +524,9 @@ let poolInfo = {
  model: 'Quectel M26',
  chipset: 'Exar XR21V1414 UART'
 };
+
+const selectedSlots = new Set();
+let isBulkCancelled = false;
 
 const S={sms:{q:'',slot:'all',st:'all',sel:null},labels:{},
  set:{org:'Foxcom 32-Port Pool',tz:'Asia/Jakarta (WIB)',theme:'dark',density:'comfortable'}};
@@ -610,14 +665,72 @@ function route(){const h=location.hash.replace('#/','');const k=R[h]?h:'dashboar
 addEventListener('hashchange',route);
 
 /* ---------- Dashboard ---------- */
+function toggleSelectSlot(e, id){
+ e.stopPropagation();
+ if(selectedSlots.has(id)) selectedSlots.delete(id);
+ else selectedSlots.add(id);
+ updateSelectedVisuals();
+}
+
+function onSlotClick(e, id){
+ if(e.target.closest('.slot-chk')) return;
+ openDrawer(id);
+}
+
+function updateSelectedVisuals(){
+ $$('.slot-box').forEach(el => {
+  const id = el.dataset.id;
+  const isSel = selectedSlots.has(id);
+  el.classList.toggle('selected', isSel);
+  const chk = el.querySelector('.slot-chk');
+  if(chk) chk.checked = isSel;
+ });
+ updateBulkBar();
+}
+
+function updateBulkBar(){
+ const bar = $('#bulk-bar');
+ if(!bar) return;
+ if(selectedSlots.size === 0){
+  bar.style.display = 'none';
+  return;
+ }
+ bar.style.display = 'flex';
+ bar.innerHTML = `
+  <div class="bulk-bar-info">
+   <span class="bulk-count-badge">${selectedSlots.size}</span>
+   <span>slot dipilih</span>
+  </div>
+  <div class="row" style="gap:6px;">
+   <button type="button" class="btn" onclick="selectAllActiveSlots()">Pilih Semua Aktif</button>
+   <button type="button" class="btn" onclick="clearSelectedSlots()">Batal</button>
+   <button type="button" class="btn pri" onclick="openBulkDialModal(true)">📞 Dial USSD (${selectedSlots.size})</button>
+  </div>
+ `;
+}
+
+function selectAllActiveSlots(){
+ slots.filter(s => s.st === 'active').forEach(s => selectedSlots.add(s.id));
+ updateSelectedVisuals();
+}
+
+function clearSelectedSlots(){
+ selectedSlots.clear();
+ updateSelectedVisuals();
+}
+
 function renderSlotBox(s){
  const stLabel = (ST[s.st]||ST.empty)[0];
  const numDisplay = s.num || '—';
  const provDisplay = (s.st === 'active' && s.op && s.op !== '—') ? s.op : (s.st === 'empty' ? 'Tidak Ada Kartu' : 'Port Offline');
+ const isSelected = selectedSlots.has(s.id);
  return `
-  <div class="slot-box ${s.st}" data-id="${s.id}" onclick="openDrawer('${s.id}')" tabindex="0" title="Klik untuk rincian ${s.id}">
+  <div class="slot-box ${s.st}${isSelected ? ' selected' : ''}" data-id="${s.id}" onclick="onSlotClick(event, '${s.id}')" tabindex="0" title="Klik untuk rincian ${s.id}">
    <div class="sb-top">
-    <span class="sb-id">Port ${String(s.slot_index).padStart(2,'0')}</span>
+    <div style="display:flex;align-items:center;gap:6px;">
+     <input type="checkbox" class="slot-chk" data-chk-id="${s.id}" ${s.st==='empty'?'disabled':''} ${isSelected ? 'checked' : ''} onclick="toggleSelectSlot(event, '${s.id}')" title="Pilih slot">
+     <span class="sb-id">Port ${String(s.slot_index).padStart(2,'0')}</span>
+    </div>
     <span class="sb-pill">${stLabel}</span>
    </div>
    <div class="sb-num mono">${esc(numDisplay)}</div>
@@ -676,7 +789,10 @@ function pDash(){
  v.innerHTML = `
   <div class="note" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
     <div><b>SIM Fleet Live Hardware:</b> Terhubung ke ${esc(poolInfo.pool)} (${esc(poolInfo.model)}). Background detector aktif.</div>
-    <button class="btn" onclick="exportCsv()">📥 Ekspor CSV Inventaris</button>
+    <div class="row" style="gap:8px;">
+      <button type="button" class="btn pri" onclick="openBulkDialModal(false)">📞 Dial Massal USSD</button>
+      <button type="button" class="btn" onclick="exportCsv()">📥 Ekspor CSV</button>
+    </div>
   </div>
   
   <div class="stat-cards-grid">
@@ -700,6 +816,181 @@ function pDash(){
 
   ${renderPools()}
  `;
+ updateBulkBar();
+}
+
+function openBulkDialModal(onlySelected = false){
+ const activeSlots = slots.filter(s => s.st === 'active');
+ if(!activeSlots.length){
+  toast('Tidak ada slot dengan status aktif untuk didial.', 1);
+  return;
+ }
+ 
+ const selActive = activeSlots.filter(s => selectedSlots.has(s.id));
+ const defaultTarget = (onlySelected && selActive.length) ? 'selected' : 'all';
+
+ dlg.innerHTML = `
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+   <h3 style="display:flex;align-items:center;gap:8px;">
+    <svg class="i" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>
+    Dial USSD Massal
+   </h3>
+   <button class="btn ic" onclick="dlg.close()">×</button>
+  </div>
+
+  <div style="display:grid;gap:12px;">
+   <div>
+    <label style="font-weight:600;font-size:12px;color:var(--mu);display:block;margin-bottom:6px;">Target Port Dial:</label>
+    <div style="display:grid;gap:8px;background:var(--p2);padding:10px 14px;border-radius:8px;border:1px solid var(--ln);">
+     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+      <input type="radio" name="bulk_target" value="all" ${defaultTarget==='all'?'checked':''}>
+      <span>Semua SIM Aktif di Pool <b>(${activeSlots.length} slot)</b></span>
+     </label>
+     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+      <input type="radio" name="bulk_target" value="selected" ${defaultTarget==='selected'?'checked':''}>
+      <span>Hanya Slot Terpilih <b>(${selActive.length} slot)</b></span>
+     </label>
+    </div>
+   </div>
+
+   <div>
+    <label style="font-weight:600;font-size:12px;color:var(--mu);display:block;margin-bottom:6px;">Kode USSD:</label>
+    <input id="bulk-in-ussd" value="*808*7*8#" style="width:100%;font-family:monospace;font-size:14px;" placeholder="*808#">
+    <div class="chips" style="margin-top:6px;">
+     ${['*808*7*8#','*808#','*123#','*111#','*999#'].map(c=>`<button type="button" onclick="$('#bulk-in-ussd').value='${c}'">${c}</button>`).join('')}
+    </div>
+   </div>
+
+   <div class="note" style="margin:0;font-size:12px;">
+    Proses dial akan dijalankan secara berurutan pada setiap modem serial untuk mengekstrak nomor telepon dan status SIM.
+   </div>
+
+   <div class="row end" style="margin-top:4px;">
+    <button type="button" class="btn" onclick="dlg.close()">Batal</button>
+    <button type="button" class="btn pri" id="btn-start-bulk">🚀 Mulai Dial Massal</button>
+   </div>
+  </div>
+ `;
+
+ dlg.showModal();
+
+ $('#btn-start-bulk').onclick = () => {
+  const targetMode = $('input[name="bulk_target"]:checked', dlg)?.value || 'all';
+  const ussdCode = $('#bulk-in-ussd').value.trim() || '*808*7*8#';
+  
+  let targetSlots = [];
+  if(targetMode === 'selected'){
+   targetSlots = activeSlots.filter(s => selectedSlots.has(s.id));
+   if(!targetSlots.length){
+    toast('Pilih minimal 1 slot aktif untuk dial.', 1);
+    return;
+   }
+  } else {
+   targetSlots = activeSlots;
+  }
+
+  runBulkDialExecution(targetSlots, ussdCode);
+ };
+}
+
+async function runBulkDialExecution(targetSlots, ussdCode){
+ isBulkCancelled = false;
+ dlg.innerHTML = `
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+   <h3 style="display:flex;align-items:center;gap:8px;">
+    <svg class="i" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>
+    Proses Dial Massal Berjalan
+   </h3>
+  </div>
+
+  <p class="mu" style="font-size:13px;">Menghubungi operator pada ${targetSlots.length} slot dengan kode <b class="mono" style="color:var(--tx);">${esc(ussdCode)}</b>...</p>
+
+  <div style="background:var(--p2);border:1px solid var(--ln);border-radius:6px;height:12px;overflow:hidden;margin:12px 0;">
+   <div id="bulk-fill" style="background:var(--ac);height:100%;width:0%;transition:width 0.25s ease;"></div>
+  </div>
+  <div style="display:flex;justify-content:space-between;font-size:12px;" class="mu mono">
+   <span id="bulk-status-txt">Menyiapkan...</span>
+   <span id="bulk-percent-txt">0%</span>
+  </div>
+
+  <div id="bulk-logs" style="max-height:220px;overflow-y:auto;background:var(--bg);border:1px solid var(--ln);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:5px;font-family:monospace;font-size:11.5px;margin:14px 0;">
+  </div>
+
+  <div class="row end" id="bulk-action-footer">
+   <button type="button" class="btn danger" id="btn-cancel-bulk">⏹️ Hentikan Proses</button>
+  </div>
+ `;
+
+ const fill = $('#bulk-fill');
+ const statusTxt = $('#bulk-status-txt');
+ const percentTxt = $('#bulk-percent-txt');
+ const logBox = $('#bulk-logs');
+ const cancelBtn = $('#btn-cancel-bulk');
+
+ cancelBtn.onclick = () => {
+  isBulkCancelled = true;
+  cancelBtn.disabled = true;
+  cancelBtn.textContent = 'Menghentikan...';
+ };
+
+ let successCount = 0;
+ for(let i = 0; i < targetSlots.length; i++){
+  if(isBulkCancelled){
+   const div = document.createElement('div');
+   div.style.color = 'var(--wn)';
+   div.textContent = '⚠️ Proses dial dihentikan oleh pengguna.';
+   logBox.appendChild(div);
+   break;
+  }
+
+  const s = targetSlots[i];
+  const pct = Math.round(((i) / targetSlots.length) * 100);
+  fill.style.width = pct + '%';
+  percentTxt.textContent = pct + '%';
+  statusTxt.textContent = `Mendial Port ${s.slot_index} (${s.id})... [${i+1}/${targetSlots.length}]`;
+
+  const activeLine = document.createElement('div');
+  activeLine.style.color = 'var(--mu)';
+  activeLine.textContent = `⏳ Port ${String(s.slot_index).padStart(2,'0')} (${s.dev}): Menghubungi...`;
+  logBox.appendChild(activeLine);
+  logBox.scrollTop = logBox.scrollHeight;
+
+  try{
+   const res = await fetch(`/api/slots/${s.slot_index}/ussd?code=${encodeURIComponent(ussdCode)}`, { method: 'POST' });
+   const d = await res.json();
+   if(d.success){
+    successCount++;
+    if(d.phone_number){
+     s.num = d.phone_number;
+    }
+    activeLine.style.color = 'var(--ac)';
+    activeLine.textContent = `✔ Port ${String(s.slot_index).padStart(2,'0')} (${s.dev}): Sukses ${d.phone_number ? '-> ' + d.phone_number : '(OK)'}`;
+   } else {
+    activeLine.style.color = 'var(--er)';
+    activeLine.textContent = `✖ Port ${String(s.slot_index).padStart(2,'0')} (${s.dev}): Gagal (${d.message || 'Tidak ada respon'})`;
+   }
+  }catch(err){
+   activeLine.style.color = 'var(--er)';
+   activeLine.textContent = `✖ Port ${String(s.slot_index).padStart(2,'0')}: Error koneksi (${err.message})`;
+  }
+
+  logBox.scrollTop = logBox.scrollHeight;
+ }
+
+ fill.style.width = '100%';
+ percentTxt.textContent = '100%';
+ statusTxt.textContent = `Selesai: ${successCount} dari ${targetSlots.length} berhasil.`;
+
+ $('#bulk-action-footer').innerHTML = `
+  <button type="button" class="btn pri" id="btn-done-bulk">Selesai &amp; Perbarui Tampilan</button>
+ `;
+
+ $('#btn-done-bulk').onclick = () => {
+  dlg.close();
+  pDash();
+  clearSelectedSlots();
+  toast(`Dial massal selesai: ${successCount} port berhasil didial.`);
+ };
 }
 
 let lastF=null;

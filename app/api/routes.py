@@ -183,6 +183,75 @@ def dial_ussd_for_slot(
         client.close()
 
 
+class BulkUSSDRequest(BaseModel):
+    slot_indices: Optional[List[int]] = None
+    code: Optional[str] = "*808*7*8#"
+
+
+@router.post("/ussd/bulk")
+def dial_ussd_bulk(
+    req: BulkUSSDRequest,
+    db: Session = Depends(get_db)
+):
+    """Menjalankan dial USSD massal pada daftar slot fisik tertentu atau semua slot READY."""
+    query = db.query(Slot).filter(Slot.status == SlotStatus.READY)
+    if req.slot_indices:
+        query = query.filter(Slot.slot_index.in_(req.slot_indices))
+
+    slots = query.order_by(Slot.slot_index).all()
+    results = []
+
+    for slot in slots:
+        if not slot.physical_port_id:
+            results.append({
+                "slot_index": slot.slot_index,
+                "port_name": None,
+                "success": False,
+                "message": "Port fisik tidak terdaftar"
+            })
+            continue
+
+        transport = SerialTransport(port=slot.physical_port_id, baudrate=115200, timeout=1.0)
+        client = ATClient(transport=transport, default_timeout=3.0)
+        try:
+            client.open()
+            client.send_command('AT+CSCS="IRA"', timeout=1.0)
+            code_to_use = req.code or "*808*7*8#"
+            success, text, phone = execute_ussd(client, ussd_code=code_to_use, timeout=12.0)
+            if success and phone:
+                active_sess = [s for s in slot.sessions if s.ended_at is None]
+                if active_sess and active_sess[0].sim_card:
+                    sim = active_sess[0].sim_card
+                    sim.phone_number = phone
+                    sim.number_status = NumberStatus.DIKETAHUI
+                    db.commit()
+            results.append({
+                "slot_index": slot.slot_index,
+                "port_name": slot.physical_port_id,
+                "success": success,
+                "phone_number": phone,
+                "response_text": text
+            })
+        except Exception as e:
+            results.append({
+                "slot_index": slot.slot_index,
+                "port_name": slot.physical_port_id,
+                "success": False,
+                "message": str(e)
+            })
+        finally:
+            try:
+                client.close()
+            except Exception:
+                pass
+
+    return {
+        "success": True,
+        "total_dialed": len(results),
+        "results": results
+    }
+
+
 @router.post("/sync")
 def trigger_sync(
     auto_fetch: bool = Query(True, description="Ambil nomor USSD otomatis jika belum diketahui"),
