@@ -2478,36 +2478,35 @@ function updateUnifiedTable(){
       </div>
     ` : `<span class="mu" style="font-size:11.5px;">${isAct ? 'Belum ada kode OTP masuk' : 'Slot tidak aktif'}</span>`;
 
-    // Daftar pesan OTP vertikal yang bisa digulir
-    const otpsListHtml = slotOtps.length ? `
-      <div class="row-otp-scroll-list">
-        ${slotOtps.map(m => {
-          const app = detectAppFromSMS(m.body, m.n);
-          return `
-            <div class="mini-otp-card">
-              <div style="display:flex;align-items:center;gap:8px;min-width:0;">
-                <div style="width:22px;height:22px;border-radius:6px;background:${app.bg};display:grid;place-items:center;flex:none;">
-                  ${renderAnimatedAppLogo(app.key, app.color)}
-                </div>
-                <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
-                  <div style="font-weight:700;font-size:12px;color:var(--tx);display:flex;gap:6px;align-items:center;">
-                    <span>${esc(app.name)}</span>
-                    <span class="mu" style="font-size:10.5px;font-weight:normal;">• ${ago(m.m)}</span>
-                  </div>
-                  <div class="mu mono" style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px;" title="${esc(m.body)}">${esc(m.body)}</div>
-                </div>
-              </div>
-              <div style="display:flex;align-items:center;gap:6px;flex:none;">
-                <span class="mini-otp-digits">${esc(m.otp)}</span>
-                <button type="button" class="btn pri" style="padding:3px 8px;font-size:11.5px;font-weight:700;" id="btn-mini-otp-${m.id}" onclick="event.stopPropagation();copyFastOTP('${esc(m.otp)}', 'btn-mini-otp-${m.id}')" title="Salin kode ${m.otp}">
-                  📋 Salin
-                </button>
-              </div>
+    // Hanya tampilkan 1 service OTP terbaru per nomor agar tinggi baris tabel selalu presisi & seragam
+    const latestOtp = slotOtps[0];
+    const otpsListHtml = latestOtp ? (() => {
+      const app = detectAppFromSMS(latestOtp.body, latestOtp.n);
+      const moreCount = slotOtps.length - 1;
+      return `
+        <div class="mini-otp-card">
+          <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+            <div style="width:22px;height:22px;border-radius:6px;background:${app.bg};display:grid;place-items:center;flex:none;">
+              ${renderAnimatedAppLogo(app.key, app.color)}
             </div>
-          `;
-        }).join('')}
-      </div>
-    ` : '';
+            <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
+              <div style="font-weight:700;font-size:12px;color:var(--tx);display:flex;gap:6px;align-items:center;">
+                <span>${esc(app.name)}</span>
+                <span class="mu" style="font-size:10.5px;font-weight:normal;">• ${ago(latestOtp.m)}</span>
+                ${moreCount > 0 ? `<span class="mu" style="font-size:10px;padding:1px 6px;background:rgba(255,255,255,0.06);border-radius:8px;" title="${moreCount} OTP lainnya tersimpan di Live Stream">+${moreCount} lainnya</span>` : ''}
+              </div>
+              <div class="mu mono" style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px;" title="${esc(latestOtp.body)}">${esc(latestOtp.body)}</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;flex:none;">
+            <span class="mini-otp-digits">${esc(latestOtp.otp)}</span>
+            <button type="button" class="btn pri" style="padding:3px 8px;font-size:11.5px;font-weight:700;" id="btn-mini-otp-${latestOtp.id}" onclick="event.stopPropagation();copyFastOTP('${esc(latestOtp.otp)}', 'btn-mini-otp-${latestOtp.id}')" title="Salin kode ${latestOtp.otp}">
+              📋 Salin
+            </button>
+          </div>
+        </div>
+      `;
+    })() : '';
 
     return `
       <div class="unified-slot-row" id="unified-row-${s.id}">
