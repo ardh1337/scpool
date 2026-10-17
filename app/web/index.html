@@ -532,7 +532,7 @@ dialog::backdrop{background:rgba(0,0,0,.6)}dialog form{display:grid;gap:12px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 /* ==========================================================================
-   MODE 2: FAST OTP & ONE-CLICK NUMBER STREAM DASHBOARD
+   MODE 2: REFINED UNIFIED TABLE (TOP CENTER) + FULL-WIDTH LIVE STREAM (BOTTOM)
    ========================================================================== */
 .dash-mode-toggle{
   display:inline-flex;
@@ -572,104 +572,124 @@ dialog::backdrop{background:rgba(0,0,0,.6)}dialog form{display:grid;gap:12px}
   box-shadow:0 1px 5px rgba(0,0,0,0.2);
 }
 
-.fast-otp-layout{
-  display:grid;
-  grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);
-  gap:24px;
-  align-items:start;
-  max-width:1380px;
-  margin:0 auto;
+/* Wrapper Utama Mode 2 */
+.fast-otp-wrapper{
+  display:flex;
+  flex-direction:column;
+  gap:26px;
   width:100%;
 }
-@media (max-width:960px){
-  .fast-otp-layout{
-    grid-template-columns:1fr;
-  }
-}
 
-/* Kolom Kiri: List Nomor */
-.num-list-pane{
+/* TABEL UTAMA TERPADU (CENTER DI TENGAH) */
+.fast-unified-table-box{
   background:var(--pn);
   border:1px solid var(--ln);
   border-radius:var(--rp);
-  padding:16px 18px;
-  display:flex;
-  flex-direction:column;
-  gap:12px;
-  position:sticky;
-  top:70px;
-  height:calc(100vh - 100px);
-  max-height:calc(100vh - 100px);
-  min-width:0;
-  box-sizing:border-box;
-}
-.num-list-header{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding-bottom:10px;
-  border-bottom:1px solid var(--ln);
-  flex:none;
-}
-.num-list-scroll{
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-  overflow-y:auto;
-  padding-right:4px;
-  flex:1;
-  min-height:0;
-}
-.fast-num-card{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:10px 14px;
-  border-radius:8px;
-  border:1px solid var(--ln);
-  background:var(--p2);
-  cursor:pointer;
-  transition:all 0.16s ease;
-  user-select:none;
-  position:relative;
-  text-align:left;
+  max-width:1320px;
+  margin:0 auto;
   width:100%;
+  overflow:hidden;
+  box-shadow:0 4px 20px rgba(0,0,0,0.08);
 }
-.fast-num-card:hover{
-  border-color:var(--ac);
-  transform:translateY(-1px);
-  box-shadow:0 3px 10px rgba(0,0,0,0.14);
+.unified-table-header{
+  padding:14px 20px;
+  border-bottom:1px solid var(--ln);
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:12px;
+  background:rgba(255,255,255,0.015);
 }
-.fast-num-card.st-active{
-  border-color:rgba(16,185,129,0.38);
-  background:linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.02) 100%);
+.unified-table-columns-header{
+  display:grid;
+  grid-template-columns:370px 1fr;
+  padding:10px 20px;
+  background:var(--p2);
+  border-bottom:1px solid var(--ln);
+  font-size:11.5px;
+  font-weight:700;
+  color:var(--mu);
+  letter-spacing:0.04em;
+  text-transform:uppercase;
 }
-.fast-num-card.st-empty{
-  border-color:rgba(168,85,247,0.3);
-  background:linear-gradient(135deg, rgba(168,85,247,0.05) 0%, transparent 100%);
-  opacity:0.8;
+@media (max-width:960px){
+  .unified-table-columns-header{
+    display:none;
+  }
 }
-.fast-num-card.st-offline,
-.fast-num-card.st-error{
-  border-color:rgba(239,68,68,0.38);
-  background:linear-gradient(135deg, rgba(239,68,68,0.08) 0%, transparent 100%);
+.unified-table-body{
+  max-height:54vh;
+  overflow-y:auto;
+  display:flex;
+  flex-direction:column;
 }
-.fast-num-card.copied{
+.unified-slot-row{
+  display:grid;
+  grid-template-columns:370px 1fr;
+  border-bottom:1px solid var(--ln);
+  transition:background 0.15s ease;
+}
+@media (max-width:960px){
+  .unified-slot-row{
+    grid-template-columns:1fr;
+  }
+}
+.unified-slot-row:last-child{
+  border-bottom:none;
+}
+.unified-slot-row:hover{
+  background:rgba(255,255,255,0.018);
+}
+
+/* Kolom Kiri: Nomor & Port */
+.slot-left-col{
+  padding:14px 18px;
+  border-right:1px solid var(--ln);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  cursor:pointer;
+  user-select:none;
+  transition:all 0.15s ease;
+  position:relative;
+  background:var(--p2);
+}
+@media (max-width:960px){
+  .slot-left-col{
+    border-right:none;
+    border-bottom:1px dashed var(--ln);
+  }
+}
+.slot-left-col:hover{
+  background:rgba(16,185,129,0.05);
+}
+.slot-left-col.copied{
   background:rgba(16,185,129,0.22)!important;
-  border-color:var(--ac)!important;
-  box-shadow:0 0 14px rgba(16,185,129,0.4)!important;
+  box-shadow:inset 0 0 14px rgba(16,185,129,0.3);
 }
-.fast-num-card .fnum-val{
+.slot-left-col.st-active{
+  border-left:3px solid var(--ac);
+}
+.slot-left-col.st-empty{
+  border-left:3px solid rgba(168,85,247,0.5);
+  opacity:0.75;
+}
+.slot-left-col.st-offline,
+.slot-left-col.st-error{
+  border-left:3px solid rgba(239,68,68,0.6);
+}
+.slot-left-col .fnum-val{
   font-family:monospace;
-  font-size:15px;
+  font-size:15.5px;
   font-weight:700;
   color:var(--tx);
   letter-spacing:0.02em;
 }
-.fast-num-card.copied .fnum-val{
+.slot-left-col.copied .fnum-val{
   color:var(--ac);
 }
-.fast-num-card .fnum-port{
+.slot-left-col .fnum-port{
   font-size:11px;
   font-weight:700;
   padding:2px 6px;
@@ -677,7 +697,7 @@ dialog::backdrop{background:rgba(0,0,0,.6)}dialog form{display:grid;gap:12px}
   background:rgba(255,255,255,0.06);
   color:var(--mu);
 }
-.fast-num-card .copy-badge{
+.slot-left-col .copy-badge{
   font-size:11px;
   font-weight:600;
   color:var(--mu);
@@ -689,56 +709,121 @@ dialog::backdrop{background:rgba(0,0,0,.6)}dialog form{display:grid;gap:12px}
   background:rgba(255,255,255,0.04);
   transition:all 0.15s ease;
 }
-.fast-num-card.copied .copy-badge{
+.slot-left-col.copied .copy-badge{
   color:var(--ac);
   background:rgba(16,185,129,0.2);
   font-weight:700;
 }
 
-/* Kolom Kanan: Rolling OTP Stream */
-.otp-stream-pane{
+/* Kolom Kanan: Koleksi OTP Khusus Nomor Tersebut */
+.slot-right-col{
+  padding:12px 18px;
   display:flex;
   flex-direction:column;
-  gap:12px;
-  position:sticky;
-  top:70px;
-  height:calc(100vh - 100px);
-  max-height:calc(100vh - 100px);
+  gap:8px;
+  justify-content:center;
   min-width:0;
-  box-sizing:border-box;
+  background:var(--pn);
 }
-.otp-stream-head{
+.app-badges-row{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex-wrap:wrap;
+}
+.app-tag-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  padding:2px 7px;
+  border-radius:10px;
+  font-size:10.5px;
+  font-weight:700;
+  border:1px solid var(--ln);
+  box-shadow:0 1px 3px rgba(0,0,0,0.1);
+}
+.app-tag-badge svg{
+  width:12px;
+  height:12px;
+  flex:none;
+}
+.row-otp-scroll-list{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  max-height:120px;
+  overflow-y:auto;
+  padding-right:4px;
+}
+.mini-otp-card{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  background:var(--p2);
+  border:1px solid var(--ln);
+  border-radius:6px;
+  padding:6px 12px;
+  gap:10px;
+  transition:all 0.15s ease;
+}
+.mini-otp-card:hover{
+  border-color:var(--ac);
+  background:rgba(255,255,255,0.03);
+}
+.mini-otp-digits{
+  font-family:monospace;
+  font-size:15px;
+  font-weight:800;
+  color:#10b981;
+  letter-spacing:0.12em;
+  background:rgba(16,185,129,0.12);
+  padding:2px 8px;
+  border-radius:4px;
+  border:1px solid rgba(16,185,129,0.3);
+  text-shadow:0 0 8px rgba(16,185,129,0.3);
+}
+
+/* LIVE STREAM OTP MASUK (DI PALING BAWAH, PENUH 100%) */
+.fast-stream-bottom-section{
+  width:100%;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+.stream-bottom-head{
   display:flex;
   align-items:center;
   justify-content:space-between;
   background:var(--pn);
   border:1px solid var(--ln);
   border-radius:var(--rp);
-  padding:12px 18px;
+  padding:14px 22px;
   flex-wrap:wrap;
-  gap:10px;
-  flex:none;
-}
-.otp-stream-feed{
-  display:flex;
-  flex-direction:column;
   gap:12px;
-  overflow-y:auto;
-  padding-right:4px;
-  flex:1;
-  min-height:0;
+  box-shadow:0 4px 18px rgba(0,0,0,0.06);
+}
+.stream-bottom-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(370px, 1fr));
+  gap:14px;
+  width:100%;
+}
+@media (max-width:768px){
+  .stream-bottom-grid{
+    grid-template-columns:1fr;
+  }
 }
 .otp-card{
   background:var(--pn);
   border:1px solid var(--ln);
   border-radius:var(--rp);
-  padding:18px 20px;
+  padding:16px 18px;
   display:flex;
   flex-direction:column;
-  gap:14px;
+  gap:12px;
   transition:all 0.2s ease;
   position:relative;
-  animation:slideDownOTP 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation:slideDownOTP 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 .otp-card:hover{
   border-color:var(--ac);
@@ -753,7 +838,6 @@ dialog::backdrop{background:rgba(0,0,0,.6)}dialog form{display:grid;gap:12px}
   to{opacity:1;transform:translateY(0);}
 }
 
-/* Animated App Emojis & Badges */
 .app-logo-wrap{
   width:42px;
   height:42px;
@@ -769,6 +853,37 @@ dialog::backdrop{background:rgba(0,0,0,.6)}dialog form{display:grid;gap:12px}
   width:24px;
   height:24px;
 }
+.otp-box-display{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  background:var(--p2);
+  border:1px solid rgba(16,185,129,0.3);
+  border-radius:10px;
+  padding:10px 16px;
+  box-shadow:inset 0 1px 4px rgba(0,0,0,0.2), 0 0 16px rgba(16,185,129,0.08);
+}
+.otp-big-num{
+  font-family:monospace;
+  font-size:22px;
+  font-weight:900;
+  letter-spacing:0.2em;
+  color:#10b981;
+  text-shadow:0 0 12px rgba(16,185,129,0.45);
+}
+.otp-copy-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:7px 14px;
+  border-radius:8px;
+  font-size:12.5px;
+  font-weight:700;
+  cursor:pointer;
+  transition:all 0.16s ease;
+}
+
 .anim-pulse{
   animation:appPulse 2s infinite ease-in-out;
 }
@@ -1058,7 +1173,7 @@ $('#gs').oninput=e=>{
  const q = e.target.value.toLowerCase().trim();
  if(currentDashMode === 'stream'){
   const fSearch = $('#fnum-search');
-  if(fSearch){ fSearch.value = q; updateFastNumberList(); }
+  if(fSearch){ fSearch.value = q; updateUnifiedTable(); }
   $$('.otp-card').forEach(el=>{
    const txt = el.textContent.toLowerCase();
    el.style.display = (!q || txt.includes(q)) ? '' : 'none';
@@ -2235,35 +2350,42 @@ function pStreamDash(){
   const existingContainer = $('#fast-otp-container');
   if(!existingContainer){
     v.innerHTML = `
-      <div id="fast-otp-container" class="fast-otp-layout">
-        <!-- Kolom Kiri -->
-        <div class="num-list-pane">
-          <div class="num-list-header">
+      <div id="fast-otp-container" class="fast-otp-wrapper">
+        <!-- 1. BAGIAN ATAS: TABEL TERPADU (CENTER DI TENGAH) -->
+        <div class="fast-unified-table-box">
+          <div class="unified-table-header">
             <div>
-              <b style="font-size:14px;display:block;">Daftar Nomor SIM</b>
-              <span class="mu" style="font-size:11.5px;">Klik untuk langsung salin</span>
+              <b style="font-size:14.5px;display:block;">Tabel Terpadu Nomor SIM & Koleksi OTP</b>
+              <span class="mu" style="font-size:11.5px;">Klik baris nomor di kiri untuk langsung auto-copy nomor ke clipboard</span>
             </div>
-            <span class="badge ok" style="font-size:11px;" id="fnum-active-badge">${c.active} Aktif</span>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <div style="display:flex;gap:4px;flex-wrap:wrap;" id="fnum-filter-chips">
+                <button type="button" class="btn ${fastNumFilterOp==='all'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('all')">Semua</button>
+                <button type="button" class="btn ${fastNumFilterOp==='active'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('active')">Aktif</button>
+                <button type="button" class="btn ${fastNumFilterOp==='Telkomsel'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('Telkomsel')">Telkomsel</button>
+                <button type="button" class="btn ${fastNumFilterOp==='Indosat'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('Indosat')">Indosat</button>
+                <button type="button" class="btn ${fastNumFilterOp==='XL'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('XL')">XL/Axis</button>
+                <button type="button" class="btn ${fastNumFilterOp==='Tri'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('Tri')">Tri</button>
+                <button type="button" class="btn ${fastNumFilterOp==='Smartfren'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('Smartfren')">Smartfren</button>
+              </div>
+              <input type="search" id="fnum-search" placeholder="Cari nomor, port, atau apps…" style="width:200px;font-size:12px;padding:5px 10px;" oninput="updateUnifiedTable()">
+            </div>
           </div>
-          <div style="display:flex;gap:4px;flex-wrap:wrap;" id="fnum-filter-chips">
-            <button type="button" class="btn ${fastNumFilterOp==='all'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('all')">Semua</button>
-            <button type="button" class="btn ${fastNumFilterOp==='active'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('active')">Aktif</button>
-            <button type="button" class="btn ${fastNumFilterOp==='Telkomsel'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('Telkomsel')">Telkomsel</button>
-            <button type="button" class="btn ${fastNumFilterOp==='Indosat'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('Indosat')">Indosat</button>
-            <button type="button" class="btn ${fastNumFilterOp==='XL'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('XL')">XL/Axis</button>
-            <button type="button" class="btn ${fastNumFilterOp==='Tri'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('Tri')">Tri</button>
-            <button type="button" class="btn ${fastNumFilterOp==='Smartfren'?'pri':''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('Smartfren')">Smartfren</button>
+
+          <div class="unified-table-columns-header">
+            <div>📋 Kolom Nomor SIM & Status (Klik = Salin)</div>
+            <div>⚡ Koleksi & Riwayat OTP Khusus Nomor Ini (Vertikal)</div>
           </div>
-          <input type="search" id="fnum-search" placeholder="Cari nomor atau port…" style="width:100%;font-size:12.5px;padding:7px 10px;" oninput="updateFastNumberList()">
-          <div class="num-list-scroll" id="fnum-list"></div>
+
+          <div class="unified-table-body" id="unified-table-rows"></div>
         </div>
 
-        <!-- Kolom Kanan -->
-        <div class="otp-stream-pane">
-          <div class="otp-stream-head">
+        <!-- 2. BAGIAN BAWAH: LIVE STREAM OTP MASUK (PENUH 100% DARI KIRI KE KANAN) -->
+        <div class="fast-stream-bottom-section">
+          <div class="stream-bottom-head">
             <div style="display:flex;align-items:center;gap:10px;">
-              <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#10b981;box-shadow:0 0 8px #10b981;animation:appPulse 1.5s infinite;"></span>
-              <b style="font-size:15px;letter-spacing:-0.01em;">Live Stream OTP Masuk</b>
+              <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#10b981;box-shadow:0 0 10px #10b981;animation:appPulse 1.5s infinite;"></span>
+              <b style="font-size:15px;letter-spacing:-0.01em;">Live Stream OTP Masuk (Real-time Full Width)</b>
               <span class="mu" style="font-size:12px;" id="otp-total-count"></span>
             </div>
             <div style="display:flex;align-items:center;gap:8px;">
@@ -2275,12 +2397,12 @@ function pStreamDash(){
               </button>
             </div>
           </div>
-          <div class="otp-stream-feed" id="otp-stream-feed"></div>
+          <div class="stream-bottom-grid" id="otp-stream-feed"></div>
         </div>
       </div>
     `;
   }
-  updateFastNumberList();
+  updateUnifiedTable();
   updateFastOtpFeed();
 }
 
@@ -2289,16 +2411,13 @@ function setFastFilterOp(op){
   $$('#fnum-filter-chips button').forEach(b => {
     b.classList.toggle('pri', b.textContent.toLowerCase().includes(op.toLowerCase()) || (op==='all' && b.textContent==='Semua'));
   });
-  updateFastNumberList();
+  updateUnifiedTable();
 }
 
-function updateFastNumberList(){
-  const listEl = $('#fnum-list');
-  if(!listEl) return;
+function updateUnifiedTable(){
+  const rowsEl = $('#unified-table-rows');
+  if(!rowsEl) return;
   const q = ($('#fnum-search')?.value || '').toLowerCase().trim();
-  const c = cnt();
-  const badge = $('#fnum-active-badge');
-  if(badge) badge.textContent = `${c.active} Aktif`;
 
   const filteredSlots = slots.filter(s => {
     if(fastNumFilterOp === 'active' && s.st !== 'active') return false;
@@ -2307,40 +2426,117 @@ function updateFastNumberList(){
       if(!opName.includes(fastNumFilterOp.toLowerCase())) return false;
     }
     if(!q) return true;
-    return s.id.toLowerCase().includes(q) ||
-           (s.num && s.num.toLowerCase().includes(q)) ||
-           (s.op && s.op.toLowerCase().includes(q)) ||
-           (s.dev && s.dev.toLowerCase().includes(q));
+    
+    // Check if slot info matches
+    const slotMatch = s.id.toLowerCase().includes(q) ||
+                      (s.num && s.num.toLowerCase().includes(q)) ||
+                      (s.op && s.op.toLowerCase().includes(q)) ||
+                      (s.dev && s.dev.toLowerCase().includes(q));
+    if(slotMatch) return true;
+
+    // Check if any OTP belonging to this slot matches
+    const slotOtps = sms.filter(m => (m.slot === s.id || m.slot_index === s.slot_index) && m.otp);
+    return slotOtps.some(m => {
+      const app = detectAppFromSMS(m.body, m.n);
+      return app.name.toLowerCase().includes(q) ||
+             (m.otp && m.otp.toLowerCase().includes(q)) ||
+             (m.body && m.body.toLowerCase().includes(q));
+    });
   });
 
   if(!filteredSlots.length){
-    listEl.innerHTML = `<div class="mu" style="padding:24px;text-align:center;font-size:12.5px;">Tidak ada nomor yang cocok dengan filter.</div>`;
+    rowsEl.innerHTML = `<div class="mu" style="padding:32px;text-align:center;font-size:13px;">Tidak ada nomor atau OTP yang cocok dengan filter.</div>`;
     return;
   }
 
-  listEl.innerHTML = filteredSlots.map(s => {
+  rowsEl.innerHTML = filteredSlots.map(s => {
     const isAct = s.st === 'active';
     const numDisplay = (s.num && s.num !== '—' && s.num !== 'BELUM DIKETAHUI') ? s.num : (isAct ? 'Nomor Belum Terbaca' : '(Slot Kosong)');
     const canCopy = isAct && s.num && s.num !== '—' && s.num !== 'BELUM DIKETAHUI';
-    
+
+    // Ambil SEMUA OTP milik slot ini (selain OTP diabaikan)
+    const slotOtps = sms.filter(m => (m.slot === s.id || m.slot_index === s.slot_index) && m.otp);
+
+    // Kumpulkan logo aplikasi unik yang sudah masuk ke nomor ini (agar tampak tanpa perlu scroll)
+    const appMap = new Map();
+    slotOtps.forEach(m => {
+      const app = detectAppFromSMS(m.body, m.n);
+      if(!appMap.has(app.name)){
+        appMap.set(app.name, app);
+      }
+    });
+    const uniqueApps = Array.from(appMap.values());
+
+    const appBadgesHtml = uniqueApps.length ? `
+      <div class="app-badges-row">
+        <span class="mu" style="font-size:11px;font-weight:600;">Apps:</span>
+        ${uniqueApps.map(app => `
+          <span class="app-tag-badge" style="background:${app.bg};border-color:${app.color}40;color:${app.color};">
+            ${renderAnimatedAppLogo(app.key, app.color)}
+            ${esc(app.name)}
+          </span>
+        `).join('')}
+      </div>
+    ` : `<span class="mu" style="font-size:11.5px;">${isAct ? 'Belum ada kode OTP masuk' : 'Slot tidak aktif'}</span>`;
+
+    // Daftar pesan OTP vertikal yang bisa digulir
+    const otpsListHtml = slotOtps.length ? `
+      <div class="row-otp-scroll-list">
+        ${slotOtps.map(m => {
+          const app = detectAppFromSMS(m.body, m.n);
+          return `
+            <div class="mini-otp-card">
+              <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+                <div style="width:22px;height:22px;border-radius:6px;background:${app.bg};display:grid;place-items:center;flex:none;">
+                  ${renderAnimatedAppLogo(app.key, app.color)}
+                </div>
+                <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
+                  <div style="font-weight:700;font-size:12px;color:var(--tx);display:flex;gap:6px;align-items:center;">
+                    <span>${esc(app.name)}</span>
+                    <span class="mu" style="font-size:10.5px;font-weight:normal;">• ${ago(m.m)}</span>
+                  </div>
+                  <div class="mu mono" style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px;" title="${esc(m.body)}">${esc(m.body)}</div>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;flex:none;">
+                <span class="mini-otp-digits">${esc(m.otp)}</span>
+                <button type="button" class="btn pri" style="padding:3px 8px;font-size:11.5px;font-weight:700;" id="btn-mini-otp-${m.id}" onclick="event.stopPropagation();copyFastOTP('${esc(m.otp)}', 'btn-mini-otp-${m.id}')" title="Salin kode ${m.otp}">
+                  📋 Salin
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    ` : '';
+
     return `
-      <div class="fast-num-card st-${s.st}" id="fast-num-${s.id}" onclick="onFastCardClick('${s.id}', '${esc(s.num||'')}')" title="${canCopy ? 'Klik untuk salin ' + s.num : 'Slot ' + s.id}">
-        <div style="display:flex;flex-direction:column;gap:3px;min-width:0;">
-          <div style="display:flex;align-items:center;gap:6px;">
-            <span class="fnum-port">${s.id}</span>
-            <span class="fnum-val mono">${esc(numDisplay)}</span>
+      <div class="unified-slot-row" id="unified-row-${s.id}">
+        <!-- Sisi Kiri: Nomor & Port -->
+        <div class="slot-left-col st-${s.st}" id="slot-left-${s.id}" onclick="onFastCardClick('${s.id}', '${esc(s.num||'')}')" title="${canCopy ? 'Klik untuk salin ' + s.num : 'Slot ' + s.id}">
+          <div style="display:flex;flex-direction:column;gap:3px;min-width:0;">
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span class="fnum-port">${s.id}</span>
+              <span class="fnum-val mono">${esc(numDisplay)}</span>
+            </div>
+            <div style="font-size:11px;color:var(--mu);display:flex;gap:6px;align-items:center;">
+              <span>${esc(s.op || '—')}</span>
+              <span>•</span>
+              <span class="mono">${esc(s.dev)}</span>
+            </div>
           </div>
-          <div style="font-size:11px;color:var(--mu);display:flex;gap:6px;align-items:center;">
-            <span>${esc(s.op || '—')}</span>
-            <span>•</span>
-            <span class="mono">${esc(s.dev)}</span>
+          <div style="display:flex;align-items:center;gap:6px;flex:none;">
+            ${canCopy ? `<span class="copy-badge"><svg class="i" style="width:13px;height:13px;" viewBox="0 0 24 24"><path d="M8 4v12a2 2 0 002 2h8a2 2 0 002-2V7.242a2 2 0 00-.602-1.43L16.083 2.57A2 2 0 0014.685 2H10a2 2 0 00-2 2z"/><path d="M16 18v2a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2h2"/></svg> Salin</span>` : `<span class="mu" style="font-size:11px;">${bd(s.st)}</span>`}
+            <button type="button" class="btn ic" style="width:26px;height:26px;padding:0;" onclick="event.stopPropagation();openDrawer('${s.id}')" title="Buka Detail Port ${s.id}">
+              <svg class="i" style="width:13px;height:13px;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            </button>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:6px;flex:none;">
-          ${canCopy ? `<span class="copy-badge"><svg class="i" style="width:13px;height:13px;" viewBox="0 0 24 24"><path d="M8 4v12a2 2 0 002 2h8a2 2 0 002-2V7.242a2 2 0 00-.602-1.43L16.083 2.57A2 2 0 0014.685 2H10a2 2 0 00-2 2z"/><path d="M16 18v2a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2h2"/></svg> Salin</span>` : `<span class="mu" style="font-size:11px;">${bd(s.st)}</span>`}
-          <button type="button" class="btn ic" style="width:26px;height:26px;padding:0;" onclick="event.stopPropagation();openDrawer('${s.id}')" title="Buka Detail Port ${s.id}">
-            <svg class="i" style="width:13px;height:13px;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-          </button>
+
+        <!-- Sisi Kanan: Koleksi OTP Nomor Ini (Badge Apps & Scrollable Vertikal) -->
+        <div class="slot-right-col">
+          ${appBadgesHtml}
+          ${otpsListHtml}
         </div>
       </div>
     `;
@@ -2360,7 +2556,7 @@ function onFastCardClick(id, rawNum){
   const clean = rawNum.replace(/[^\d+]/g, '');
   navigator.clipboard.writeText(clean);
 
-  const card = $(`#fast-num-${id}`);
+  const card = $(`#slot-left-${id}`);
   if(card){
     card.classList.add('copied');
     const badge = $('.copy-badge', card);
@@ -2383,12 +2579,12 @@ function updateFastOtpFeed(){
 
   if(!otpList.length){
     feedEl.innerHTML = `
-      <div style="background:var(--pn);border:1px solid var(--ln);border-radius:var(--rp);padding:44px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px;">
-        <div style="width:54px;height:54px;border-radius:50%;background:rgba(16,185,129,0.1);display:grid;place-items:center;color:var(--ac);animation:appPulse 2.5s infinite;">
-          <svg class="i" style="width:28px;height:28px;" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+      <div style="grid-column:1/-1;background:var(--pn);border:1px solid var(--ln);border-radius:var(--rp);padding:36px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;">
+        <div style="width:48px;height:48px;border-radius:50%;background:rgba(16,185,129,0.1);display:grid;place-items:center;color:var(--ac);animation:appPulse 2.5s infinite;">
+          <svg class="i" style="width:24px;height:24px;" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
         </div>
-        <b style="font-size:16px;">Menunggu SMS Kode Masuk</b>
-        <p class="mu" style="max-width:380px;font-size:13px;line-height:1.5;margin:0;">
+        <b style="font-size:15px;">Menunggu SMS Kode Masuk</b>
+        <p class="mu" style="max-width:380px;font-size:12.5px;line-height:1.5;margin:0;">
           Aliran pesan akan bergulir otomatis di sini begitu kode OTP diterima di port mana pun, lengkap dengan logo aplikasi yang bergerak.
         </p>
       </div>
@@ -2413,16 +2609,16 @@ function updateFastOtpFeed(){
       <div class="otp-card ${isRecent ? 'is-new' : ''}" id="otp-card-${m.id}">
         <!-- Top App Row -->
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-          <div class="otp-app-badge">
+          <div style="display:flex;align-items:center;gap:10px;">
             <div class="app-logo-wrap" style="background:${app.bg};border:1px solid ${app.color}40;">
               ${renderAnimatedAppLogo(app.key, app.color)}
             </div>
             <div>
               <div style="display:flex;align-items:center;gap:6px;">
-                <b style="font-size:15px;color:var(--tx);">${esc(app.name)}</b>
-                <span style="font-size:10.5px;padding:1px 6px;border-radius:10px;background:${app.color}20;color:${app.color};font-weight:700;">VERIFIKASI</span>
+                <b style="font-size:14.5px;color:var(--tx);">${esc(app.name)}</b>
+                <span style="font-size:10px;padding:1px 6px;border-radius:10px;background:${app.color}20;color:${app.color};font-weight:700;">VERIFIKASI</span>
               </div>
-              <span class="mu" style="font-size:12px;">Pengirim: <b>${esc(m.n)}</b></span>
+              <span class="mu" style="font-size:11.5px;">Pengirim: <b>${esc(m.n)}</b></span>
             </div>
           </div>
           <div style="text-align:right;font-size:12px;">
@@ -2430,14 +2626,14 @@ function updateFastOtpFeed(){
               <span class="fnum-port">${m.slot}</span>
               <span class="mono">${esc(targetNum)}</span>
             </div>
-            <span class="mu" style="font-size:11.5px;">${ago(m.m)}</span>
+            <span class="mu" style="font-size:11px;">${ago(m.m)}</span>
           </div>
         </div>
 
         <!-- Highlight OTP Code Box -->
         <div class="otp-box-display">
           <div>
-            <div style="font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:2px;">KODE OTP / VERIFIKASI</div>
+            <div style="font-size:10.5px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:2px;">KODE OTP</div>
             <div class="otp-big-num">${esc(m.otp)}</div>
           </div>
           <button type="button" class="btn pri otp-copy-btn" id="btn-otp-${m.id}" onclick="copyFastOTP('${esc(m.otp)}', 'btn-otp-${m.id}')">
@@ -2447,12 +2643,12 @@ function updateFastOtpFeed(){
         </div>
 
         <!-- Raw SMS Body -->
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;background:var(--bg);border:1px solid var(--ln);border-radius:8px;padding:10px 12px;">
-          <div class="mono" style="font-size:12px;line-height:1.5;color:var(--tx);white-space:pre-wrap;word-break:break-word;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;background:var(--bg);border:1px solid var(--ln);border-radius:8px;padding:8px 12px;">
+          <div class="mono" style="font-size:11.5px;line-height:1.5;color:var(--tx);white-space:pre-wrap;word-break:break-word;">
             ${highlightOTPInBody(m.body, m.otp)}
           </div>
-          <button type="button" class="btn ic" style="flex:none;" onclick="copyFullSMS('${esc(m.body).replace(/'/g, "\\'")}', this)" title="Salin seluruh isi SMS">
-            <svg class="i" viewBox="0 0 24 24"><path d="M8 4v12a2 2 0 002 2h8a2 2 0 002-2V7.242a2 2 0 00-.602-1.43L16.083 2.57A2 2 0 0014.685 2H10a2 2 0 00-2 2z"/><path d="M16 18v2a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2h2"/></svg>
+          <button type="button" class="btn ic" style="flex:none;width:26px;height:26px;padding:0;" onclick="copyFullSMS('${esc(m.body).replace(/'/g, "\\'")}', this)" title="Salin seluruh isi SMS">
+            <svg class="i" style="width:13px;height:13px;" viewBox="0 0 24 24"><path d="M8 4v12a2 2 0 002 2h8a2 2 0 002-2V7.242a2 2 0 00-.602-1.43L16.083 2.57A2 2 0 0014.685 2H10a2 2 0 00-2 2z"/><path d="M16 18v2a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2h2"/></svg>
           </button>
         </div>
       </div>
