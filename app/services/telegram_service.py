@@ -57,7 +57,17 @@ def send_telegram_message(text: str, reply_markup: Optional[dict] = None,
             return True, "Pesan Telegram berhasil terkirim."
         return False, f"Telegram error: {data.get('description', 'Unknown')}"
     except Exception as exc:
-        # str(exc) bisa memuat URL berisi token bot; jangan dikembalikan ke klien/log apa adanya.
+        # Fallback jika formatting Markdown gagal: coba kirim sebagai teks biasa tanpa parse_mode
+        try:
+            payload_plain = {"chat_id": chat_id, "text": text}
+            if reply_markup:
+                payload_plain["reply_markup"] = reply_markup
+            data_plain = _api_post(bot_token, "sendMessage", payload_plain)
+            if data_plain.get("ok"):
+                return True, "Pesan Telegram berhasil terkirim."
+        except Exception:
+            pass
+
         logger.warning("Gagal mengirim pesan Telegram: %s", type(exc).__name__)
         return False, f"Gagal menghubungi Telegram ({type(exc).__name__})."
 
