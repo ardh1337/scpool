@@ -16,14 +16,14 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.database.connection import SessionLocal
-from app.database.models import init_db
+from app.database.bootstrap import init_db
 from app.services.hardware_sync import sync_modem_pool_hardware
 from app.modem.sms_reader import mask_sensitive
 
 
 def main():
     print("=" * 85)
-    print("  SIM INVENTORY - SINKRONISASI HARDWARE KE DATABASE (TAHAP M3 & M4)")
+    print("  SIM INVENTORY - SINKRONISASI HARDWARE KE DATABASE ")
     print("=" * 85)
     print("[*] Menginisialisasi skema database di data/sim_inventory.db...")
     init_db()

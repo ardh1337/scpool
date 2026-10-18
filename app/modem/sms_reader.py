@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 import hashlib
 import re
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 
 @dataclass

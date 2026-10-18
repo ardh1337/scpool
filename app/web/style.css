@@ -82,6 +82,7 @@ main{padding:20px 24px 44px;width:100%;max-width:1440px;margin:0 auto;outline:no
   margin-bottom:20px;
 }
 .stat-live-card{
+  background-color:#0f172a;
   border-radius:var(--rp);
   padding:16px 20px;
   transition:all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
@@ -111,7 +112,7 @@ main{padding:20px 24px 44px;width:100%;max-width:1440px;margin:0 auto;outline:no
 
 /* 1. Total Slot: Biru (Blue) */
 .stat-live-card.blue{
-  background:linear-gradient(135deg, rgba(37, 99, 235, 0.22) 0%, rgba(15, 23, 42, 0.85) 100%);
+  background:linear-gradient(135deg, rgba(37, 99, 235, 0.22) 0%, rgba(15, 23, 42, 0.85) 100%), #0f172a;
   border:1px solid rgba(59, 130, 246, 0.55);
   box-shadow:0 4px 20px -2px rgba(37, 99, 235, 0.3), inset 0 0 20px rgba(37, 99, 235, 0.08);
 }
@@ -124,7 +125,7 @@ main{padding:20px 24px 44px;width:100%;max-width:1440px;margin:0 auto;outline:no
 
 /* 2. SIM Aktif: Hijau (Green) */
 .stat-live-card.green{
-  background:linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(15, 23, 42, 0.85) 100%);
+  background:linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(15, 23, 42, 0.85) 100%), #0f172a;
   border:1px solid rgba(16, 185, 129, 0.55);
   box-shadow:0 4px 20px -2px rgba(16, 185, 129, 0.3), inset 0 0 20px rgba(16, 185, 129, 0.08);
 }
@@ -137,7 +138,7 @@ main{padding:20px 24px 44px;width:100%;max-width:1440px;margin:0 auto;outline:no
 
 /* 3. Slot Kosong: Ungu (Purple) */
 .stat-live-card.purple{
-  background:linear-gradient(135deg, rgba(139, 92, 246, 0.22) 0%, rgba(15, 23, 42, 0.85) 100%);
+  background:linear-gradient(135deg, rgba(139, 92, 246, 0.22) 0%, rgba(15, 23, 42, 0.85) 100%), #0f172a;
   border:1px solid rgba(139, 92, 246, 0.55);
   box-shadow:0 4px 20px -2px rgba(139, 92, 246, 0.3), inset 0 0 20px rgba(139, 92, 246, 0.08);
 }
@@ -150,7 +151,7 @@ main{padding:20px 24px 44px;width:100%;max-width:1440px;margin:0 auto;outline:no
 
 /* 4. Perangkat Bermasalah: Merah (Red) */
 .stat-live-card.red{
-  background:linear-gradient(135deg, rgba(239, 68, 68, 0.22) 0%, rgba(15, 23, 42, 0.85) 100%);
+  background:linear-gradient(135deg, rgba(239, 68, 68, 0.22) 0%, rgba(15, 23, 42, 0.85) 100%), #0f172a;
   border:1px solid rgba(239, 68, 68, 0.55);
   box-shadow:0 4px 20px -2px rgba(239, 68, 68, 0.3), inset 0 0 20px rgba(239, 68, 68, 0.08);
 }
@@ -1012,3 +1013,153 @@ dialog::backdrop{background:rgba(0,0,0,.6)}dialog form{display:grid;gap:12px}
 
 
 
+
+/* ---------- Tampilan chassis modem pool ---------- */
+.chassis-rack{
+  display:flex;
+  flex-wrap:wrap;
+  gap:14px;
+  align-items:stretch;
+  justify-content:center;
+}
+.chassis{
+  --col-w:200px;
+  flex:var(--cols) 1 calc(var(--cols) * var(--col-w));
+  min-width:0;
+  max-width:calc(var(--cols) * 340px);
+  display:flex;
+  flex-direction:column;
+  background:linear-gradient(180deg, var(--pn) 0%, var(--p2) 100%);
+  border:1px solid var(--ln);
+  border-radius:12px;
+  padding:10px 10px 12px;
+  box-shadow:0 6px 18px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+.chassis-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  flex-wrap:wrap;
+  padding:2px 4px 9px;
+  margin-bottom:8px;
+  border-bottom:1px solid var(--ln);
+}
+.chassis-title{display:flex;align-items:center;gap:8px;min-width:0}
+.chassis-name{font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.chassis-meta{font-size:11.5px;color:var(--mu)}
+.chassis-meta .warn-t{color:#f87171;font-weight:700}
+.agent-led{width:9px;height:9px;border-radius:50%;flex:none;background:#6b7280}
+.agent-led.on{background:#34d399;box-shadow:0 0 8px #34d399}
+.agent-led.off{background:#ef4444;box-shadow:0 0 6px rgba(239,68,68,0.7)}
+.chassis-body{
+  flex:1;
+  display:grid;
+  grid-template-columns:repeat(var(--cols), minmax(0, 1fr));
+  gap:10px;
+  align-items:start;
+}
+.chassis-col{display:flex;flex-direction:column;gap:4px;min-width:0}
+.chassis-col-title{
+  font-size:10px;font-weight:700;letter-spacing:0.05em;color:var(--mu);
+  text-align:center;padding-bottom:2px;
+}
+.chassis-empty{padding:18px 10px;text-align:center;font-size:12px;color:var(--mu)}
+
+.chassis .slot-box{
+  flex-direction:row;
+  align-items:center;
+  gap:7px;
+  height:30px;
+  padding:0 8px;
+  border-radius:6px;
+  overflow:hidden;
+}
+.chassis .slot-box:hover{transform:none}
+.chassis .slot-chk-wrap{display:none}
+.chassis .select-mode-active .slot-chk-wrap,
+.select-mode-active.chassis-rack .slot-chk-wrap{display:inline-flex;flex:none}
+.chassis .slot-box .sb-dot{width:6px;height:6px}
+.chassis .slot-box .sb-id{font-size:11px;font-weight:700;min-width:16px;text-align:right;flex:none}
+.chassis .slot-box .sb-num{
+  font-size:12px;flex:1;min-width:0;font-style:normal;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.chassis .slot-box.empty .sb-num{font-style:italic}
+.chassis .slot-box .sb-prov{
+  display:block;flex:none;max-width:54px;margin:0;font-size:10px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.chassis .slot-box .sb-sms{
+  flex:none;min-width:18px;height:16px;padding:0 5px;border-radius:9px;
+  font-size:10px;font-weight:700;line-height:16px;text-align:center;
+  background:rgba(255,255,255,0.1);color:var(--tx);
+}
+.chassis .slot-box .sb-sms.nil{background:none}
+
+@media (max-width:640px){
+  .chassis{flex:1 1 100%;max-width:none}
+  .chassis-body{grid-template-columns:1fr}
+}
+
+/* Fast OTP: lebih ringkas, dan beberapa modem pool tampil berdampingan */
+.pool-chip{
+  font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:8px;max-width:90px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  background:rgba(99,102,241,0.18);color:#a5b4fc;border:1px solid rgba(99,102,241,0.35);
+}
+.fast-otp-wrapper .otp-card{padding:8px 11px}
+.fast-otp-wrapper .otp-big-num{font-size:19px}
+.fast-otp-wrapper .unified-slot-row{padding:6px 10px}
+.fast-otp-wrapper .fnum-val{font-size:13px}
+.fast-otp-wrapper .mini-otp-digits{font-size:13px}
+.chassis .slot-box.active{background:linear-gradient(135deg, rgba(16,185,129,0.16) 0%, rgba(15,23,42,0) 100%), #0f172a}
+.chassis .slot-box.empty{background:linear-gradient(135deg, rgba(139,92,246,0.14) 0%, rgba(15,23,42,0) 100%), #131a2e}
+.chassis .slot-box.error, .chassis .slot-box.offline{background:linear-gradient(135deg, rgba(239,68,68,0.18) 0%, rgba(15,23,42,0) 100%), #1a1424}
+.chassis .slot-box.active .sb-num{color:#f1f5f9}
+.chassis .slot-box.active .sb-prov{color:#9fb0c3}
+.chassis-meta{white-space:nowrap}
+.chassis-head{flex-wrap:nowrap}
+.chassis-name{flex:1;min-width:0}
+
+@media (max-width:640px){
+  .top{flex-wrap:wrap;gap:8px;height:auto;padding-block:8px}
+  .dmode-btn span{display:none}
+  #top-user-name{max-width:84px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #top-pool-select{max-width:150px}
+}
+
+.pool-chip{background:#312e81;color:#e0e7ff;border-color:#4338ca}
+.unified-table-body.multi-pool{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));
+  align-items:start;
+  max-height:58vh;
+}
+.fast-unified-table-box:has(.multi-pool) .unified-table-columns-header{display:none}
+.unified-pool-group{min-width:0;border-right:1px solid var(--ln)}
+.unified-pool-group:last-child{border-right:0}
+.unified-pool-title{
+  position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:8px;
+  padding:8px 12px;background:var(--p2);border-bottom:1px solid var(--ln);font-size:12.5px;
+}
+.unified-pool-title .mu{margin-left:auto;font-size:11px}
+.multi-pool .unified-slot-row{grid-template-columns:1fr}
+.multi-pool .slot-left-col{padding:8px 10px}
+.multi-pool .slot-right-col{padding:8px 10px}
+.multi-pool .mini-otp-card .mu.mono{max-width:150px!important}
+@media (max-width:640px){
+  .unified-table-body.multi-pool{grid-template-columns:1fr}
+}
+.slot-left-col.st-active{background:linear-gradient(135deg, rgba(16,185,129,0.16) 0%, rgba(15,23,42,0) 100%), #0f172a}
+.slot-left-col.st-empty{background:linear-gradient(135deg, rgba(139,92,246,0.12) 0%, rgba(15,23,42,0) 100%), #131a2e;opacity:1}
+.slot-left-col.st-offline, .slot-left-col.st-error{background:linear-gradient(135deg, rgba(239,68,68,0.16) 0%, rgba(15,23,42,0) 100%), #1a1424}
+.slot-left-col .fnum-val{color:#f1f5f9}
+.slot-left-col [style*="color:var(--mu)"]{color:#9fb0c3!important}
+.chassis .slot-box .sb-sms{color:#e2e8f0;background:rgba(148,163,184,0.28)}
+
+@media (max-width:640px){
+  .panel{min-width:0}
+  .pool-row{grid-template-columns:minmax(0,1fr)!important}
+  .pool-row > div:last-child{justify-content:flex-start!important}
+}

@@ -6,7 +6,7 @@
 <title>SCPool · SIM Inventory &amp; SMS Hub</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css?v=4">
+<link rel="stylesheet" href="/static/style.css?v=6">
 </head>
 <body>
 <div class="app">
@@ -16,8 +16,6 @@
  <div class="sf">
    <div style="font-weight:600;color:var(--tx);" id="side-hw-title">Foxcom 32-Port</div>
    <span id="side-hw-chip" class="mono" style="font-size:11px;color:var(--mu);">Quectel M26</span>
-   <a href="https://scpool.ardh1337.cloud" target="_blank">🌐 scpool.ardh1337.cloud</a>
-   <span style="font-size:11px;color:var(--ac);margin-top:4px;font-weight:600;letter-spacing:0.3px;">Coded By Ardh1337</span>
  </div>
 </aside>
 <div class="main">
@@ -66,7 +64,6 @@
    <div>
     <div style="display:flex;align-items:center;gap:8px;">
      <h2 style="font-size:16px;font-weight:700;margin:0;">SCPool</h2>
-     <span style="font-size:10px;font-weight:600;color:var(--ac);background:rgba(46,204,113,0.12);padding:2px 6px;border-radius:4px;">Coded By Ardh1337</span>
     </div>
     <span class="mu" style="font-size:12px;">Panel Kontrol &amp; Manajemen Modem Pool</span>
    </div>
@@ -104,21 +101,9 @@
     </label>
     <label class="f">
      <span style="font-size:12px;font-weight:600;color:var(--mu);">Password</span>
-     <input type="password" id="reg-pwd" required minlength="4" placeholder="Minimal 4 karakter" style="padding:10px 12px;">
+     <input type="password" id="reg-pwd" required minlength="8" placeholder="Minimal 8 karakter" style="padding:10px 12px;">
     </label>
-    <label class="f">
-     <span style="font-size:12px;font-weight:600;color:var(--mu);">Nama Modem Pool (Opsional)</span>
-     <input id="reg-pool-name" placeholder="Misal: Modem Pool Cabang" style="padding:10px 12px;">
-    </label>
-    <label class="f">
-     <span style="font-size:12px;font-weight:600;color:var(--mu);">Kapasitas Port Hardware</span>
-     <select id="reg-port-count" style="padding:10px 12px;">
-       <option value="16">16 Port</option>
-       <option value="32" selected>32 Port</option>
-       <option value="64">64 Port</option>
-       <option value="8">8 Port</option>
-     </select>
-    </label>
+    <p class="mu" style="font-size:12px;margin:0;line-height:1.5;">Jumlah modem pool dan port terdeteksi otomatis saat agent terhubung. Nama tiap modem pool diatur nanti di panel.</p>
     <button type="submit" class="btn pri" id="btn-reg-submit" style="padding:10px;font-size:13.5px;font-weight:700;margin-top:4px;">
      Daftar Akun Klien
     </button>
@@ -157,6 +142,6 @@
   </form>
  </div>
 </div>
-<script src="/static/app.js?v=4"></script>
+<script src="/static/app.js?v=6"></script>
 </body>
 </html>

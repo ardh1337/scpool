@@ -5,7 +5,8 @@ Unit Test Otentikasi, Manajemen Pengguna & Isolasi Multi-Tenant
 import unittest
 from fastapi.testclient import TestClient
 from app.main import app
-from app.database.models import init_db, UserAccount, ModemPool
+from app.database.bootstrap import init_db
+from app.database.models import UserAccount, ModemPool
 from app.database.connection import SessionLocal
 
 
@@ -71,7 +72,7 @@ class TestAuthMultiTenant(unittest.TestCase):
         self.assertEqual(resp.status_code, 401)
 
     def test_admin_user_crud_and_pool_creation(self):
-        """Memastikan admin bisa membuat akun klien baru beserta pool dan agent token unik."""
+        """Memastikan admin bisa membuat akun klien baru (unit modem pool terbentuk dari deteksi agent) dengan agent token unik."""
         # 1. Login sebagai admin
         login_resp = self.client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
         token = login_resp.json()["token"]
@@ -82,15 +83,12 @@ class TestAuthMultiTenant(unittest.TestCase):
             "username": "teman_budi",
             "password": "password_budi_123",
             "role": "operator",
-            "pool_name": "Foxcom Pool Budi",
-            "port_count": 32
         }
         create_resp = self.client.post("/api/admin/users", json=new_user_payload, headers=headers)
         self.assertEqual(create_resp.status_code, 200)
         created = create_resp.json()
         self.assertTrue(created["success"])
         self.assertIn("scpool_", created["agent_token"])
-        self.assertEqual(created["pool_id"], "pool_teman_budi")
 
         user_id = created["user_id"]
 
@@ -100,7 +98,7 @@ class TestAuthMultiTenant(unittest.TestCase):
         user_list = users_resp.json()
         budi_entry = next((u for u in user_list if u["username"] == "teman_budi"), None)
         self.assertIsNotNone(budi_entry)
-        self.assertEqual(budi_entry["pool_id"], "pool_teman_budi")
+        self.assertEqual(budi_entry["unit_count"], 0)
 
         # 4. Login sebagai Budi
         budi_login = self.client.post("/api/auth/login", json={"username": "teman_budi", "password": "password_budi_123"})
@@ -108,10 +106,20 @@ class TestAuthMultiTenant(unittest.TestCase):
         budi_token = budi_login.json()["token"]
         budi_headers = {"Authorization": f"Bearer {budi_token}"}
 
-        # 5. Budi cek slots -> hanya melihat slot pool_teman_budi miliknya
+        # 5. Belum ada agent: tidak ada modem pool. Setelah agent melaporkan 32 port, satu unit terbentuk.
+        self.assertEqual(self.client.get("/api/slots", headers=budi_headers).json(), [])
+        self.assertEqual(self.client.get("/api/pools", headers=budi_headers).json(), [])
+
+        from app.database.connection import SessionLocal
+        from app.services.units import sync_detected_ports
+        db = SessionLocal()
+        sync_detected_ports(db, user_id, [("usb:1-1", [f"COM{n}" for n in range(3, 35)])])
+        db.commit()
+        db.close()
         budi_slots = self.client.get("/api/slots", headers=budi_headers)
-        self.assertEqual(budi_slots.status_code, 200)
         self.assertEqual(len(budi_slots.json()), 32)
+        pools = self.client.get("/api/pools", headers=budi_headers).json()
+        self.assertEqual([(p["name"], p["port_count"]) for p in pools], [("Modem Pool 1", 32)])
 
         # 6. Budi tidak boleh mengakses menu admin
         budi_admin_access = self.client.get("/api/admin/users", headers=budi_headers)

@@ -4,8 +4,8 @@ Memvalidasi skenario lengkap simulator modem sesuai kontrak Section 8 spesifikas
 """
 
 import unittest
-from simulator.simulated_modem import SimulatedModem
-from simulator.scenarios import SimulatedModemPool
+from tests.support.simulator.simulated_modem import SimulatedModem
+from tests.support.simulator.scenarios import SimulatedModemPool
 from app.modem.at_client import ATClient
 from app.modem.sim_status import (
     clean_and_validate_iccid, parse_cpin_response,

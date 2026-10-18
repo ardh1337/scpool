@@ -21,8 +21,9 @@ from fastapi.testclient import TestClient
 from app.database.connection import Base
 from app.database.models import (
     ModemPool, Slot, Port, SIMCard, SIMSession, SMSMessage,
-    SlotStatus, NumberStatus, SMSStatus, UserAccount, init_db
+    SlotStatus, NumberStatus, SMSStatus, UserAccount
 )
+from app.database.bootstrap import init_db
 from app.services.slot_manager import handle_sim_inserted
 from app.services.sms_ingestion import ingest_sms
 from app.modem.transport import VirtualTransport
@@ -30,7 +31,7 @@ from app.modem.at_client import ATClient
 from app.modem.sms_reader import ParsedSMS, compute_body_hash
 from app.main import app
 
-STRESS_DB_PATH = Path("d:/panel/data/stress_test.db")
+STRESS_DB_PATH = Path(os.environ["SCPOOL_DATA_DIR"]) / "stress_test.db"
 
 
 class TestStressAndLoad(unittest.TestCase):

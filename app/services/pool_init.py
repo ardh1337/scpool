@@ -5,8 +5,8 @@ Menyiapkan record database untuk modem pool Foxcom 32-Port, 32 Port fisik, dan 3
 
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
-from app.database.models import ModemPool, Device, Port, Slot, SlotStatus, init_db
-from config.modem_pool_profile import FOXCOM_32_MAPPING
+from app.database.models import ModemPool, Device, Port, Slot, SlotStatus
+from app.hardware.profile import FOXCOM_32_MAPPING
 
 
 def ensure_pool_initialized(db: Session, pool_id: str = "foxcom_32", pool_name: str = "Foxcom 32-Port Pool") -> ModemPool:

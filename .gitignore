@@ -1,23 +1,7 @@
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
+*.pyc
 .pytest_cache/
-.coverage
-htmlcov/
-
-# Local databases and logs (I-12)
+venv/
+.env
 data/
 logs/
-*.db
-*.sqlite
-*.sqlite3
-
-# Environment & IDE
-.env
-.venv
-env/
-venv/
-.idea/
-.vscode/
-

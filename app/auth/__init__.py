@@ -1,2 +1,1 @@
-# Modul Otentikasi dan Manajemen Pengguna
-
+"""Otentikasi & otorisasi."""

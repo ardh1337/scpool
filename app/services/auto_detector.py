@@ -1,94 +1,83 @@
 """
-Layanan Pemantau Otomatis Deteksi SIM & Auto-Dial USSD (Tahap M5)
-Memantau slot kosong dan slot yang belum memiliki nomor telepon secara berkala.
-Saat kartu SIM baru terdeteksi di suatu port:
-1. Otomatis mendaftarkan sesi SIM baru (I-1, I-6).
-2. Otomatis menjalankan dial USSD untuk mengambil nomor telepon (I-2).
-3. Memperbarui status kartu menjadi DIKETAHUI di database SQLite.
+Pemantau latar belakang modem pool LOKAL: mendeteksi SIM dicabut/dipasang/ditukar, mengambil nomor, dan membaca
+SMS baru secara berkala.
+
+Perbaikan dari versi sebelumnya:
+- Hanya memindai pool lokal, dan hanya bila hardware lokal diaktifkan. Versi lama memindai SEMUA slot semua tenant
+  lewat serial lokal; slot tenant remote (COM milik PC klien) otomatis jadi PORT_ERROR tiap 6 detik dan menimpa
+  status yang dilaporkan agent.
+- Membaca SMS otomatis (sebelumnya hanya jika tombol "Periksa SMS" ditekan) dengan interval sendiri.
+- Pool yang agent-nya sedang online dilewati.
 """
 
+import logging
 import threading
 import time
 from typing import Optional
-from sqlalchemy.orm import Session
 
-from app.database.connection import SessionLocal
-from app.database.models import Slot, SlotStatus, SIMSession, SIMCard
+from app.core.config import settings
+from app.database.connection import session_scope
+from app.database.models import Slot
+from app.services.agent_gateway import agent_gateway
 from app.services.hardware_sync import sync_single_slot
+from app.services.numbering import renumber_pool_slots
+from app.services.sms_service import poll_all_active_slots_sms
+from app.services.units import owner_of_pool
+
+logger = logging.getLogger(__name__)
 
 _thread: Optional[threading.Thread] = None
 _stop_event = threading.Event()
-_is_running = False
 _lock = threading.Lock()
 
 
-def _auto_detector_loop(interval: float = 4.0):
-    global _is_running
-    _is_running = True
+def _scan_once(db) -> None:
+    pool_id = settings.local_pool_id
+    owner_id = owner_of_pool(db, pool_id)
+    if owner_id is not None and agent_gateway.is_agent_online(owner_id):
+        return
+    changed = False
+    for slot in db.query(Slot).filter(Slot.pool_id == pool_id).order_by(Slot.slot_index).all():
+        if _stop_event.is_set():
+            return
+        result = sync_single_slot(db, slot, timeout=1.0, auto_fetch_number=True)
+        changed = changed or result.get("session_action") in ("NEW_SESSION", "CLOSED_SESSION")
+    if changed:
+        renumber_pool_slots(db, pool_id)
 
+
+def _loop(interval: float) -> None:
+    next_sms_poll = 0.0
     while not _stop_event.is_set():
         try:
-            db: Session = SessionLocal()
-            try:
-                # Periksa seluruh 32 slot untuk mendeteksi:
-                # 1. SIM dicabut: status READY -> EMPTY, sesi ditutup, nomor langsung hilang
-                # 2. SIM dipasang: status EMPTY -> READY, sesi dibuka, auto-dial USSD aktif
-                # 3. SIM tertukar: sesi lama ditutup, sesi baru dibuka
-                slots = db.query(Slot).order_by(Slot.slot_index).all()
-
-                for slot in slots:
-                    if _stop_event.is_set():
-                        break
-
-                    sync_single_slot(db, slot, timeout=1.0, auto_fetch_number=True)
-
-                # Proses tombol callback persetujuan Telegram (jika ada pendaftaran baru)
-                try:
-                    from app.services.telegram_service import process_telegram_updates
-                    process_telegram_updates(db)
-                except Exception:
-                    pass
-
-            finally:
-                db.close()
-
+            with session_scope() as db:
+                _scan_once(db)
+                if time.time() >= next_sms_poll and not _stop_event.is_set():
+                    poll_all_active_slots_sms(db, pool_id=settings.local_pool_id)
+                    next_sms_poll = time.time() + settings.sms_poll_interval
         except Exception:
-            pass
-
-        # Tunggu interval atau sampai sinyal stop diterima
+            logger.exception("Siklus pemindaian hardware gagal")
         _stop_event.wait(interval)
 
-    _is_running = False
 
-
-def start_auto_detector(interval: float = 6.0):
-    """Memulai pemantau latar belakang otomatis."""
-    global _thread, _stop_event, _is_running
+def start_auto_detector(interval: float = 6.0) -> None:
+    global _thread
     with _lock:
         if _thread is not None and _thread.is_alive():
             return
-
         _stop_event.clear()
-        _thread = threading.Thread(
-            target=_auto_detector_loop,
-            args=(interval,),
-            name="AutoSIMDetectorThread",
-            daemon=True
-        )
+        _thread = threading.Thread(target=_loop, args=(interval,), name="AutoSIMDetectorThread", daemon=True)
         _thread.start()
 
 
-def stop_auto_detector():
-    """Menghentikan pemantau latar belakang otomatis."""
-    global _thread, _stop_event
+def stop_auto_detector() -> None:
+    global _thread
     with _lock:
         _stop_event.set()
         if _thread is not None and _thread.is_alive():
-            _thread.join(timeout=3.0)
-            _thread = None
+            _thread.join(timeout=5.0)
+        _thread = None
 
 
 def is_auto_detector_running() -> bool:
-    """Status apakah auto detector sedang berjalan."""
-    return _is_running and _thread is not None and _thread.is_alive()
-
+    return _thread is not None and _thread.is_alive()

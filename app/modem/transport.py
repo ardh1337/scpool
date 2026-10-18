@@ -5,7 +5,6 @@ dan modem simulasi in-memory untuk pengujian tanpa perangkat fisik (Section 7 & 
 """
 
 from abc import ABC, abstractmethod
-import queue
 import time
 import threading
 from typing import Optional

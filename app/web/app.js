@@ -1,5 +1,7 @@
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
-const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// Nilai tak tepercaya di dalam handler inline: JSON memberi literal string JS yang aman, lalu di-escape untuk atribut HTML.
+const jq=v=>esc(JSON.stringify(String(v)));
 const IC={
   dashboard:'M4 4h7v7H4zM13 4h7v4h-7zM13 11h7v9h-7zM4 14h7v6H4z',
   sms:'M4 5h16v11H9l-5 4z',
@@ -11,7 +13,7 @@ const ic=n=>`<svg class="i" viewBox="0 0 24 24"><path d="${IC[n]||IC.dashboard}"
 /* State Multi-Tenant & Otentikasi */
 let currentUser = null;
 let activePoolId = null;
-let adminPoolsList = [];
+let poolsList = [];
 
 function renderNav(){
   const navItems = [
@@ -30,23 +32,23 @@ renderNav();
 const ST={active:['Aktif','ok'],empty:['Kosong','info'],offline:['Offline','warn'],error:['Error','err']};
 const NOTE={active:'SIM terdeteksi dan terdaftar.',empty:'Tidak ada SIM terpasang.',offline:'Modem tidak merespons pada polling terakhir.',error:'Port melaporkan kesalahan hardware.'};
 
-let slots = Array.from({length:32},(_,i)=>({
- id:'P'+String(i+1).padStart(2,'0'),slot_index:i+1,st:'empty',num:'—',op:'—',dev:'COM-',iccid:'—',m:0,sms_count:0
-}));
+let slots = [];
 let sms = [];
 let operatorProfiles = [];
 let poolInfo = {
- pool: 'Foxcom 32-Port Pool',
- model: 'Quectel M26',
- chipset: 'Exar XR21V1414 UART'
+ pool: 'Belum ada modem pool',
+ model: 'Modul seluler',
+ chipset: 'USB serial'
 };
 
 const selectedSlots = new Set();
 let isBulkCancelled = false;
 let isSelectMode = false;
 let currentDrawerSlot = null;
-let currentThemeMode = 'auto';
-let userCredentials = { username: 'admin', password: '••••••••', realPassword: 'admin123' };
+let currentThemeMode = (() => {
+ try{ const t = localStorage.getItem('scpool_theme'); return ['auto','dark','light'].includes(t) ? t : 'auto'; }catch(e){ return 'auto'; }
+})();
+let userCredentials = { username: '' };
 let isPasswordVisible = false;
 let currentApiLang = 'curl';
 let currentDashMode = localStorage.getItem('scpool_dash_mode') || localStorage.getItem('simfleet_dash_mode') || 'grid';
@@ -101,68 +103,99 @@ function extractOTP(text){
 }
 
 /* ---------- Pengambilan Data Nyata dari Backend (/api/...) ---------- */
+const ALL_POOLS = '__all__';
+const domId = id => String(id).replace(/[^\w-]/g, '_');
+const slotLabel = s => 'P' + String(s.slot_index).padStart(2, '0');
+const poolQuery = (poolId, first = '?') => poolId ? `${first}pool_id=${encodeURIComponent(poolId)}` : '';
+const isAdminUser = () => !!currentUser && (currentUser.role === 'superadmin' || currentUser.role === 'admin');
+
+function visiblePools(){
+ if(activePoolId !== ALL_POOLS) return poolsList.filter(p => p.id === activePoolId);
+ const own = isAdminUser() ? poolsList.filter(p => !p.owner || p.owner === currentUser.username) : poolsList;
+ return own.length ? own : poolsList;
+}
+
+function mapSlot(s, pool){
+ let st = 'empty';
+ if(s.status === 'READY') st = 'active';
+ else if(s.status === 'SIM_ERROR') st = 'error';
+ else if(s.status === 'PORT_ERROR' || s.status === 'OFFLINE') st = 'offline';
+ const numDisplay = (st === 'active' && s.phone_number) ? s.phone_number : (st === 'active' ? 'BELUM DIKETAHUI' : '—');
+ return {
+  id: `${pool.id}:P${String(s.slot_index).padStart(2,'0')}`,
+  pool_id: pool.id,
+  pool_name: pool.name,
+  slot_index: s.slot_index,
+  st: st,
+  num: numDisplay,
+  op: s.operator_name || (st === 'active' ? 'SIM' : '—'),
+  dev: s.port_name || 'COM-',
+  iccid: s.iccid || s.iccid_masked || '—',
+  sms_count: s.sms_count || 0,
+  m: 1
+ };
+}
+
+function mapSms(m, pool){
+ const otpCode = extractOTP(m.body || '');
+ const minAgo = m.received_at ? Math.max(0, Math.floor((Date.now() - new Date(m.received_at).getTime()) / 60000)) : 0;
+ return {
+  id: m.id,
+  n: m.sender || 'Tanpa Pengirim',
+  l: S.labels[m.sender] || '',
+  type: otpCode ? 'OTP' : (m.status === 'PESAN BAWAAN' ? 'Bawaan' : 'Notifikasi'),
+  otp: otpCode,
+  slot: `${pool.id}:P${String(m.slot_index).padStart(2,'0')}`,
+  pool_id: pool.id,
+  pool_name: pool.name,
+  slot_index: m.slot_index,
+  port: m.port_name || 'COM-',
+  m: minAgo,
+  st: m.status === 'PESAN BAWAAN' ? 'Bawaan' : 'Diterima',
+  body: m.body || '',
+  received_at: m.received_at
+ };
+}
+
+function syncSidebarHardware(){
+ const pools = visiblePools();
+ const title = pools.length === 1 ? pools[0].name : (pools.length ? `${pools.length} modem pool` : 'Belum ada modem pool');
+ poolInfo.pool = title;
+ const t = $('#side-hw-title'), c = $('#side-hw-chip');
+ if(t) t.textContent = title;
+ if(c) c.textContent = `${poolInfo.model} · ${poolInfo.chipset}`;
+}
+
 async function fetchBackendData(){
  try{
-  const pParam = activePoolId ? `?pool_id=${encodeURIComponent(activePoolId)}` : '';
-  const smsPParam = activePoolId ? `&pool_id=${encodeURIComponent(activePoolId)}` : '';
-  const [resStatus, resSlots, resSMS, resOps] = await Promise.all([
-   fetch('/api/status' + pParam).then(r=>r.ok?r.json():null).catch(()=>null),
-   fetch('/api/slots' + pParam).then(r=>r.ok?r.json():null).catch(()=>null),
-   fetch('/api/sms?limit=100' + smsPParam).then(r=>r.ok?r.json():null).catch(()=>null),
-   fetch('/api/operators').then(r=>r.ok?r.json():null).catch(()=>null)
-  ]);
+  await loadPools();
+  const pools = visiblePools();
+  const getJson = url => fetch(url).then(r => r.ok ? r.json() : null).catch(() => null);
+  const perPool = await Promise.all(pools.map(async pool => {
+   const [st, sl, sm] = await Promise.all([
+    getJson('/api/status' + poolQuery(pool.id)),
+    getJson('/api/slots' + poolQuery(pool.id)),
+    getJson('/api/sms?limit=100' + poolQuery(pool.id, '&'))
+   ]);
+   return {pool, st, sl, sm};
+  }));
+  const resOps = await getJson('/api/operators');
 
-  if(resStatus){
-   poolInfo.pool = resStatus.pool_name || poolInfo.pool;
-   poolInfo.model = resStatus.module_model || poolInfo.model;
-   poolInfo.chipset = resStatus.chipset || poolInfo.chipset;
-   $('#side-hw-title').textContent = poolInfo.pool;
-   $('#side-hw-chip').textContent = `${poolInfo.model} · ${poolInfo.chipset}`;
+  const first = perPool.find(x => x.st);
+  if(first){
+   poolInfo.model = first.st.module_model || poolInfo.model;
+   poolInfo.chipset = first.st.chipset || poolInfo.chipset;
   }
+  syncSidebarHardware();
 
-  if(resSlots && Array.isArray(resSlots)){
-   slots = resSlots.map(s => {
-    let st = 'empty';
-    if(s.status === 'READY') st = 'active';
-    else if(s.status === 'SIM_ERROR') st = 'error';
-    else if(s.status === 'PORT_ERROR') st = 'offline';
-
-    const numDisplay = (st === 'active' && s.phone_number) ? s.phone_number : (st === 'active' ? 'BELUM DIKETAHUI' : '—');
-    return {
-     id: 'P' + String(s.slot_index).padStart(2,'0'),
-     slot_index: s.slot_index,
-     st: st,
-     num: numDisplay,
-     op: s.operator_name || (st === 'active' ? 'SIM' : '—'),
-     dev: s.port_name || 'COM-',
-     iccid: s.iccid || s.iccid_masked || '—',
-     sms_count: s.sms_count || 0,
-     m: 1
-    };
-   });
+  const failed = perPool.some(x => !Array.isArray(x.sl));
+  if(!failed || !slots.length){
+   slots = perPool.flatMap(x => Array.isArray(x.sl) ? x.sl.map(s => mapSlot(s, x.pool)) : []);
   }
-
-  if(resSMS && Array.isArray(resSMS)){
-   sms = resSMS.map(m => {
-    const otpCode = extractOTP(m.body || '');
-    const minAgo = m.received_at ? Math.max(0, Math.floor((Date.now() - new Date(m.received_at).getTime()) / 60000)) : 0;
-    return {
-     id: m.id,
-     n: m.sender || 'Tanpa Pengirim',
-     l: S.labels[m.sender] || '',
-     type: otpCode ? 'OTP' : (m.status === 'PESAN BAWAAN' ? 'Bawaan' : 'Notifikasi'),
-     otp: otpCode,
-     slot: 'P' + String(m.slot_index).padStart(2,'0'),
-     slot_index: m.slot_index,
-     port: m.port_name || 'COM-',
-     m: minAgo,
-     st: m.status === 'PESAN BAWAAN' ? 'Bawaan' : 'Diterima',
-     body: m.body || '',
-     received_at: m.received_at
-    };
-   });
+  if(perPool.every(x => Array.isArray(x.sm))){
+   sms = perPool.flatMap(x => x.sm.map(m => mapSms(m, x.pool)))
+    .sort((a, b) => new Date(b.received_at || 0) - new Date(a.received_at || 0));
   }
-
   if(resOps && Array.isArray(resOps)){
    operatorProfiles = resOps;
   }
@@ -235,7 +268,7 @@ const btnSync=$('#top-sync');
 if(btnSync){
   btnSync.onclick=async()=>{
    btnSync.disabled=true;toast('Menyinkronkan port hardware...');
-   try{await fetch('/api/sync',{method:'POST'});await fetchBackendData();toast('Sinkronisasi hardware selesai.')}
+   try{const r=await fetch('/api/sync',{method:'POST'});const j=await r.json().catch(()=>({}));if(!r.ok){toast(j.detail||'Sinkronisasi gagal.');return}await fetchBackendData();toast(j.mode==='agent'?'Perintah rescan dikirim ke agent.':'Sinkronisasi hardware selesai.')}
    catch(e){toast('Gagal sinkronisasi: '+e.message,1)}finally{btnSync.disabled=false}
   };
 }
@@ -244,7 +277,7 @@ const btnPoll=$('#top-poll');
 if(btnPoll){
   btnPoll.onclick=async()=>{
    btnPoll.disabled=true;toast('Membaca SMS masuk...');
-   try{await fetch('/api/poll-sms',{method:'POST'});await fetchBackendData();toast('Pemeriksaan SMS selesai.')}
+   try{const r=await fetch('/api/poll-sms',{method:'POST'});const j=await r.json().catch(()=>({}));if(!r.ok){toast(j.detail||'Pemeriksaan SMS gagal.');return}await fetchBackendData();toast('Pemeriksaan SMS selesai.')}
    catch(e){toast('Gagal baca SMS: '+e.message,1)}finally{btnPoll.disabled=false}
   };
 }
@@ -254,7 +287,7 @@ const refreshBell=()=>{
  const np=$('#np');
  if(!np)return;
  const a=alerts();
- np.innerHTML=a.length?a.map(s=>`<a href="#/dashboard" onclick="openDrawer('${s.id}')">${s.id} · ${ST[s.st][0]}<br><span class="mu">${NOTE[s.st]}</span></a>`).join(''):'<p class="mu" style="padding:8px">Semua port beroperasi normal.</p>';
+ np.innerHTML=a.length?a.map(s=>`<a href="#/dashboard" onclick="openDrawer(${jq(s.id)})">${esc(s.pool_name)} · P${String(s.slot_index).padStart(2,'0')} · ${ST[s.st][0]}<br><span class="mu">${NOTE[s.st]}</span></a>`).join(''):'<p class="mu" style="padding:8px">Semua port beroperasi normal.</p>';
  const dot=$('.dot');
  if(dot) dot.hidden=!a.length;
 };
@@ -413,69 +446,68 @@ function updateBulkBar(){
 
 function renderSlotBox(s){
  const stLabel = (ST[s.st]||ST.empty)[0];
- const numDisplay = s.num || '—';
- const provDisplay = (s.st === 'active' && s.op && s.op !== '—') ? s.op : (s.st === 'empty' ? 'Tidak Ada Kartu' : 'Port Offline');
+ const known = s.num && s.num !== '—' && s.num !== 'BELUM DIKETAHUI';
+ const numDisplay = known ? s.num : (s.st === 'active' ? 'Nomor belum terbaca' : '—');
+ const provDisplay = (s.st === 'active' && s.op && s.op !== '—') ? s.op : (s.st === 'empty' ? 'Kosong' : 'Offline');
  const isSelected = selectedSlots.has(s.id);
+ const idq = jq(s.id);
  return `
-  <div class="slot-box ${s.st}${isSelected ? ' selected' : ''}" data-id="${s.id}" onclick="onSlotClick(event, '${s.id}')" tabindex="0" title="${isSelectMode ? 'Pilih/Batalkan ' + s.id : 'Klik untuk rincian ' + s.id}">
-   <div class="sb-top">
-    <div style="display:flex;align-items:center;">
-     <span class="slot-chk-wrap">
-      <input type="checkbox" class="custom-chk slot-chk" data-chk-id="${s.id}" ${s.st==='empty'?'disabled':''} ${isSelected ? 'checked' : ''} onclick="toggleSelectSlot(event, '${s.id}')" title="Pilih slot">
-     </span>
-     <span class="sb-id">Port ${String(s.slot_index).padStart(2,'0')}</span>
-    </div>
-    <span class="sb-pill">${stLabel}</span>
-   </div>
-   <div class="sb-num mono">${esc(numDisplay)}</div>
-   <div class="sb-prov">
-    <span class="sb-dot"></span>
-    <span class="sb-prov-text">${esc(provDisplay)}</span>
-    <span class="sb-port-text mono">${esc(s.dev)}</span>
-   </div>
+  <div class="slot-box ${s.st}${isSelected ? ' selected' : ''}" data-id="${esc(s.id)}" onclick="onSlotClick(event, ${idq})" tabindex="0" title="${esc(s.pool_name)} · Port ${s.slot_index} · ${stLabel}${isSelectMode ? ' (klik untuk pilih)' : ''}">
+   <span class="slot-chk-wrap"><input type="checkbox" class="custom-chk slot-chk" ${s.st==='empty'?'disabled':''} ${isSelected ? 'checked' : ''} onclick="toggleSelectSlot(event, ${idq})" title="Pilih slot"></span>
+   <span class="sb-dot"></span>
+   <span class="sb-id">${String(s.slot_index).padStart(2,'0')}</span>
+   <span class="sb-num mono">${esc(numDisplay)}</span>
+   <span class="sb-prov">${esc(provDisplay)}</span>
+   ${s.sms_count ? `<span class="sb-sms" title="${s.sms_count} SMS">${s.sms_count}</span>` : '<span class="sb-sms nil"></span>'}
   </div>
  `;
 }
 
-function renderPools(){
- const POOL_SIZE = 32;
- const HALF_POOL = 16;
- const poolCount = Math.max(1, Math.ceil(slots.length / POOL_SIZE));
- let html = `<div class="pools-wrapper${isSelectMode ? ' select-mode-active' : ''}" id="pools-container">`;
- 
- for(let p = 0; p < poolCount; p++){
-  const startIdx = p * POOL_SIZE;
-  const poolSlots = slots.slice(startIdx, startIdx + POOL_SIZE);
-  const col1 = poolSlots.slice(0, HALF_POOL);
-  const col2 = poolSlots.slice(HALF_POOL, POOL_SIZE);
-  const poolLabel = poolCount > 1 ? `Modem Pool #${p + 1} (${poolSlots.length} Port)` : `${esc(poolInfo.pool)}`;
-  const portRange1 = col1.length ? `${col1[0].slot_index}–${col1[col1.length - 1].slot_index}` : '';
-  const portRange2 = col2.length ? `${col2[0].slot_index}–${col2[col2.length - 1].slot_index}` : '';
+function chassisColumns(count){
+ const cols = Math.max(1, Math.ceil(count / 16));
+ return Array.from({length: cols}, (_, i) => [i * 16, Math.min(count, (i + 1) * 16)]);
+}
 
-  html += `
-   <section class="pool-card">
-    <div class="pool-header">
-     <h3>
-      <svg class="i" viewBox="0 0 24 24"><path d="M4 4h7v7H4zM13 4h7v4h-7zM13 11h7v9h-7zM4 14h7v6H4z"/></svg>
-      ${poolLabel}
-     </h3>
-     <span class="pool-chip mono">${esc(poolInfo.model)} · ${esc(poolInfo.chipset)}</span>
+function renderChassis(pool, list){
+ const cols = chassisColumns(list.length);
+ const online = pool.agent_online;
+ const bad = list.filter(x => x.st === 'offline' || x.st === 'error').length;
+ const act = list.filter(x => x.st === 'active').length;
+ return `
+  <section class="chassis" style="--cols:${cols.length}" data-pool="${esc(pool.id)}">
+   <header class="chassis-head">
+    <div class="chassis-title">
+     <span class="agent-led ${online ? 'on' : 'off'}" title="${online ? 'Agent terhubung' : 'Agent tidak terhubung'}"></span>
+     <b class="chassis-name" title="${esc(pool.name)}">${esc(pool.name)}</b>
     </div>
-    <div class="pool-columns">
-     <div class="pool-col">
-      <div class="pool-col-title">Port ${portRange1}</div>
-      ${col1.map(renderSlotBox).join('')}
-     </div>
-     <div class="pool-col">
-      <div class="pool-col-title">Port ${portRange2}</div>
-      ${col2.map(renderSlotBox).join('')}
-     </div>
-    </div>
-   </section>
-  `;
+    <div class="chassis-meta" title="${list.length} port, ${act} aktif, ${bad} bermasalah">${act}/${list.length} aktif${bad ? ` · <span class="warn-t">${bad} ⚠</span>` : ''}</div>
+   </header>
+   <div class="chassis-body">
+    ${cols.map(([from, to]) => `
+     <div class="chassis-col">
+      <div class="chassis-col-title">${list[from].slot_index}–${list[to - 1].slot_index}</div>
+      ${list.slice(from, to).map(renderSlotBox).join('')}
+     </div>`).join('')}
+   </div>
+  </section>`;
+}
+
+function renderPools(){
+ const pools = visiblePools();
+ if(!pools.length){
+  return `<section class="pool-card"><div class="pool-header"><h3>Modem pool</h3></div>
+   <div class="note" style="margin:12px 0 0;">Belum ada modem pool. Jalankan agent di komputer yang terhubung ke modem pool: unit dan jumlah port terdeteksi otomatis, lalu Anda bisa memberi nama di Pengaturan.</div></section>`;
  }
- html += '</div>';
- return html;
+ const boxes = pools.map(pool => {
+  const list = slots.filter(x => x.pool_id === pool.id);
+  if(!list.length){
+   return `<section class="chassis" style="--cols:1" data-pool="${esc(pool.id)}"><header class="chassis-head"><div class="chassis-title"><span class="agent-led ${pool.agent_online ? 'on' : 'off'}"></span><b class="chassis-name">${esc(pool.name)}</b></div></header>
+    <div class="chassis-empty">Belum ada port. Port muncul otomatis begitu agent mendeteksinya.</div></section>`;
+  }
+  return renderChassis(pool, list);
+ });
+ const totalCols = pools.reduce((n, pool) => n + chassisColumns(slots.filter(x => x.pool_id === pool.id).length || 1).length, 0);
+ return `<div class="pools-wrapper chassis-rack${isSelectMode ? ' select-mode-active' : ''}" id="pools-container" style="--total-cols:${totalCols}">${boxes.join('')}</div>`;
 }
 
 function pDash(){
@@ -496,15 +528,15 @@ function pDash(){
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;">
       <div style="flex:1;min-width:260px;">
         <div style="font-size:15px;font-weight:700;color:var(--tx);display:flex;align-items:center;gap:8px;">
-          🚀 Setup Remote Modem Pool (${esc(currentUser.pool_id || 'Pool Anda')})
+          🚀 Hubungkan Modem Pool Anda
         </div>
         <p class="mu" style="font-size:12.5px;margin-top:4px;line-height:1.5;">
-          File agen sudah dilengkapi token akun Anda secara otomatis. Cukup unduh satu file dan jalankan (double-click) di komputer yang terhubung ke modem pool fisik.
+          File agen sudah dilengkapi token akun Anda. Unduh, jalankan di komputer yang terhubung ke modem pool: jumlah unit dan port terdeteksi otomatis, dan nama tiap modem pool bisa Anda atur di Pengaturan.
         </p>
         <div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           <span style="font-size:12px;font-weight:600;color:var(--mu);">Token Agent:</span>
           <code class="mono" style="background:var(--p2);padding:3px 8px;border-radius:6px;border:1px solid var(--ln);font-size:11.5px;color:var(--ac);font-weight:700;">${esc(currentUser.agent_token || '—')}</code>
-          <button type="button" class="btn" style="padding:3px 8px;font-size:11px;" onclick="copyToClipboard('${esc(currentUser.agent_token || '')}', 'Token agent disalin.')">📋 Salin</button>
+          <button type="button" class="btn" style="padding:3px 8px;font-size:11px;" onclick="copyToClipboard(${jq(currentUser.agent_token || '')}, 'Token agent disalin.')">📋 Salin</button>
         </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
@@ -520,7 +552,7 @@ function pDash(){
   ` : ''}
 
   <div class="note" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-    <div><b>Perangkat:</b> ${esc(poolInfo.pool)} (${esc(poolInfo.model)})</div>
+    <div><b>Modem Pool:</b> ${esc(poolInfo.pool)}${visiblePools().length === 1 ? '' : ' <span class="mu">· ditampilkan bersama</span>'}</div>
     <div class="row" style="gap:8px;">
       <button type="button" class="btn ${isSelectMode ? '' : 'pri'}" id="btn-bulk-toggle" onclick="toggleSelectMode()">
         ${isSelectMode ? 'Tutup Pilihan' : 'Dial USSD Massal'}
@@ -681,7 +713,7 @@ async function runBulkDialExecution(targetSlots, ussdCode){
   const pct = Math.round(((i) / targetSlots.length) * 100);
   fill.style.width = pct + '%';
   percentTxt.textContent = pct + '%';
-  statusTxt.textContent = `Mendial Port ${s.slot_index} (${s.id})... [${i+1}/${targetSlots.length}]`;
+  statusTxt.textContent = `Mendial ${s.pool_name} · Port ${s.slot_index}... [${i+1}/${targetSlots.length}]`;
 
   const activeLine = document.createElement('div');
   activeLine.style.color = 'var(--mu)';
@@ -690,7 +722,7 @@ async function runBulkDialExecution(targetSlots, ussdCode){
   logBox.scrollTop = logBox.scrollHeight;
 
   try{
-   const res = await fetch(`/api/slots/${s.slot_index}/ussd?code=${encodeURIComponent(ussdCode)}`, { method: 'POST' });
+   const res = await fetch(`/api/slots/${s.slot_index}/ussd?code=${encodeURIComponent(ussdCode)}${poolQuery(s.pool_id, '&')}`, { method: 'POST' });
    const d = await res.json();
    if(d.success){
     successCount++;
@@ -755,10 +787,11 @@ function openDrawer(id){
  const x=slots.find(s=>s.id===id);if(!x)return;lastF=document.activeElement;
  currentDrawerSlot = x;
 
- dr.innerHTML=`<div class="scr" data-x></div><aside class="dw" role="dialog" aria-modal="true" aria-label="Detail slot ${x.id}">
- <div class="dh"><h3>Rincian Slot ${x.id}</h3><button class="btn ic" data-x aria-label="Tutup detail">×</button></div>
+ dr.innerHTML=`<div class="scr" data-x></div><aside class="dw" role="dialog" aria-modal="true" aria-label="Detail port ${x.slot_index} ${esc(x.pool_name)}">
+ <div class="dh"><h3>${esc(x.pool_name)} · Port ${x.slot_index}</h3><button class="btn ic" data-x aria-label="Tutup detail">×</button></div>
  <dl>
-   <dt>Slot Fisik</dt><dd><b>${x.id} (Port ${x.slot_index})</b></dd>
+   <dt>Modem Pool</dt><dd><b>${esc(x.pool_name)}</b></dd>
+   <dt>Slot Fisik</dt><dd><b>Port ${x.slot_index}</b></dd>
    <dt>Nomor SIM</dt><dd class="mono"><b style="color:var(--ac);font-size:15px;">${esc(x.num)}</b></dd>
    <dt>Provider</dt><dd><b>${esc(x.op)}</b></dd>
    <dt>Port COM</dt><dd class="mono">${esc(x.dev)}</dd>
@@ -801,7 +834,8 @@ async function loadDrawerSMS(slotIndex, slotId, showFeedback = false){
  if(showFeedback) toast(`Menyegarkan SMS Port ${slotIndex}...`);
 
  try {
-  const res = await fetch(`/api/slots/${slotIndex}/sms`);
+  const owner = slots.find(x => x.id === slotId);
+  const res = await fetch(`/api/slots/${slotIndex}/sms${owner ? poolQuery(owner.pool_id) : ''}`);
   if(!res.ok) throw new Error('HTTP ' + res.status);
   const data = await res.json();
   
@@ -882,10 +916,11 @@ document.addEventListener('keydown',e=>{
 });
 
 function exportCsv(){
- const headers=['Slot','Nomor SIM','Provider','Port COM','Status','ICCID'];
- const rows=slots.map(s=>[s.id,s.num,s.op,s.dev,(ST[s.st]||ST.empty)[0],s.iccid]);
+ const q=v=>{let t=String(v);if(/^[=+\-@\t\r]/.test(t)&&!/^\+\d{6,18}$/.test(t))t="'"+t;return '"'+t.replace(/"/g,'""')+'"'};
+ const headers=['Modem Pool','Port','Nomor SIM','Provider','Port COM','Status','ICCID'];
+ const rows=slots.map(s=>[s.pool_name,s.slot_index,s.num,s.op,s.dev,(ST[s.st]||ST.empty)[0],s.iccid].map(q));
  const content="data:text/csv;charset=utf-8,"+headers.join(',')+"\n"+rows.map(r=>r.join(',')).join("\n");
- const a=document.createElement('a');a.href=encodeURI(content);a.download=`sim_inventory_${new Date().toISOString().slice(0,10)}.csv`;
+ const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(headers.join(',')+'\n'+rows.map(r=>r.join(',')).join('\n'));a.download=`sim_inventory_${new Date().toISOString().slice(0,10)}.csv`;
  document.body.appendChild(a);a.click();document.body.removeChild(a);
  toast('File CSV inventaris berhasil diunduh.');
 }
@@ -897,10 +932,10 @@ function pSms(){
   renderLoggedOutState();
   return;
  }
- const s=S.sms,o=(a,cur)=>a.map(x=>`<option value="${x[0]}"${x[0]===cur?' selected':''}>${x[1]}</option>`).join('');
+ const s=S.sms,o=(a,cur)=>a.map(x=>`<option value="${esc(x[0])}"${x[0]===cur?' selected':''}>${esc(x[1])}</option>`).join('');
  v.innerHTML=`<div class="ph"><p>Pusat SMS masuk seluruh slot modem pool. Kode OTP dan isi pesan ditampilkan secara langsung tanpa sensor.</p></div>
  <section class="panel sms" id="sms"><div class="list"><div class="tools"><input id="sq" type="search" placeholder="Cari pengirim, nomor, isi pesan" aria-label="Cari SMS" value="${esc(s.q)}">
- <select id="sslot" aria-label="Slot">${o([['all','Semua slot'],...slots.map(x=>[x.id,x.id+' ('+x.dev+')'])],s.slot)}</select></div><div id="sl"></div></div><div class="detail" id="sd"></div></section>`;
+ <select id="sslot" aria-label="Slot">${o([['all','Semua slot'],...slots.map(x=>[x.id,(poolsList.length>1?x.pool_name+' · ':'')+'P'+String(x.slot_index).padStart(2,'0')+' ('+x.dev+')'])],s.slot)}</select></div><div id="sl"></div></div><div class="detail" id="sd"></div></section>`;
  const m={sq:'q',sslot:'slot'};
  Object.keys(m).forEach(id=>$('#'+id).oninput=e=>{s[m[id]]=e.target.value;smsList()});
  $('#sms').onclick=async e=>{
@@ -909,7 +944,7 @@ function pSms(){
   else if(t.id==='bk'){s.sel=null;smsList();smsDet()}
   else if(t.id==='cp-sms'){const x=sms.find(m=>m.id===s.sel);if(x){copyToClipboard(x.body,'Isi SMS disalin ke clipboard.')}}
   else if(t.id==='cp-otp'){const x=sms.find(m=>m.id===s.sel);const otpCode=extractOTP(x?.body||'');if(otpCode){copyToClipboard(otpCode,'Kode OTP disalin: '+otpCode)}}
-  else if(t.id==='rl'){const x=sms.find(m=>m.id===s.sel);if(!x)return;const r=await modal({title:'Ubah label pengirim',text:'Label berlaku untuk pengirim '+x.n+'.',ok:'Simpan label',field:{label:'Label',value:lab(x.n)}});if(r){S.labels[x.n]=r;smsList();smsDet();toast('Label disimpan.')}}
+  else if(t.id==='rl'){const x=sms.find(m=>m.id===s.sel);if(!x)return;const r=await modal({title:'Ubah label pengirim',text:'Label berlaku untuk pengirim '+esc(x.n)+'.',ok:'Simpan label',field:{label:'Label',value:lab(x.n)}});if(r){S.labels[x.n]=r;smsList();smsDet();toast('Label disimpan.')}}
  };
  smsList();smsDet();
 }
@@ -929,7 +964,7 @@ function smsDet(){
  const otpCode=extractOTP(x.body||'');
  // Isi pesan ditampilkan langsung sepenuhnya tanpa tombol samarkan kode
  d.innerHTML=`<button class="btn mob" id="bk">‹ Kembali</button><h3>${esc(lab(x.n)||'Pengirim: '+x.n)}</h3><p class="mu mono">${esc(x.n)}</p>
- <dl style="margin-top:12px"><dt>Diterima</dt><dd>${x.received_at?new Date(x.received_at).toLocaleString('id-ID'):ago(x.m)}</dd><dt>Slot Fisik</dt><dd><b>${x.slot} (${x.port})</b></dd><dt>Status</dt><dd>${x.st}</dd></dl>
+ <dl style="margin-top:12px"><dt>Diterima</dt><dd>${x.received_at?new Date(x.received_at).toLocaleString('id-ID'):ago(x.m)}</dd><dt>Slot Fisik</dt><dd><b>${esc(x.slot)} (${esc(x.port)})</b></dd><dt>Status</dt><dd>${x.st}</dd></dl>
  ${otpCode?`<div class="note" style="border-left-color:var(--ac);display:flex;justify-content:space-between;align-items:center;margin:12px 0;"><div><span style="font-size:12px;color:var(--ac);display:block;font-weight:600;">KODE OTP TERDETEKSI:</span><b class="mono" style="font-size:24px;letter-spacing:2px;color:var(--tx);">${otpCode}</b></div><button class="btn pri" id="cp-otp">📋 Salin OTP</button></div>`:''}
  <div class="body">${esc(x.body)}</div>
  <div class="row"><button class="btn" id="cp-sms">Salin teks</button><button class="btn" id="rl">Ubah label</button></div>`;
@@ -942,12 +977,15 @@ function getSystemTheme(){
 
 function setThemeMode(mode){
  currentThemeMode = mode;
+ try{ localStorage.setItem('scpool_theme', mode); }catch(e){}
  const activeTheme = mode === 'auto' ? getSystemTheme() : mode;
  document.documentElement.dataset.theme = activeTheme;
  $$('.btn-theme-opt').forEach(b => {
   b.classList.toggle('pri', b.dataset.mode === mode);
  });
 }
+
+document.documentElement.dataset.theme = currentThemeMode === 'auto' ? getSystemTheme() : currentThemeMode;
 
 if(window.matchMedia){
  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
@@ -962,9 +1000,7 @@ async function loadCredentialsUI(){
   const res = await fetch('/api/auth/credentials');
   if(res.ok){
    const d = await res.json();
-   userCredentials.username = d.username || 'admin';
-   userCredentials.isDefaultPassword = !!d.is_default_password;
-   userCredentials.realPassword = d.password || '••••••••';
+   userCredentials.username = d.username || '';
    const uEl = $('#cred-username');
    if(uEl) uEl.textContent = userCredentials.username;
    updatePasswordDisplay();
@@ -983,21 +1019,8 @@ function updatePasswordDisplay(){
  const pEl = $('#cred-password');
  const bEl = $('#btn-toggle-pwd');
  if(!pEl || !bEl) return;
- if(isPasswordVisible){
-  if(userCredentials.isDefaultPassword){
-   pEl.innerHTML = '<span style="color:var(--c-err,#ef4444);font-weight:700;">admin123</span> <span style="background:#fef3c7;color:#92400e;font-size:11px;padding:2px 6px;border-radius:4px;font-weight:600;">⚠️ Default (Rentan)</span>';
-  } else {
-   pEl.textContent = '•••••••• (Tersimpan Aman / PBKDF2)';
-  }
-  bEl.textContent = '🙈 Sembunyikan';
- } else {
-  if(userCredentials.isDefaultPassword){
-   pEl.innerHTML = '•••••••• <span style="background:#fef3c7;color:#92400e;font-size:11px;padding:2px 6px;border-radius:4px;font-weight:600;">⚠️ Default</span>';
-  } else {
-   pEl.textContent = '••••••••';
-  }
-  bEl.textContent = '👁️ Tampilkan';
- }
+ pEl.textContent = isPasswordVisible ? '•••••••• (tersimpan sebagai hash PBKDF2)' : '••••••••';
+ bEl.textContent = isPasswordVisible ? '🙈 Sembunyikan' : '👁️ Tampilkan';
 }
 
 function openChangePasswordModal(){
@@ -1015,12 +1038,16 @@ function openChangePasswordModal(){
       <input id="cp-user" value="${esc(userCredentials.username)}" placeholder="Username admin">
     </label>
     <label class="f">
+      Password Saat Ini:
+      <input type="password" id="cp-cur-pwd" autocomplete="current-password" placeholder="Wajib bila diakses dari luar">
+    </label>
+    <label class="f">
       Password Baru:
-      <input type="password" id="cp-new-pwd" minlength="4" required placeholder="Minimal 4 karakter">
+      <input type="password" id="cp-new-pwd" minlength="8" required placeholder="Minimal 8 karakter">
     </label>
     <label class="f">
       Konfirmasi Password Baru:
-      <input type="password" id="cp-confirm-pwd" minlength="4" required placeholder="Ulangi password baru">
+      <input type="password" id="cp-confirm-pwd" minlength="8" required placeholder="Ulangi password baru">
       <small id="cp-err" class="er"></small>
     </label>
     <div class="row end" style="margin-top:6px;">
@@ -1032,7 +1059,8 @@ function openChangePasswordModal(){
 
  $('#form-change-pwd').onsubmit = async (e) => {
   e.preventDefault();
-  const newU = $('#cp-user').value.trim() || 'admin';
+  const newU = $('#cp-user').value.trim() || userCredentials.username;
+  const curP = $('#cp-cur-pwd').value;
   const newP = $('#cp-new-pwd').value;
   const confP = $('#cp-confirm-pwd').value;
   const errEl = $('#cp-err');
@@ -1041,8 +1069,8 @@ function openChangePasswordModal(){
    errEl.textContent = 'Konfirmasi password tidak cocok.';
    return;
   }
-  if(newP.length < 4){
-   errEl.textContent = 'Password minimal 4 karakter.';
+  if(newP.length < 8){
+   errEl.textContent = 'Password minimal 8 karakter.';
    return;
   }
 
@@ -1054,15 +1082,13 @@ function openChangePasswordModal(){
    const res = await fetch('/api/auth/credentials', {
     method: 'PUT',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ username: newU, password: newP })
+    body: JSON.stringify({ username: newU, password: newP, current_password: curP })
    });
    const data = await res.json();
    if(res.ok && data.success){
     userCredentials.username = data.username;
-    userCredentials.isDefaultPassword = !!data.is_default_password;
-    userCredentials.realPassword = data.password;
     dlg.close();
-    toast('Password admin berhasil diubah.');
+    toast('Password berhasil diubah.');
     const uEl = $('#cred-username');
     if(uEl) uEl.textContent = userCredentials.username;
     updatePasswordDisplay();
@@ -1176,6 +1202,8 @@ function pSet(){
  }
  v.innerHTML = `
  <div class="sec" id="sf">
+  <!-- MODEM POOL SAYA -->
+  <section class="panel" id="pool-manager"></section>
   <!-- TEMA TAMPILAN -->
   <section class="panel">
    <h3>Tema Tampilan</h3>
@@ -1193,7 +1221,7 @@ function pSet(){
      <div>
        <h3 style="display:flex;align-items:center;gap:6px;">
          <svg class="i" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-         Akun &amp; Kredensial Akses Pool
+         Akun &amp; Kredensial
        </h3>
        <p class="mu" style="font-size:12.5px;">Kredensial login untuk akses admin panel dan perlindungan antarmuka.</p>
      </div>
@@ -1202,7 +1230,7 @@ function pSet(){
 
    <div style="background:var(--p2);border:1px solid var(--ln);border-radius:8px;padding:14px 18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;">
      <div>
-       <span class="mu" style="font-size:12px;display:block;margin-bottom:4px;">Username Admin</span>
+       <span class="mu" style="font-size:12px;display:block;margin-bottom:4px;">Username</span>
        <b class="mono" style="font-size:15px;color:var(--tx);" id="cred-username">${esc(userCredentials.username)}</b>
      </div>
      <div>
@@ -1214,7 +1242,7 @@ function pSet(){
      </div>
      <div>
        <span class="mu" style="font-size:12px;display:block;margin-bottom:4px;">Hak Akses</span>
-       <span class="sb-pill" style="font-size:11px;background:rgba(16,185,129,0.18);color:var(--ac);border-color:var(--ac);">Super Administrator</span>
+       <span class="sb-pill" style="font-size:11px;background:rgba(16,185,129,0.18);color:var(--ac);border-color:var(--ac);">${(currentUser.role === 'superadmin' || currentUser.role === 'admin') ? 'Super Administrator' : 'Operator'}</span>
      </div>
    </div>
   </section>
@@ -1343,16 +1371,15 @@ function pSet(){
    <h3>Hardware &amp; Modem Pool</h3>
    <ul class="list0" style="list-style:none;padding:0;margin:0;">
      <li style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--ln)"><span>Chassis Pool</span><b>${esc(poolInfo.pool)}</b></li>
-     <li style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--ln)"><span>Modul Seluler</span><b style="color:var(--ac);">${esc(poolInfo.model)}</b></li>
-     <li style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--ln)"><span>Chipset UART</span><span class="mono">${esc(poolInfo.chipset)}</span></li>
      <li style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--ln)"><span>Baudrate</span><span class="mono">115200 bps · 8-N-1</span></li>
-     <li style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--ln)"><span>Tautan Publik</span><a href="https://scpool.ardh1337.cloud" target="_blank" style="color:var(--ac);">https://scpool.ardh1337.cloud</a></li>
+     <li style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--ln)"><span>Tautan Publik</span><a href="${esc(location.origin)}" target="_blank" style="color:var(--ac);">${esc(location.origin)}</a></li>
      <li style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--ln)"><span>Sistem</span><b style="color:var(--tx);">SCPool Engine</b></li>
-     <li style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--ln)"><span>Pengembang</span><b style="color:var(--ac);letter-spacing:0.3px;">Coded By Ardh1337</b></li>
+     <li style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--ln)"><span>Versi</span><b style="color:var(--ac);">1.1.0</b></li>
    </ul>
   </section>
  </div>
  `;
+ renderPoolManager(true);
 
  switchApiTab(currentApiLang);
  loadCredentialsUI();
@@ -1504,17 +1531,36 @@ window.switchAuthTab = switchAuthTab;
 window.hideLoginOverlay = hideLoginOverlay;
 window.showLoginOverlay = showLoginOverlay;
 
-function renderLoggedOutState(){
+function clearSessionState(){
   slots = [];
   sms = [];
-  const mc = $('#mc');
+  poolsList = [];
+  activePoolId = null;
+  selectedSlots.clear();
+  isSelectMode = false;
+  currentDrawerSlot = null;
+  lastSeenOtpIds = new Set();
+  if(dr) dr.innerHTML = '';
+  const wrap = $('#top-pool-wrap');
+  if(wrap) wrap.style.display = 'none';
+  const bar = $('#bulk-bar');
+  if(bar) bar.style.display = 'none';
+  const np = $('#np');
+  if(np) np.innerHTML = '';
+  poolInfo.pool = 'Belum ada modem pool';
+  const t = $('#side-hw-title');
+  if(t) t.textContent = poolInfo.pool;
+}
+
+function renderLoggedOutState(){
+  clearSessionState();
+  const mc = v;
   if(!mc) return;
   mc.innerHTML = `
     <div style="min-height:65vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:32px 16px;">
       <div class="logo" style="width:58px;height:58px;font-size:26px;">S</div>
       <div>
         <h2 style="font-size:20px;font-weight:700;color:var(--tx);margin-bottom:4px;">SCPool Modem Pool Hub</h2>
-        <div style="font-size:12px;color:var(--ac);font-weight:600;letter-spacing:0.3px;margin-bottom:8px;">Coded By Ardh1337</div>
         <p class="mu" style="font-size:13px;max-width:440px;line-height:1.5;margin:0 auto;">
           Otentikasi diperlukan untuk mengakses modem pool dan SMS. Silakan login menggunakan akun Anda atau daftarkan akun klien baru.
         </p>
@@ -1548,7 +1594,7 @@ function updateUserUI(){
   let popHtml = `
     <div style="padding:8px 12px;border-bottom:1px solid var(--ln);display:flex;flex-direction:column;gap:3px;">
       <div style="font-weight:700;color:var(--tx);">${esc(currentUser.username)}</div>
-      <div class="mu mono" style="font-size:11px;">${isSuper ? 'Super Administrator' : 'Operator Client'} • ${esc(currentUser.pool_id || '—')}</div>
+      <div class="mu mono" style="font-size:11px;">${isSuper ? 'Super Administrator' : 'Operator Client'}</div>
     </div>
     <a href="#/dashboard">📊 Dashboard</a>
     <a href="#/sms">✉️ Pesan SMS</a>
@@ -1574,38 +1620,149 @@ function updateUserUI(){
   renderNav();
 }
 
-async function loadAdminPools(){
+async function loadPools(){
   const wrap = $('#top-pool-wrap');
   const sel = $('#top-pool-select');
-  if(!wrap || !sel) return;
-
+  if(!currentUser || !currentUser.logged_in) return;
   try {
-    const res = await fetch('/api/admin/pools');
+    const res = await fetch('/api/pools');
     if(!res.ok) return;
-    adminPoolsList = await res.json();
-
-    if(adminPoolsList.length > 0 && currentUser && (currentUser.role === 'superadmin' || currentUser.role === 'admin')){
-      wrap.style.display = 'inline-flex';
-      sel.innerHTML = adminPoolsList.map(p => `
-        <option value="${esc(p.id)}"${p.id === activePoolId ? ' selected' : ''}>
-          ${esc(p.name)} (${p.port_count}p)
-        </option>
-      `).join('');
-      if(!activePoolId && adminPoolsList[0]){
-        activePoolId = adminPoolsList[0].id;
-      }
-    } else {
-      wrap.style.display = 'none';
+    const next = await res.json();
+    const changed = JSON.stringify(next) !== JSON.stringify(poolsList);
+    poolsList = next;
+    if(activePoolId !== ALL_POOLS && !poolsList.some(p => p.id === activePoolId)){
+      activePoolId = poolsList.length > 1 ? ALL_POOLS : (poolsList[0] ? poolsList[0].id : null);
     }
+    if(activePoolId === ALL_POOLS && poolsList.length < 2) activePoolId = poolsList[0] ? poolsList[0].id : null;
+    if(!changed) return;
+    if(wrap && sel){
+      wrap.style.display = poolsList.length > 1 ? 'inline-flex' : 'none';
+      sel.innerHTML = (poolsList.length > 1 ? `<option value="${ALL_POOLS}"${activePoolId === ALL_POOLS ? ' selected' : ''}>Semua modem pool</option>` : '') + poolsList.map(p => `
+        <option value="${esc(p.id)}"${p.id === activePoolId ? ' selected' : ''}>
+          ${esc(p.name)}${p.owner ? ' · ' + esc(p.owner) : ''} (${p.port_count} port)
+        </option>`).join('');
+    }
+    renderPoolManager(false);
   } catch(e){}
 }
 
+function poolStatusBadge(p){
+  const on = p.agent_online;
+  const off = p.offline_count ? ` · ${p.offline_count} port tidak terdeteksi` : '';
+  return `<span class="mu" style="font-size:12px;">${on ? '🟢 Agent online' : '⚪ Agent offline'} · ${p.ready_count} SIM aktif${off}</span>`;
+}
+
+function renderPoolManager(force){
+  const box = $('#pool-manager');
+  if(!box) return;
+  if(!force && box.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;
+  const rows = poolsList.map(p => `
+    <div class="pool-row" data-pool="${esc(p.id)}" style="display:grid;grid-template-columns:minmax(180px,1fr) auto;gap:10px;align-items:center;padding:12px 0;border-top:1px solid var(--ln);">
+      <div style="min-width:0;">
+        <label class="mu" style="font-size:11px;display:block;margin-bottom:3px;" for="pn-${esc(p.id)}">Nama modem pool · ${p.port_count} port${p.owner ? ' · ' + esc(p.owner) : ''}</label>
+        <div style="display:flex;gap:6px;">
+          <input id="pn-${esc(p.id)}" value="${esc(p.name)}" maxlength="60" style="flex:1;min-width:0;padding:7px 10px;font-size:13px;">
+          <button type="button" class="btn pri" style="padding:6px 12px;font-size:12px;" onclick="savePoolName(${jq(p.id)})">Simpan</button>
+        </div>
+        <div style="margin-top:4px;">${poolStatusBadge(p)}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+        <button type="button" class="btn" style="padding:6px 10px;font-size:12px;" onclick="openMovePortsDialog(${jq(p.id)})" ${p.port_count ? '' : 'disabled'}>Pindahkan Port…</button>
+        <button type="button" class="btn danger" style="padding:6px 10px;font-size:12px;" onclick="deleteEmptyPool(${jq(p.id)})" ${p.port_count ? 'disabled title="Pindahkan semua port dulu"' : ''}>Hapus</button>
+      </div>
+    </div>`).join('');
+  box.innerHTML = `
+    <h3>Modem Pool Saya</h3>
+    <p class="mu" style="font-size:12.5px;margin-bottom:6px;">Modem pool dan jumlah port terdeteksi otomatis dari agent: tidak perlu diisi manual. Beri nama sesuka Anda dan ganti kapan saja. Bila dua modem pool tergabung (mis. lewat satu hub USB), pisahkan dengan "Pindahkan Port…".</p>
+    ${rows || '<div class="note" style="margin:8px 0 0;">Belum ada modem pool. Jalankan agent di komputer yang terhubung ke modem pool Anda.</div>'}`;
+}
+
+async function savePoolName(poolId){
+  const input = document.getElementById('pn-' + poolId);
+  if(!input) return;
+  const res = await fetch(`/api/pools/${encodeURIComponent(poolId)}`, {
+    method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name: input.value })
+  });
+  const data = await res.json().catch(() => ({}));
+  if(!res.ok){ toast(data.detail || 'Gagal mengganti nama.', 1); return; }
+  toast(`Nama diganti menjadi "${data.name}".`);
+  poolsList = [];
+  await loadPools();
+  fetchBackendData();
+}
+
+async function deleteEmptyPool(poolId){
+  if(!confirm('Hapus modem pool kosong ini?')) return;
+  const res = await fetch(`/api/pools/${encodeURIComponent(poolId)}`, { method: 'DELETE' });
+  const data = await res.json().catch(() => ({}));
+  if(!res.ok){ toast(data.detail || 'Gagal menghapus.', 1); return; }
+  toast('Modem pool dihapus.');
+  await loadPools();
+  renderPoolManager(true);
+}
+
+async function openMovePortsDialog(poolId){
+  const pool = poolsList.find(p => p.id === poolId);
+  if(!pool) return;
+  const res = await fetch(`/api/slots?pool_id=${encodeURIComponent(poolId)}`);
+  const list = res.ok ? await res.json() : [];
+  const others = poolsList.filter(p => p.id !== poolId && p.owner === pool.owner);
+  dlg.innerHTML = `
+    <form id="form-move-ports" style="display:grid;gap:12px;min-width:min(420px,86vw);">
+      <h3>Pindahkan port dari ${esc(pool.name)}</h3>
+      <p class="mu" style="font-size:12.5px;margin:0;">Riwayat SIM dan SMS ikut berpindah. Nomor port yang tersisa tidak digeser.</p>
+      <div style="max-height:200px;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px;border:1px solid var(--ln);border-radius:8px;padding:8px;">
+        ${list.map(s => `<label style="display:flex;gap:6px;align-items:center;font-size:12px;"><input type="checkbox" name="mv" value="${s.slot_index}"> Port ${String(s.slot_index).padStart(2, '0')} <span class="mu mono" style="font-size:10px;">${esc(s.port_name || '')}</span></label>`).join('')}
+      </div>
+      <label class="f">Pindahkan ke
+        <select id="mv-target">
+          ${others.map(p => `<option value="${esc(p.id)}">${esc(p.name)} (${p.port_count} port)</option>`).join('')}
+          <option value="__new__">Modem pool baru…</option>
+        </select>
+      </label>
+      <label class="f" id="mv-new-wrap" style="display:none;">Nama modem pool baru
+        <input id="mv-new-name" maxlength="60" placeholder="Misal: Gudang B">
+      </label>
+      <small id="mv-err" class="er"></small>
+      <div class="row end"><button type="button" class="btn" onclick="dlg.close()">Batal</button><button type="submit" class="btn pri">Pindahkan</button></div>
+    </form>`;
+  const target = $('#mv-target');
+  const sync = () => { $('#mv-new-wrap').style.display = target.value === '__new__' ? '' : 'none'; };
+  target.onchange = sync; sync();
+  $('#form-move-ports').onsubmit = async (e) => {
+    e.preventDefault();
+    const chosen = [...dlg.querySelectorAll('input[name=mv]:checked')].map(i => parseInt(i.value, 10));
+    const err = $('#mv-err');
+    if(!chosen.length){ err.textContent = 'Pilih minimal satu port.'; return; }
+    const body = { slot_indices: chosen };
+    if(target.value === '__new__'){
+      body.new_pool_name = $('#mv-new-name').value.trim();
+      if(!body.new_pool_name){ err.textContent = 'Isi nama modem pool baru.'; return; }
+    } else { body.target_pool_id = target.value; }
+    const r = await fetch(`/api/pools/${encodeURIComponent(poolId)}/move-ports`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+    });
+    const d = await r.json().catch(() => ({}));
+    if(!r.ok){ err.textContent = d.detail || 'Gagal memindahkan port.'; return; }
+    dlg.close();
+    toast(`${d.moved} port dipindahkan ke ${d.target_pool_name}.`);
+    poolsList = [];
+    await loadPools();
+    renderPoolManager(true);
+    fetchBackendData();
+  };
+  dlg.showModal();
+}
+
+window.savePoolName = savePoolName;
+window.deleteEmptyPool = deleteEmptyPool;
+window.openMovePortsDialog = openMovePortsDialog;
+
 function onPoolChange(poolId){
   activePoolId = poolId;
-  const p = adminPoolsList.find(x => x.id === poolId);
-  if(p){
-    toast(`Beralih ke ${p.name}.`);
-  }
+  const p = poolsList.find(x => x.id === poolId);
+  toast(p ? `Beralih ke ${p.name}.` : 'Menampilkan semua modem pool.');
+  selectedSlots.clear();
   fetchBackendData();
 }
 
@@ -1662,8 +1819,6 @@ if(regFormEl){
     e.preventDefault();
     const uname = ($('#reg-uname')?.value || '').trim();
     const pwd = $('#reg-pwd')?.value || '';
-    const poolName = ($('#reg-pool-name')?.value || '').trim();
-    const portCount = parseInt($('#reg-port-count')?.value, 10) || 16;
     const msgEl = $('#reg-msg');
     const btn = $('#btn-reg-submit');
     const regFields = $('#reg-fields');
@@ -1693,9 +1848,7 @@ if(regFormEl){
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
           username: uname,
-          password: pwd,
-          pool_name: poolName || `Modem Pool ${uname}`,
-          port_count: portCount
+          password: pwd
         })
       });
       const data = await res.json();
@@ -1704,16 +1857,16 @@ if(regFormEl){
         if(regSuccess) regSuccess.style.display = 'flex';
         
         const tokenInput = $('#reg-token-display');
-        if(tokenInput) tokenInput.value = data.agent_token || '';
+        if(tokenInput) tokenInput.value = data.agent_token || 'Dikirim setelah akun disetujui';
         
         const descEl = $('#reg-success-desc');
         if(descEl) descEl.textContent = data.message || 'Pendaftaran berhasil. Akun menunggu verifikasi Admin.';
         
         const dlBat = $('#btn-dl-bat');
-        if(dlBat) dlBat.href = `/api/download/agent?file_type=bat&token=${encodeURIComponent(data.agent_token || '')}`;
+        if(dlBat) { if(data.agent_token) dlBat.href = `/api/download/agent?file_type=bat&token=${encodeURIComponent(data.agent_token)}`; else dlBat.style.display = 'none'; }
 
         const dlScript = $('#btn-dl-script');
-        if(dlScript) dlScript.href = `/api/download/agent?file_type=py&token=${encodeURIComponent(data.agent_token || '')}`;
+        if(dlScript) { if(data.agent_token) dlScript.href = `/api/download/agent?file_type=py&token=${encodeURIComponent(data.agent_token)}`; else dlScript.style.display = 'none'; }
 
         $('#reg-pwd').value = '';
         $('#login-uname').value = uname;
@@ -1821,14 +1974,14 @@ async function loadAdminUsersList(){
                   </span>
                 </td>
                 <td style="padding:14px 16px;">
-                  <div>${esc(u.pool_name || u.pool_id || '—')}</div>
-                  <div class="mu mono" style="font-size:11px;">${esc(u.pool_id || '—')}</div>
+                  <div>${u.unit_count || 0} modem pool</div>
+                  <div class="mu" style="font-size:11px;">${u.agent_online ? '🟢 Agent online' : '⚪ Agent offline'}</div>
                 </td>
                 <td style="padding:14px 16px;">
                   <div style="display:flex;align-items:center;gap:6px;">
                     <span class="mono" style="font-size:11.5px;color:var(--mu);">${esc(tokMask)}</span>
                     ${u.agent_token ? `
-                      <button type="button" class="btn ic" style="width:24px;height:24px;padding:0;" onclick="copyToClipboard('${esc(u.agent_token)}', 'Token agent milik ${u.username} disalin.')" title="Salin Token Lengkap">
+                      <button type="button" class="btn ic" style="width:24px;height:24px;padding:0;" onclick="copyToClipboard(${jq(u.agent_token)}, ${jq('Token agent milik ' + u.username + ' disalin.')})" title="Salin Token Lengkap">
                         <svg class="i" style="width:12px;height:12px;" viewBox="0 0 24 24"><path d="M8 4v12a2 2 0 002 2h8a2 2 0 002-2V7.242a2 2 0 00-.602-1.43L16.083 2.57A2 2 0 0014.685 2H10a2 2 0 00-2 2z"/><path d="M16 18v2a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2h2"/></svg>
                       </button>
                     ` : ''}
@@ -1842,14 +1995,14 @@ async function loadAdminUsersList(){
                 <td style="padding:14px 16px;text-align:right;">
                   <div style="display:inline-flex;gap:6px;align-items:center;">
                     ${!u.is_active ? `
-                      <button type="button" class="btn pri" style="padding:4px 10px;font-size:11px;background:#10b981;border-color:#10b981;" onclick="approveUserAccount(${u.id}, '${esc(u.username)}')">
+                      <button type="button" class="btn pri" style="padding:4px 10px;font-size:11px;background:#10b981;border-color:#10b981;" onclick="approveUserAccount(${u.id}, ${jq(u.username)})">
                         ✅ Setujui
                       </button>
-                      <button type="button" class="btn danger" style="padding:4px 8px;font-size:11px;" onclick="rejectUserAccount(${u.id}, '${esc(u.username)}')">
+                      <button type="button" class="btn danger" style="padding:4px 8px;font-size:11px;" onclick="rejectUserAccount(${u.id}, ${jq(u.username)})">
                         ❌ Tolak
                       </button>
                     ` : `
-                      <button type="button" class="btn" style="padding:4px 8px;font-size:11px;" onclick="regenerateUserToken(${u.id}, '${esc(u.username)}')">
+                      <button type="button" class="btn" style="padding:4px 8px;font-size:11px;" onclick="regenerateUserToken(${u.id}, ${jq(u.username)})">
                         Token Baru
                       </button>
                       ${!isProtected ? `
@@ -1859,7 +2012,7 @@ async function loadAdminUsersList(){
                       ` : ''}
                     `}
                     ${!isProtected ? `
-                      <button type="button" class="btn danger" style="padding:4px 8px;font-size:11px;" onclick="deleteUserAccount(${u.id}, '${esc(u.username)}')">
+                      <button type="button" class="btn danger" style="padding:4px 8px;font-size:11px;" onclick="deleteUserAccount(${u.id}, ${jq(u.username)})">
                         Hapus
                       </button>
                     ` : `
@@ -1926,25 +2079,13 @@ function openCreateUserModal(){
       </label>
       <label class="f">
         Password Awal:
-        <input type="password" id="cu-pwd" required minlength="4" placeholder="Minimal 4 karakter">
+        <input type="password" id="cu-pwd" required minlength="8" placeholder="Minimal 8 karakter">
       </label>
       <label class="f">
         Peran:
         <select id="cu-role">
           <option value="operator" selected>Operator (Klien Remote)</option>
           <option value="superadmin">Super Administrator</option>
-        </select>
-      </label>
-      <label class="f">
-        Nama Modem Pool:
-        <input id="cu-pool-name" placeholder="Contoh: Foxcom Pool Budi">
-      </label>
-      <label class="f">
-        Kapasitas Port Pool:
-        <select id="cu-port-count">
-          <option value="16">16 Port</option>
-          <option value="32" selected>32 Port</option>
-          <option value="64">64 Port</option>
         </select>
       </label>
       <small id="cu-err" style="color:var(--er);"></small>
@@ -1960,8 +2101,6 @@ function openCreateUserModal(){
     const uname = $('#cu-uname').value.trim();
     const pwd = $('#cu-pwd').value;
     const role = $('#cu-role').value;
-    const pName = $('#cu-pool-name').value.trim();
-    const pCount = parseInt($('#cu-port-count').value, 10) || 32;
     const errEl = $('#cu-err');
     const btn = $('#btn-submit-create-user');
 
@@ -1975,9 +2114,7 @@ function openCreateUserModal(){
         body: JSON.stringify({
           username: uname,
           password: pwd,
-          role: role,
-          pool_name: pName,
-          port_count: pCount
+          role: role
         })
       });
       const data = await res.json();
@@ -1985,7 +2122,6 @@ function openCreateUserModal(){
         dlg.close();
         toast(`Pengguna ${uname} berhasil dibuat!`);
         loadAdminUsersList();
-        loadAdminPools();
       } else {
         errEl.textContent = data.detail || 'Gagal membuat pengguna.';
       }
@@ -2002,7 +2138,7 @@ function openCreateUserModal(){
 
 async function openAgentTokenModal(){
   const token = currentUser?.agent_token || '—';
-  const poolId = currentUser?.pool_id || '—';
+  const wsUrl = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws/agent';
 
   dlg.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
@@ -2020,14 +2156,14 @@ async function openAgentTokenModal(){
         <label style="font-size:11.5px;font-weight:600;color:var(--mu);display:block;margin-bottom:4px;">Token Agent Anda:</label>
         <div style="display:flex;gap:6px;">
           <input class="mono" value="${esc(token)}" readonly style="flex:1;font-size:12px;background:var(--p2);">
-          <button type="button" class="btn pri" onclick="copyToClipboard('${esc(token)}', 'Token agent disalin.')">Salin</button>
+          <button type="button" class="btn pri" onclick="copyToClipboard(${jq(token)}, 'Token agent disalin.')">Salin</button>
         </div>
       </div>
       <div>
         <label style="font-size:11.5px;font-weight:600;color:var(--mu);display:block;margin-bottom:4px;">WebSocket Server URL:</label>
         <div style="display:flex;gap:6px;">
-          <input class="mono" value="wss://scpool.ardh1337.cloud/ws/agent" readonly style="flex:1;font-size:12px;background:var(--p2);">
-          <button type="button" class="btn" onclick="copyToClipboard('wss://scpool.ardh1337.cloud/ws/agent', 'URL WebSocket disalin.')">Salin</button>
+          <input class="mono" value="${esc(wsUrl)}" readonly style="flex:1;font-size:12px;background:var(--p2);">
+          <button type="button" class="btn" onclick="copyToClipboard(${jq(wsUrl)}, 'URL WebSocket disalin.')">Salin</button>
         </div>
       </div>
       <div id="modal-agent-status-box" style="background:var(--p2);border:1px solid var(--ln);border-radius:8px;padding:10px 14px;font-size:12px;display:flex;align-items:center;justify-content:space-between;">
@@ -2042,12 +2178,12 @@ async function openAgentTokenModal(){
   dlg.showModal();
 
   try {
-    const res = await fetch(`/api/agent/status?pool_id=${encodeURIComponent(poolId)}`);
+    const res = await fetch('/api/agent/status');
     const d = await res.json();
     const valEl = $('#modal-agent-status-val');
     if(valEl){
       if(d.is_online){
-        valEl.innerHTML = `<span style="color:var(--ac);">🟢 Terhubung (${d.info?.port_count || 0} Port)</span>`;
+        valEl.innerHTML = `<span style="color:var(--ac);">🟢 Terhubung (${d.info?.port_count || 0} port terdeteksi)</span>`;
       } else {
         valEl.innerHTML = `<span style="color:var(--mu);">⚪ Belum Terhubung (Offline)</span>`;
       }
@@ -2096,7 +2232,7 @@ async function deleteUserAccount(userId, uname){
     if(res.ok && data.success){
       toast(`Pengguna ${uname} dihapus.`);
       loadAdminUsersList();
-      loadAdminPools();
+      loadPools();
     } else {
       toast(data.detail || 'Gagal menghapus pengguna.', 1);
     }
@@ -2106,7 +2242,7 @@ async function deleteUserAccount(userId, uname){
 }
 
 async function checkAuthAndInit(){
-  setThemeMode('auto');
+  setThemeMode(currentThemeMode);
   try{
     const res = await fetch('/api/auth/me');
     const data = await res.json();
@@ -2114,11 +2250,6 @@ async function checkAuthAndInit(){
       currentUser = data;
       hideLoginOverlay();
       updateUserUI();
-      if(currentUser.role === 'superadmin' || currentUser.role === 'admin'){
-        await loadAdminPools();
-      } else {
-        activePoolId = currentUser.pool_id;
-      }
       await fetchBackendData();
       route();
     } else {
@@ -2363,7 +2494,7 @@ function renderFastFilterChips(){
     distinctOps.forEach(opName => {
       const isSelected = fastNumFilterOp.toLowerCase() === opName.toLowerCase();
       html += `
-        <button type="button" class="btn ${isSelected ? 'pri' : ''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp('${esc(opName)}')">${esc(opName)}</button>
+        <button type="button" class="btn ${isSelected ? 'pri' : ''}" style="padding:2px 8px;font-size:11px;" onclick="setFastFilterOp(${jq(opName)})">${esc(opName)}</button>
       `;
     });
   }
@@ -2392,14 +2523,14 @@ function updateUnifiedTable(){
     if(!q) return true;
     
     // Check if slot info matches
-    const slotMatch = s.id.toLowerCase().includes(q) ||
+    const slotMatch = (s.pool_name + ' ' + slotLabel(s)).toLowerCase().includes(q) ||
                       (s.num && s.num.toLowerCase().includes(q)) ||
                       (s.op && s.op.toLowerCase().includes(q)) ||
                       (s.dev && s.dev.toLowerCase().includes(q));
     if(slotMatch) return true;
 
     // Check if any OTP belonging to this slot matches
-    const slotOtps = sms.filter(m => (m.slot === s.id || m.slot_index === s.slot_index) && m.otp);
+    const slotOtps = sms.filter(m => m.slot === s.id && m.otp);
     return slotOtps.some(m => {
       const app = detectAppFromSMS(m.body, m.n);
       return app.name.toLowerCase().includes(q) ||
@@ -2413,13 +2544,13 @@ function updateUnifiedTable(){
     return;
   }
 
-  rowsEl.innerHTML = filteredSlots.map(s => {
+  const rowHtml = s => {
     const isAct = s.st === 'active';
     const numDisplay = (s.num && s.num !== '—' && s.num !== 'BELUM DIKETAHUI') ? s.num : (isAct ? 'Nomor Belum Terbaca' : '(Slot Kosong)');
     const canCopy = isAct && s.num && s.num !== '—' && s.num !== 'BELUM DIKETAHUI';
 
     // Ambil SEMUA OTP milik slot ini (selain OTP diabaikan)
-    const slotOtps = sms.filter(m => (m.slot === s.id || m.slot_index === s.slot_index) && m.otp);
+    const slotOtps = sms.filter(m => m.slot === s.id && m.otp);
 
     // Kumpulkan logo aplikasi unik yang sudah masuk ke nomor ini (agar tampak tanpa perlu scroll)
     const appMap = new Map();
@@ -2445,7 +2576,7 @@ function updateUnifiedTable(){
     // Kontainer OTP bergulir: tinggi tepat 1 kartu (44px), namun jika ada lebih dari 1 OTP tetap dapat digulir
     const otpsListHtml = slotOtps.length ? `
       <div style="display:flex;align-items:center;gap:6px;min-width:0;width:100%;">
-        <div class="row-otp-scroll-list" id="otp-scroll-${s.id}">
+        <div class="row-otp-scroll-list" id="otp-scroll-${domId(s.id)}">
           ${slotOtps.map((m, idx) => {
             const app = detectAppFromSMS(m.body, m.n);
             return `
@@ -2465,7 +2596,7 @@ function updateUnifiedTable(){
                 </div>
                 <div style="display:flex;align-items:center;gap:6px;flex:none;">
                   <span class="mini-otp-digits">${esc(m.otp)}</span>
-                  <button type="button" class="btn pri" style="padding:3px 8px;font-size:11.5px;font-weight:700;" id="btn-mini-otp-${m.id}" onclick="event.stopPropagation();copyFastOTP('${esc(m.otp)}', 'btn-mini-otp-${m.id}')" title="Salin kode ${m.otp}">
+                  <button type="button" class="btn pri" style="padding:3px 8px;font-size:11.5px;font-weight:700;" id="btn-mini-otp-${m.id}" onclick="event.stopPropagation();copyFastOTP(${jq(m.otp)}, 'btn-mini-otp-${m.id}')" title="Salin kode ${m.otp}">
                     Salin
                   </button>
                 </div>
@@ -2475,20 +2606,20 @@ function updateUnifiedTable(){
         </div>
         ${slotOtps.length > 1 ? `
           <div style="display:flex;flex-direction:column;gap:2px;flex:none;">
-            <button type="button" class="btn ic" style="width:20px;height:20px;padding:0;font-size:9px;line-height:1;border-radius:4px;" onclick="event.stopPropagation();scrollSlotOtp('${s.id}', -1)" title="OTP Sebelumnya">▲</button>
-            <button type="button" class="btn ic" style="width:20px;height:20px;padding:0;font-size:9px;line-height:1;border-radius:4px;" onclick="event.stopPropagation();scrollSlotOtp('${s.id}', 1)" title="OTP Berikutnya">▼</button>
+            <button type="button" class="btn ic" style="width:20px;height:20px;padding:0;font-size:9px;line-height:1;border-radius:4px;" onclick="event.stopPropagation();scrollSlotOtp(${jq(s.id)}, -1)" title="OTP Sebelumnya">▲</button>
+            <button type="button" class="btn ic" style="width:20px;height:20px;padding:0;font-size:9px;line-height:1;border-radius:4px;" onclick="event.stopPropagation();scrollSlotOtp(${jq(s.id)}, 1)" title="OTP Berikutnya">▼</button>
           </div>
         ` : ''}
       </div>
     ` : '';
 
     return `
-      <div class="unified-slot-row" id="unified-row-${s.id}">
+      <div class="unified-slot-row" id="unified-row-${domId(s.id)}">
         <!-- Sisi Kiri: Nomor & Port -->
-        <div class="slot-left-col st-${s.st}" id="slot-left-${s.id}" onclick="onFastCardClick('${s.id}', '${esc(s.num||'')}')" title="${canCopy ? 'Klik untuk salin ' + s.num : 'Slot ' + s.id}">
+        <div class="slot-left-col st-${s.st}" id="slot-left-${domId(s.id)}" onclick="onFastCardClick(${jq(s.id)}, ${jq(s.num||'')})" title="${canCopy ? 'Klik untuk salin ' + esc(s.num) : esc(s.pool_name) + ' · Port ' + s.slot_index}">
           <div style="display:flex;flex-direction:column;gap:3px;min-width:0;">
             <div style="display:flex;align-items:center;gap:6px;">
-              <span class="fnum-port">${s.id}</span>
+              <span class="fnum-port">${slotLabel(s)}</span>
               <span class="fnum-val mono">${esc(numDisplay)}</span>
             </div>
             <div style="font-size:11px;color:var(--mu);display:flex;gap:6px;align-items:center;">
@@ -2499,7 +2630,7 @@ function updateUnifiedTable(){
           </div>
           <div style="display:flex;align-items:center;gap:6px;flex:none;">
             ${canCopy ? `<span class="copy-badge"><svg class="i" style="width:13px;height:13px;" viewBox="0 0 24 24"><path d="M8 4v12a2 2 0 002 2h8a2 2 0 002-2V7.242a2 2 0 00-.602-1.43L16.083 2.57A2 2 0 0014.685 2H10a2 2 0 00-2 2z"/><path d="M16 18v2a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2h2"/></svg> Salin</span>` : `<span class="mu" style="font-size:11px;">${bd(s.st)}</span>`}
-            <button type="button" class="btn ic" style="width:26px;height:26px;padding:0;" onclick="event.stopPropagation();openDrawer('${s.id}')" title="Buka Detail Port ${s.id}">
+            <button type="button" class="btn ic" style="width:26px;height:26px;padding:0;" onclick="event.stopPropagation();openDrawer(${jq(s.id)})" title="Buka detail Port ${s.slot_index}">
               <svg class="i" style="width:13px;height:13px;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
             </button>
           </div>
@@ -2512,6 +2643,21 @@ function updateUnifiedTable(){
         </div>
       </div>
     `;
+  };
+
+  const shown = visiblePools();
+  if(shown.length < 2){
+    rowsEl.classList.remove('multi-pool');
+    rowsEl.innerHTML = filteredSlots.map(rowHtml).join('');
+    return;
+  }
+  rowsEl.classList.add('multi-pool');
+  rowsEl.innerHTML = shown.map(pool => {
+    const part = filteredSlots.filter(x => x.pool_id === pool.id);
+    return `<div class="unified-pool-group">
+      <div class="unified-pool-title"><span class="agent-led ${pool.agent_online ? 'on' : 'off'}"></span><b>${esc(pool.name)}</b><span class="mu">${part.length} port</span></div>
+      ${part.length ? part.map(rowHtml).join('') : '<div class="mu" style="padding:14px;font-size:12px;">Tidak ada yang cocok.</div>'}
+    </div>`;
   }).join('');
 }
 
@@ -2519,16 +2665,16 @@ function onFastCardClick(id, rawNum){
   if(!rawNum || rawNum === '—' || rawNum === 'BELUM DIKETAHUI'){
     const s = slots.find(x => x.id === id);
     if(s && s.st === 'empty'){
-      toast(`Slot ${id} kosong.`, 0);
+      toast('Slot kosong.', 0);
     } else {
-      toast(`Nomor pada Slot ${id} belum terdeteksi. Buka detail untuk dial CNUM.`, 0);
+      toast('Nomor pada slot ini belum terdeteksi. Buka detail untuk dial CNUM.', 0);
     }
     return;
   }
   const clean = rawNum.replace(/[^\d+]/g, '');
   navigator.clipboard.writeText(clean);
 
-  const card = $(`#slot-left-${id}`);
+  const card = $(`#slot-left-${domId(id)}`);
   if(card){
     card.classList.add('copied');
     const badge = $('.copy-badge', card);
@@ -2573,8 +2719,8 @@ function updateFastOtpFeed(){
 
   feedEl.innerHTML = otpList.map((m, idx) => {
     const app = detectAppFromSMS(m.body, m.n);
-    const s = slots.find(x => x.id === m.slot || x.slot_index === m.slot_index);
-    const targetNum = s && s.num && s.num !== '—' ? s.num : 'Port ' + m.slot;
+    const s = slots.find(x => x.id === m.slot);
+    const targetNum = s && s.num && s.num !== '—' ? s.num : 'Port ' + (s ? slotLabel(s) : m.slot_index);
     const isRecent = idx === 0 && m.m <= 2;
 
     return `
@@ -2599,7 +2745,7 @@ function updateFastOtpFeed(){
           <!-- Highlight OTP Code Display -->
           <div class="otp-box-display">
             <span class="otp-big-num">${esc(m.otp)}</span>
-            <button type="button" class="btn pri otp-copy-btn" id="btn-otp-${m.id}" onclick="copyFastOTP('${esc(m.otp)}', 'btn-otp-${m.id}')" title="Salin kode ${m.otp}">
+            <button type="button" class="btn pri otp-copy-btn" id="btn-otp-${m.id}" onclick="copyFastOTP(${jq(m.otp)}, 'btn-otp-${m.id}')" title="Salin kode ${m.otp}">
               <svg class="i" style="width:12px;height:12px;" viewBox="0 0 24 24"><path d="M8 4v12a2 2 0 002 2h8a2 2 0 002-2V7.242a2 2 0 00-.602-1.43L16.083 2.57A2 2 0 0014.685 2H10a2 2 0 00-2 2z"/><path d="M16 18v2a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2h2"/></svg>
               Salin
             </button>
@@ -2607,7 +2753,7 @@ function updateFastOtpFeed(){
 
           <div style="text-align:right;flex:none;">
             <div style="font-weight:600;color:var(--tx);display:flex;align-items:center;gap:6px;justify-content:flex-end;">
-              <span class="fnum-port">${m.slot}</span>
+              <span class="fnum-port">P${String(m.slot_index).padStart(2,'0')}</span>${poolsList.length > 1 ? `<span class="pool-chip" title="${esc(m.pool_name)}">${esc(m.pool_name)}</span>` : ''}
               <span class="mono" style="font-size:13px;font-weight:700;">${esc(targetNum)}</span>
             </div>
           </div>
@@ -2618,7 +2764,7 @@ function updateFastOtpFeed(){
           <div class="mono" style="font-size:11.5px;line-height:1.4;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;" title="${esc(m.body)}">
             ${highlightOTPInBody(m.body, m.otp)}
           </div>
-          <button type="button" class="btn ic" style="flex:none;width:24px;height:24px;padding:0;" onclick="copyFullSMS('${esc(m.body).replace(/'/g, "\\'")}', this)" title="Salin seluruh isi SMS">
+          <button type="button" class="btn ic" style="flex:none;width:24px;height:24px;padding:0;" onclick="copyFullSMS(${jq(m.body)}, this)" title="Salin seluruh isi SMS">
             <svg class="i" style="width:12px;height:12px;" viewBox="0 0 24 24"><path d="M8 4v12a2 2 0 002 2h8a2 2 0 002-2V7.242a2 2 0 00-.602-1.43L16.083 2.57A2 2 0 0014.685 2H10a2 2 0 00-2 2z"/><path d="M16 18v2a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2h2"/></svg>
           </button>
         </div>
@@ -2639,7 +2785,7 @@ function copyFastOTP(otpCode, btnId){
 }
 
 function scrollSlotOtp(slotId, dir){
-  const el = $('#otp-scroll-' + slotId);
+  const el = $('#otp-scroll-' + domId(slotId));
   if(!el) return;
   el.scrollBy({top: dir * 50, behavior: 'smooth'});
 }

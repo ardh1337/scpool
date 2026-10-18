@@ -7,10 +7,10 @@ Project rules and active engineering standards for Antigravity & AI coding agent
 ## 1. Project Context & Invariant Boundaries
 
 This workspace builds a Windows application managing a 16–64 port modem pool (Foxcom 32-port) for manual SIM swaps, SMS processing, and a local web dashboard.
-The single source of truth for specifications is [`agent-spec-sim-inventory.md`](agent-spec-sim-inventory.md).
+The single source of truth for specifications is [`docs/agent-spec-sim-inventory.md`](docs/agent-spec-sim-inventory.md).
 
 ### Invariants (Strictly Enforced)
-* **I-1 to I-13**: Follow all invariants defined in `agent-spec-sim-inventory.md` section 2 without exception.
+* **I-1 to I-13**: Follow all invariants defined in `docs/agent-spec-sim-inventory.md` section 2 without exception.
 * **Authority Limits (Section 3)**:
   * **Allowed without asking**: Write code, run tests against simulated modems (mock serial), write documentation.
   * **MUST ASK human before**: Opening real serial ports, altering modem configuration/NV, sending AT commands outside allowlist, deleting DB/SMS data, or adding dependencies with new licenses.

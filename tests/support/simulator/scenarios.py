@@ -5,7 +5,7 @@ untuk pengujian multi-pool, port error, dan simulasi swap SIM.
 """
 
 from typing import Dict, List, Optional
-from simulator.simulated_modem import SimulatedModem
+from tests.support.simulator.simulated_modem import SimulatedModem
 from app.modem.transport import VirtualTransport
 
 

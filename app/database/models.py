@@ -5,7 +5,6 @@ Menegakkan aturan keras (Invariants I-1 sampai I-13) pada tingkat skema tabel SQ
 
 from datetime import datetime, timezone
 import enum
-from typing import Optional
 from sqlalchemy import (
     Column, Integer, String, Boolean, DateTime, ForeignKey,
     Text, Index, CheckConstraint, Enum as SQLEnum
@@ -56,6 +55,10 @@ class ModemPool(Base):
     name = Column(String(100), nullable=False)
     port_count = Column(Integer, nullable=False, default=32)
     description = Column(String(255), nullable=True)
+    # Pemilik unit (akun). Tanpa FK karena user_accounts.pool_id juga merujuk ke tabel ini (siklus).
+    owner_id = Column(Integer, nullable=True, index=True)
+    # Kunci pengelompokan dari agent (mis. "usb:1-4"); dipakai agar port baru masuk ke unit yang sama.
+    group_key = Column(String(40), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
     slots = relationship("Slot", back_populates="pool", cascade="all, delete-orphan")
@@ -91,7 +94,6 @@ class Port(Base):
     last_seen_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
     device = relationship("Device", back_populates="ports")
-    slots = relationship("Slot", back_populates="port")
 
 
 class Slot(Base):
@@ -103,7 +105,9 @@ class Slot(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     pool_id = Column(String(50), ForeignKey("modem_pools.id"), nullable=False)
     slot_index = Column(Integer, nullable=False)  # 1..32 pada sasis
-    physical_port_id = Column(String(50), ForeignKey("ports.id"), nullable=True, unique=True)
+    # Nama port di mesin tempat modem terpasang (mis. "COM11"). Bukan FK global: dua klien berbeda
+    # boleh sama-sama punya COM3. Keunikan dijaga per pool lewat indeks di __table_args__.
+    physical_port_id = Column(String(50), nullable=True)
     status = Column(
         SQLEnum(SlotStatus, values_callable=lambda x: [e.value for e in x]),
         default=SlotStatus.EMPTY,
@@ -112,12 +116,17 @@ class Slot(Base):
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
     pool = relationship("ModemPool", back_populates="slots")
-    port = relationship("Port", back_populates="slots")
     sessions = relationship("SIMSession", back_populates="slot", cascade="all, delete-orphan")
     numberings = relationship("SlotNumbering", back_populates="slot")
 
     __table_args__ = (
         Index("uq_pool_slot_index", "pool_id", "slot_index", unique=True),
+        Index(
+            "uq_pool_physical_port",
+            "pool_id", "physical_port_id",
+            unique=True,
+            sqlite_where=(physical_port_id.isnot(None)),
+        ),
     )
 
 
@@ -188,6 +197,9 @@ class SIMSession(Base):
     sim_card_id = Column(Integer, ForeignKey("sim_cards.id"), nullable=True)
     started_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     ended_at = Column(DateTime(timezone=True), nullable=True)  # NULL = aktif
+    # Diisi setelah pembacaan SMS pertama pada sesi ini selesai; pesan yang sudah ada di kartu
+    # saat itu ditandai PESAN BAWAAN (I-11).
+    initial_scan_at = Column(DateTime(timezone=True), nullable=True)
 
     slot = relationship("Slot", back_populates="sessions")
     sim_card = relationship("SIMCard", back_populates="sessions")
@@ -248,6 +260,7 @@ class SMSMessage(Base):
             "session_id", "sender_raw", "smsc_timestamp", "modem_index", "body_hash",
             unique=True
         ),
+        Index("ix_sms_slot_received", "slot_id", "received_at"),
     )
 
 
@@ -301,57 +314,13 @@ class OperatorProfile(Base):
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 
 
-DEFAULT_OPERATOR_PROFILES = [
-    {
-        "id": "xl_axis",
-        "name": "XL / AXIS",
-        "ussd_code": "*808*7*8#",
-        "iccid_prefixes": "896211,896212",
-        "operator_patterns": "XL,AXIS",
-        "description": "Dial langsung pengecekan nomor 4G untuk jaringan XL Axiata dan AXIS"
-    },
-    {
-        "id": "telkomsel",
-        "name": "Telkomsel",
-        "ussd_code": "*808#",
-        "iccid_prefixes": "896210,896204",
-        "operator_patterns": "TELKOMSEL,T-SEL,SIMPATI,AS,LOOP",
-        "description": "Dial cek nomor Telkomsel"
-    },
-    {
-        "id": "indosat",
-        "name": "Indosat Ooredoo",
-        "ussd_code": "*123*30#",
-        "iccid_prefixes": "896201,896221",
-        "operator_patterns": "INDOSAT,IM3,MENTARI",
-        "description": "Dial cek nomor Indosat Ooredoo Hutchison"
-    },
-    {
-        "id": "tri",
-        "name": "Tri (3)",
-        "ussd_code": "*111*1#",
-        "iccid_prefixes": "896289",
-        "operator_patterns": "TRI,3",
-        "description": "Dial cek nomor Tri"
-    },
-    {
-        "id": "smartfren",
-        "name": "Smartfren",
-        "ussd_code": "*999#",
-        "iccid_prefixes": "896209",
-        "operator_patterns": "SMARTFREN,SMART",
-        "description": "Dial cek nomor Smartfren"
-    }
-]
-
-
 class UserAccount(Base):
     __tablename__ = "user_accounts"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    username = Column(String(50), unique=True, nullable=False, default="admin")
-    password = Column(String(128), nullable=False, default="admin123")
-    role = Column(String(20), nullable=False, default="superadmin")  # "superadmin", "operator"
+    username = Column(String(50), unique=True, nullable=False)
+    password = Column(String(160), nullable=False)  # hash PBKDF2, lihat app.auth.security
+    role = Column(String(20), nullable=False, default="operator")  # "superadmin", "admin", "operator"
     pool_id = Column(String(50), ForeignKey("modem_pools.id"), nullable=True)
     agent_token = Column(String(64), unique=True, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
@@ -383,83 +352,3 @@ class SystemSetting(Base):
     value = Column(Text, nullable=True)
     description = Column(String(255), nullable=True)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
-
-
-def init_db(engine_override=None):
-    """Inisialisasi tabel di database dan seed data awal profil operator serta akun admin."""
-    target_engine = engine_override or from_connection_engine()
-    Base.metadata.create_all(bind=target_engine)
-
-    from sqlalchemy import text
-    from sqlalchemy.orm import sessionmaker
-    from app.auth.security import hash_password, generate_agent_token
-
-    SessionClass = sessionmaker(bind=target_engine)
-    session = SessionClass()
-    try:
-        # Migrasi SQLite otomatis & non-destruktif jika kolom baru belum ada
-        try:
-            existing_cols = [row[1] for row in session.execute(text("PRAGMA table_info(user_accounts)")).fetchall()]
-            if "pool_id" not in existing_cols:
-                session.execute(text("ALTER TABLE user_accounts ADD COLUMN pool_id VARCHAR(50) REFERENCES modem_pools(id)"))
-            if "agent_token" not in existing_cols:
-                session.execute(text("ALTER TABLE user_accounts ADD COLUMN agent_token VARCHAR(64)"))
-            if "is_active" not in existing_cols:
-                session.execute(text("ALTER TABLE user_accounts ADD COLUMN is_active BOOLEAN DEFAULT 1"))
-            if "created_at" not in existing_cols:
-                session.execute(text("ALTER TABLE user_accounts ADD COLUMN created_at DATETIME"))
-            session.commit()
-        except Exception:
-            session.rollback()
-
-        for prof in DEFAULT_OPERATOR_PROFILES:
-            existing = session.query(OperatorProfile).filter(OperatorProfile.id == prof["id"]).first()
-            if not existing:
-                session.add(OperatorProfile(**prof))
-
-        # Default system settings
-        default_settings = [
-            ("telegram_bot_token", "8838231096:AAGyboJQed986oQvlY5Gv7ecf8fXBG3kUdY", "Token Bot Telegram untuk notifikasi"),
-            ("telegram_chat_id", "1033965745", "Chat ID Admin Telegram untuk persetujuan"),
-            ("public_domain", "https://scpool.ardh1337.cloud", "Domain publik akses remote"),
-            ("registration_auto_approve", "false", "Otomatis setujui registrasi tanpa persetujuan manual (true/false)")
-        ]
-        for s_key, s_val, s_desc in default_settings:
-            existing_s = session.query(SystemSetting).filter(SystemSetting.key == s_key).first()
-            if not existing_s:
-                session.add(SystemSetting(key=s_key, value=s_val, description=s_desc))
-            elif not existing_s.value and s_val:
-                existing_s.value = s_val
-
-        # Pastikan akun administrator utama selalu ada dan aktif
-        admin_user = session.query(UserAccount).filter(UserAccount.username == "admin").first()
-        if not admin_user:
-            session.add(UserAccount(
-                username="admin",
-                password=hash_password("admin123"),
-                role="superadmin",
-                pool_id="foxcom_32",
-                agent_token=generate_agent_token(),
-                is_active=True
-            ))
-        else:
-            if admin_user.role != "superadmin":
-                admin_user.role = "superadmin"
-            if not admin_user.is_active:
-                admin_user.is_active = True
-            if not admin_user.agent_token:
-                admin_user.agent_token = generate_agent_token()
-            if not admin_user.pool_id:
-                admin_user.pool_id = "foxcom_32"
-
-        session.commit()
-    except Exception:
-        session.rollback()
-    finally:
-        session.close()
-
-
-def from_connection_engine():
-    from app.database.connection import engine
-    return engine
-

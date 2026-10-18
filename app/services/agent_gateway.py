@@ -1,42 +1,139 @@
 """
-Gateway WebSocket untuk Remote Agent Modem Pool
-Mengelola koneksi dua arah antara Server Pusat (SaaS) dan Agen Lokal (agent.exe).
-Menjaga isolasi multi-tenant data per pool_id.
+Gateway WebSocket untuk agent remote (agent_forwarder.py di PC klien yang memegang modem pool).
+
+Protokol (JSON, satu objek per frame teks):
+
+  agent -> server
+    ports_list   {units: [{key, ports: [str]}], version}   (agent lama: {ports: [str]} = satu kelompok)
+    slot_update  {port | slot_index, cpin: READY|EMPTY|SIM_ERROR|PORT_ERROR, iccid?, phone?}
+    sms_batch    {port | slot_index, messages: [{index, sender, body, timestamp}]}   (pembacaan penuh kartu)
+    sms_received {port | slot_index, sender, body, timestamp, index?, initial?}      (satu pesan)
+    cmd_response {req_id, success, lines?, raw?, error?}
+    ping
+
+  server -> agent
+    welcome {username}
+    pong
+    cmd     {req_id, port, command, timeout}
+    ussd    {req_id, port, code, timeout}
+    rescan  {}
+
+Isolasi multi-tenant: koneksi dikunci pada akun (token); pesan hanya menyentuh slot di unit milik akun itu.
+Agent melaporkan port per kelompok kabel USB; server membuat unit modem pool otomatis (lihat services/units.py).
 """
+
+from __future__ import annotations
 
 import asyncio
 import json
 import logging
+import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Any
-from fastapi import WebSocket, WebSocketDisconnect
+from typing import Any, Dict, List, Optional, Set, Tuple
+
+from fastapi import WebSocket
 from sqlalchemy.orm import Session
 
-from app.database.connection import get_db, SessionLocal
-from app.database.models import UserAccount, ModemPool, Slot, SlotStatus, SIMCard, SIMSession, NumberStatus
-from app.modem.sms_reader import ParsedSMS
-from app.services.sms_ingestion import ingest_sms
-from app.services.numbering import get_display_label
+from app.core.config import MAX_PORTS_PER_POOL, MAX_UNITS_PER_ACCOUNT
+from app.core.protocol import (
+    GROUP_KEY_PATTERN, MAX_BATCH_MESSAGES, MAX_BODY_CHARS, MAX_MESSAGE_BYTES, PORT_NAME_PATTERN, VALID_CPIN,
+)
+from app.database.connection import session_scope
+from app.database.models import NumberSource, SIMCard, SIMSession, Slot, SlotStatus
+from app.auth.security import SimpleRateLimiter
+from app.modem.sim_status import clean_and_validate_iccid
+from app.modem.sms_reader import ParsedSMS, compute_body_hash, normalize_sender
+from app.modem.ussd import extract_phone_number_from_text, ussd_result_from_text
+from app.services.events import log_event
+from app.services.sim_numbers import apply_ussd_result, fetch_backoff, needs_auto_fetch, ussd_code_for_sim
+from app.services.slot_manager import handle_sim_inserted, handle_sim_removed
+from app.services.sms_ingestion import ingest_sms, ingest_sms_batch
+from app.services.units import UnitError, owned_pool_ids, sync_detected_ports
 
 logger = logging.getLogger("agent_gateway")
 
+MAX_REALTIME_SMS_PER_MINUTE = 300
+_sms_limiter = SimpleRateLimiter()
+
+
+@contextmanager
+def _db_scope(db: Optional[Session]):
+    if db is not None:
+        yield db
+    else:
+        with session_scope() as scoped:
+            yield scoped
+
+
+def _parse_timestamp(value: Any) -> datetime:
+    """Waktu SMSC dari agent (ISO-8601) -> datetime UTC beraware; jatuh ke waktu sekarang bila tidak valid."""
+    if isinstance(value, str) and value.strip():
+        try:
+            parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+            return parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed.astimezone(timezone.utc)
+        except ValueError:
+            pass
+    return datetime.now(timezone.utc)
+
+
+def _clean_text(value: Any, limit: int) -> str:
+    return value[:limit] if isinstance(value, str) else ""
+
+
+def _clean_ports(raw: Any) -> List[str]:
+    ports: List[str] = []
+    if isinstance(raw, list):
+        for item in raw:
+            if isinstance(item, str) and PORT_NAME_PATTERN.match(item) and item not in ports:
+                ports.append(item)
+    return ports[:MAX_PORTS_PER_POOL * MAX_UNITS_PER_ACCOUNT]
+
+
+def _clean_groups(data: dict) -> List[Tuple[str, List[str]]]:
+    """
+    Kelompok port dari agent: `units` = [{key, ports}] (agent v2.1+). Agent lama hanya mengirim `ports`, yang
+    dianggap satu kelompok. Satu nama port hanya dihitung sekali dan jumlah kelompok dibatasi.
+    """
+    groups: List[Tuple[str, List[str]]] = []
+    seen: Set[str] = set()
+    raw_units = data.get("units")
+    if isinstance(raw_units, list):
+        for unit in raw_units[:MAX_UNITS_PER_ACCOUNT]:
+            if not isinstance(unit, dict):
+                continue
+            key = unit.get("key")
+            if not (isinstance(key, str) and GROUP_KEY_PATTERN.match(key)):
+                key = "default"
+            ports = [p for p in _clean_ports(unit.get("ports")) if p not in seen][:MAX_PORTS_PER_POOL]
+            seen.update(ports)
+            if ports:
+                groups.append((key, ports))
+    elif "ports" in data:
+        ports = _clean_ports(data.get("ports"))[:MAX_PORTS_PER_POOL]
+        if ports:
+            groups.append(("default", ports))
+    return groups
+
 
 class AgentGateway:
-    """Manajer koneksi WebSocket untuk remote agent."""
+    """Manajer koneksi dan pemroses pesan agent, satu koneksi aktif per akun (satu agent bisa melayani banyak unit)."""
 
-    def __init__(self):
-        # pool_id -> WebSocket
-        self.active_agents: Dict[str, WebSocket] = {}
-        # pool_id -> metadata
-        self.agent_metadata: Dict[str, dict] = {}
-        # req_id -> asyncio.Future
+    def __init__(self, auto_fetch_numbers: bool = False):
+        self.auto_fetch_numbers = auto_fetch_numbers
+        self.active_agents: Dict[int, WebSocket] = {}
+        self.agent_metadata: Dict[int, dict] = {}
         self.pending_requests: Dict[str, asyncio.Future] = {}
+        self._pending_by_owner: Dict[int, Set[str]] = {}
+        self._fetching: Set[str] = set()
+        self._tasks: Set[asyncio.Task] = set()
 
-    def is_agent_online(self, pool_id: str) -> bool:
-        return pool_id in self.active_agents
+    # ------------------------------------------------------------------ koneksi
+    def is_agent_online(self, owner_id: int) -> bool:
+        return owner_id in self.active_agents
 
-    def get_agent_info(self, pool_id: str) -> Optional[dict]:
-        meta = self.agent_metadata.get(pool_id)
+    def get_agent_info(self, owner_id: int) -> Optional[dict]:
+        meta = self.agent_metadata.get(owner_id)
         if not meta:
             return None
         return {
@@ -45,264 +142,307 @@ class AgentGateway:
             "port_count": len(meta.get("ports", [])),
             "ports": meta.get("ports", []),
             "username": meta.get("username"),
-            "version": meta.get("version", "1.0")
+            "version": meta.get("version", "1.0"),
         }
 
-    async def register(self, pool_id: str, ws: WebSocket, user: UserAccount):
-        self.active_agents[pool_id] = ws
-        self.agent_metadata[pool_id] = {
+    async def register(self, owner_id: int, ws: WebSocket, user) -> None:
+        previous = self.active_agents.get(owner_id)
+        if previous is not None and previous is not ws:
+            self._fail_pending(owner_id, "Agent digantikan koneksi baru.")
+            try:
+                await previous.close(code=1012)
+            except Exception:
+                pass
+        self.active_agents[owner_id] = ws
+        self.agent_metadata[owner_id] = {
             "user_id": user.id,
             "username": user.username,
             "connected_at": datetime.now(timezone.utc).isoformat(),
-            "ports": []
+            "ports": [],
         }
-        logger.info(f"Agent terhubung: pool_id={pool_id}, user={user.username}")
+        logger.info("Agent terhubung: akun=%s", user.username)
 
-    def unregister(self, pool_id: str):
-        self.active_agents.pop(pool_id, None)
-        self.agent_metadata.pop(pool_id, None)
-        # Batalkan semua future yang menggantung untuk pool ini
-        logger.info(f"Agent terputus: pool_id={pool_id}")
+    def unregister(self, owner_id: int, ws: Optional[WebSocket] = None) -> None:
+        """Lepas koneksi. Bila `ws` diberikan dan sudah bukan koneksi aktif (digantikan), tidak melakukan apa pun."""
+        if ws is not None and self.active_agents.get(owner_id) is not ws:
+            return
+        self.active_agents.pop(owner_id, None)
+        self.agent_metadata.pop(owner_id, None)
+        self._fail_pending(owner_id, "Agent terputus.")
+        logger.info("Agent terputus: akun_id=%s", owner_id)
 
-    async def send_command_to_agent(
-        self,
-        pool_id: str,
-        port: str,
-        command: str,
-        timeout: float = 12.0
-    ) -> dict:
-        """Mengirimkan AT command ke agen remote dan menunggu responnya."""
-        ws = self.active_agents.get(pool_id)
+    def _fail_pending(self, owner_id: int, reason: str) -> None:
+        for req_id in self._pending_by_owner.pop(owner_id, set()):
+            fut = self.pending_requests.get(req_id)
+            if fut is not None and not fut.done():
+                fut.set_result({"success": False, "error": reason})
+
+    # ---------------------------------------------------------------- permintaan
+    async def _request(self, owner_id: int, payload: dict, timeout: float) -> dict:
+        ws = self.active_agents.get(owner_id)
         if not ws:
-            return {"success": False, "error": f"Agent untuk pool '{pool_id}' tidak sedang online."}
+            return {"success": False, "error": "Agent tidak sedang online."}
 
-        req_id = f"cmd_{datetime.now(timezone.utc).timestamp()}_{port}"
-        loop = asyncio.get_running_loop()
-        future = loop.create_future()
+        req_id = f"req_{uuid.uuid4().hex}"
+        future = asyncio.get_running_loop().create_future()
         self.pending_requests[req_id] = future
-
+        self._pending_by_owner.setdefault(owner_id, set()).add(req_id)
         try:
-            payload = {
-                "type": "cmd",
-                "req_id": req_id,
-                "port": port,
-                "command": command,
-                "timeout": timeout
-            }
-            await ws.send_text(json.dumps(payload))
-            result = await asyncio.wait_for(future, timeout=timeout + 2.0)
-            return result
+            await ws.send_text(json.dumps({**payload, "req_id": req_id}))
+            return await asyncio.wait_for(future, timeout=timeout + 3.0)
         except asyncio.TimeoutError:
-            return {"success": False, "error": f"Timeout menunggu respon agent untuk port {port}."}
-        except Exception as e:
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": "Timeout menunggu respons agent."}
+        except Exception as exc:
+            return {"success": False, "error": str(exc)}
         finally:
             self.pending_requests.pop(req_id, None)
+            self._pending_by_owner.get(owner_id, set()).discard(req_id)
 
-    async def handle_agent_message(self, pool_id: str, raw_msg: str, db: Optional[Session] = None):
-        """Memproses pesan masuk dari agen remote."""
+    async def send_command_to_agent(self, owner_id: int, port: str, command: str, timeout: float = 12.0) -> dict:
+        """Kirim satu perintah AT (divalidasi allowlist di sisi agent juga) dan tunggu responsnya."""
+        return await self._request(owner_id, {"type": "cmd", "port": port, "command": command, "timeout": timeout},
+                                   timeout)
+
+    async def request_ussd(self, owner_id: int, port: str, code: str,
+                           timeout: float = 15.0) -> Tuple[bool, Optional[str], Optional[str]]:
+        """Dial USSD lewat agent. Mengembalikan (berhasil, teks/pesan error, nomor)."""
+        reply = await self._request(owner_id, {"type": "ussd", "port": port, "code": code, "timeout": timeout},
+                                    timeout)
+        raw = reply.get("raw") or ""
+        if raw:
+            return ussd_result_from_text(raw)
+        return False, reply.get("error") or "Agent tidak mengembalikan balasan USSD.", None
+
+    async def request_rescan(self, owner_id: int) -> bool:
+        ws = self.active_agents.get(owner_id)
+        if not ws:
+            return False
+        await ws.send_text(json.dumps({"type": "rescan"}))
+        return True
+
+    # --------------------------------------------------------------- pesan masuk
+    _DB_HANDLERS = {
+        "ports_list": "_on_ports_list",
+        "slot_update": "_on_slot_update",
+        "sms_batch": "_on_sms_batch",
+        "sms_received": "_on_sms_received",
+    }
+
+    async def handle_agent_message(self, owner_id: int, raw_msg: str, db: Optional[Session] = None) -> None:
+        if not isinstance(raw_msg, str) or len(raw_msg) > MAX_MESSAGE_BYTES:
+            return
         try:
             data = json.loads(raw_msg)
-        except Exception:
+        except ValueError:
+            return
+        if not isinstance(data, dict):
             return
 
         msg_type = data.get("type")
-
-        # 1. Respon dari AT command yang dieksekusi agen
         if msg_type == "cmd_response":
             req_id = data.get("req_id")
-            if req_id and req_id in self.pending_requests:
-                fut = self.pending_requests[req_id]
-                if not fut.done():
-                    fut.set_result(data)
-            return
-
-        # 2. Ping-pong untuk menjaga koneksi tetap hidup
-        if msg_type == "ping":
-            ws = self.active_agents.get(pool_id)
+            fut = self.pending_requests.get(req_id) if isinstance(req_id, str) else None
+            if fut is not None and not fut.done():
+                fut.set_result(data)
+        elif msg_type == "ping":
+            ws = self.active_agents.get(owner_id)
             if ws:
                 await ws.send_text(json.dumps({"type": "pong"}))
-            return
+        elif msg_type in self._DB_HANDLERS:
+            handler = getattr(self, self._DB_HANDLERS[msg_type])
+            # Penulisan DB bersifat sinkron; di produksi dijalankan di thread agar event loop WebSocket tidak
+            # tertahan. Sesi yang diberikan pemanggil (uji) dipakai apa adanya di thread yang sama.
+            result = handler(owner_id, data, db) if db is not None else await asyncio.to_thread(
+                handler, owner_id, data, None)
+            if msg_type == "slot_update" and result:
+                self._schedule_number_fetch(owner_id, *result)
 
-        # 3. Laporan port yang terdeteksi di mesin agen
-        if msg_type == "ports_list":
-            ports = data.get("ports", [])
-            version = data.get("version", "1.0")
-            if pool_id in self.agent_metadata:
-                self.agent_metadata[pool_id]["ports"] = ports
-                self.agent_metadata[pool_id]["version"] = version
+    # --------------------------------------------------------------- handler DB
+    @staticmethod
+    def _resolve_slot(db: Session, owner_id: int, data: dict) -> Optional[Slot]:
+        """Slot milik akun ini. Nama port unik per akun; `slot_index` hanya dipahami bila akun punya satu unit."""
+        pool_ids = owned_pool_ids(db, owner_id)
+        if not pool_ids:
+            return None
+        query = db.query(Slot).filter(Slot.pool_id.in_(pool_ids))
+        port = data.get("port")
+        if isinstance(port, str) and port:
+            return query.filter(Slot.physical_port_id == port).first()
+        slot_index = data.get("slot_index")
+        if isinstance(slot_index, int) and not isinstance(slot_index, bool) and len(pool_ids) == 1:
+            return query.filter(Slot.slot_index == slot_index).first()
+        return None
 
-            # Perbarui mapping slot di database jika diperlukan
-            should_close = False
-            if db is None:
-                db = SessionLocal()
-                should_close = True
+    def _on_ports_list(self, owner_id: int, data: dict, db: Optional[Session]) -> None:
+        groups = _clean_groups(data)
+        flat = [port for _key, ports in groups for port in ports]
+        meta = self.agent_metadata.get(owner_id)
+        if meta is not None:
+            meta["ports"] = flat
+            meta["version"] = _clean_text(data.get("version"), 20) or "1.0"
+
+        with _db_scope(db) as session:
             try:
-                slots = db.query(Slot).filter(Slot.pool_id == pool_id).order_by(Slot.slot_index).all()
-                for idx, port_name in enumerate(ports):
-                    slot_idx = idx + 1
-                    s = next((x for x in slots if x.slot_index == slot_idx), None)
-                    if s:
-                        s.physical_port_id = port_name
-                        if s.status == SlotStatus.UNMAPPED:
-                            s.status = SlotStatus.EMPTY
+                summary = sync_detected_ports(session, owner_id, groups)
+                session.commit()
+                if summary["new_units"] or summary["new_ports"]:
+                    log_event(session, "INFO", "PORT",
+                              f"Terdeteksi {summary['new_ports']} port baru, {summary['new_units']} modem pool baru.")
+            except UnitError as exc:
+                session.rollback()
+                logger.warning("Deteksi port ditolak (akun %s): %s", owner_id, exc)
+            except Exception:
+                session.rollback()
+                logger.exception("Gagal memperbarui port akun %s", owner_id)
+
+    def _on_slot_update(self, owner_id: int, data: dict,
+                        db: Optional[Session]) -> Optional[Tuple[str, str, int]]:
+        """Mengembalikan (port, iccid, sim_id) bila nomor SIM perlu diambil via USSD."""
+        cpin = data.get("cpin", "EMPTY")
+        if cpin not in VALID_CPIN:
+            return None
+        iccid = clean_and_validate_iccid(data["iccid"]) if isinstance(data.get("iccid"), str) else None
+        phone = extract_phone_number_from_text(data["phone"]) if isinstance(data.get("phone"), str) else None
+
+        fetch_job: Optional[Tuple[str, str, int]] = None
+        with _db_scope(db) as session:
+            try:
+                slot = self._resolve_slot(session, owner_id, data)
+                if not slot:
+                    log_event(session, "WARN", "PORT", "Laporan slot dari agent untuk port yang tidak terdaftar.",
+                              dedupe_key=f"unk:{owner_id}:{data.get('port')}", dedupe_seconds=600)
+                    return None
+
+                if cpin == "READY" and iccid:
+                    active = session.query(SIMSession).filter(
+                        SIMSession.slot_id == slot.id, SIMSession.ended_at.is_(None)
+                    ).first()
+                    if active and active.sim_card and active.sim_card.iccid == iccid:
+                        slot.status = SlotStatus.READY
+                        slot.updated_at = datetime.now(timezone.utc)
+                        session.commit()
+                        sim = active.sim_card
                     else:
-                        # Buat slot baru jika jumlah port melebihi slot terdaftar
-                        new_slot = Slot(
-                            pool_id=pool_id,
-                            slot_index=slot_idx,
-                            physical_port_id=port_name,
-                            status=SlotStatus.EMPTY
+                        _, sim = handle_sim_inserted(
+                            session, slot.id, iccid, phone_number=phone,
+                            number_source=NumberSource.CNUM if phone else None,
                         )
-                        db.add(new_slot)
-                db.commit()
-            except Exception as e:
-                logger.error(f"Gagal update ports untuk pool {pool_id}: {e}")
-                db.rollback()
-            finally:
-                if should_close:
-                    db.close()
+                    if self.auto_fetch_numbers and needs_auto_fetch(sim) and slot.physical_port_id:
+                        fetch_job = (slot.physical_port_id, iccid, sim.id)
+                elif cpin == "EMPTY":
+                    if slot.status != SlotStatus.EMPTY:
+                        handle_sim_removed(session, slot.id)
+                elif cpin in ("SIM_ERROR", "PORT_ERROR"):
+                    new_status = SlotStatus[cpin]
+                    changed = slot.status != new_status
+                    slot.status = new_status
+                    slot.updated_at = datetime.now(timezone.utc)
+                    session.commit()
+                    if changed:
+                        log_event(session, "WARN", "PORT" if cpin == "PORT_ERROR" else "SIM",
+                                  f"Agent melaporkan {cpin}.", slot_id=slot.id, port_id=slot.physical_port_id)
+            except Exception:
+                session.rollback()
+                logger.exception("Gagal memproses slot_update akun %s", owner_id)
+                return None
+
+        return fetch_job
+
+    def _on_sms_batch(self, owner_id: int, data: dict, db: Optional[Session]) -> None:
+        messages = data.get("messages")
+        if not isinstance(messages, list):
             return
-
-        # 4. Laporan SMS masuk dari agen remote
-        if msg_type == "sms_received":
-            should_close = False
-            session_to_use = db
-            if session_to_use is None:
-                session_to_use = SessionLocal()
-                should_close = True
+        parsed_list = [p for p in (self._parse_sms(m) for m in messages[:MAX_BATCH_MESSAGES]) if p]
+        with _db_scope(db) as session:
             try:
-                slot_index = data.get("slot_index")
-                port = data.get("port")
-                sender = data.get("sender", "Unknown")
-                body = data.get("body", "")
-                timestamp_str = data.get("timestamp")
-                modem_idx = data.get("index")
-
-                # Cari slot terkait
-                slot_query = session_to_use.query(Slot).filter(Slot.pool_id == pool_id)
-                if slot_index:
-                    target_slot = slot_query.filter(Slot.slot_index == slot_index).first()
-                elif port:
-                    target_slot = slot_query.filter(Slot.physical_port_id == port).first()
-                else:
-                    target_slot = None
-
-                if not target_slot:
-                    return
-
-                # Parse SMS timestamp
-                smsc_dt = None
-                if timestamp_str:
-                    try:
-                        smsc_dt = datetime.fromisoformat(timestamp_str)
-                    except Exception:
-                        pass
-                if not smsc_dt:
-                    smsc_dt = datetime.now(timezone.utc)
-
-                from app.modem.sms_reader import compute_body_hash, normalize_sender
-                parsed = ParsedSMS(
-                    index=modem_idx or 1,
-                    status_str="REC UNREAD",
-                    sender_raw=sender,
-                    sender_normalized=normalize_sender(sender),
-                    smsc_timestamp=smsc_dt,
-                    body=body,
-                    body_hash=compute_body_hash(body)
-                )
-
-                sms_obj, is_new = ingest_sms(
-                    db=session_to_use,
-                    slot_id=target_slot.id,
-                    parsed_sms=parsed,
-                    is_initial=False
-                )
-                if is_new:
-                    logger.info(f"SMS baru diterima dari remote agent pool={pool_id}, slot={target_slot.slot_index}: {sender}")
-            except Exception as e:
-                logger.error(f"Gagal simpan SMS dari agent: {e}")
-                session_to_use.rollback()
-            finally:
-                if should_close:
-                    session_to_use.close()
-            return
-
-        # 5. Laporan status slot & kartu SIM dari agen remote
-        if msg_type == "slot_update":
-            should_close = False
-            session_to_use = db
-            if session_to_use is None:
-                session_to_use = SessionLocal()
-                should_close = True
-            try:
-                slot_idx = data.get("slot_index")
-                cpin = data.get("cpin", "EMPTY")
-                iccid = data.get("iccid")
-                phone = data.get("phone")
-                operator = data.get("operator")
-
-                slot = session_to_use.query(Slot).filter(
-                    Slot.pool_id == pool_id,
-                    Slot.slot_index == slot_idx
-                ).first()
-
+                slot = self._resolve_slot(session, owner_id, data)
                 if not slot:
                     return
+                saved = ingest_sms_batch(session, slot, parsed_list)
+                fresh = sum(1 for _, is_new in saved if is_new)
+                if fresh:
+                    logger.info("%d SMS baru dari agent akun=%s slot=%s", fresh, owner_id, slot.slot_index)
+            except Exception:
+                session.rollback()
+                logger.exception("Gagal menyimpan batch SMS akun %s", owner_id)
 
-                now = datetime.now(timezone.utc)
-                if cpin == "READY" and iccid:
-                    slot.status = SlotStatus.READY
-                    slot.updated_at = now
+    def _on_sms_received(self, owner_id: int, data: dict, db: Optional[Session]) -> None:
+        parsed = self._parse_sms(data)
+        if not parsed:
+            return
+        if not _sms_limiter.is_allowed(f"sms:{owner_id}", MAX_REALTIME_SMS_PER_MINUTE, 60):
+            with _db_scope(db) as session:
+                log_event(session, "WARN", "SMS",
+                          f"Laju SMS dari agent melebihi {MAX_REALTIME_SMS_PER_MINUTE}/menit; pesan berlebih dibuang "
+                          "(tetap aman di SIM dan terbaca pada pemindaian berikutnya).",
+                          dedupe_key=f"sms-flood:{owner_id}", dedupe_seconds=300)
+            return
+        with _db_scope(db) as session:
+            try:
+                slot = self._resolve_slot(session, owner_id, data)
+                if not slot:
+                    log_event(session, "WARN", "SMS", "SMS dari agent untuk port yang tidak terdaftar dibuang.",
+                              dedupe_key=f"unk-sms:{owner_id}", dedupe_seconds=600)
+                    return
+                _, is_new = ingest_sms(session, slot.id, parsed, is_initial=bool(data.get("initial")))
+                if is_new:
+                    logger.info("SMS baru dari agent akun=%s slot=%s", owner_id, slot.slot_index)
+            except Exception:
+                session.rollback()
+                logger.exception("Gagal menyimpan SMS dari agent akun %s", owner_id)
 
-                    # Sesi SIM
-                    sim = session_to_use.query(SIMCard).filter(SIMCard.iccid == iccid).first()
-                    if not sim:
-                        sim = SIMCard(
-                            iccid=iccid,
-                            phone_number=phone,
-                            operator_name=operator,
-                            number_status=NumberStatus.DIKETAHUI if phone else NumberStatus.BELUM_DIKETAHUI
-                        )
-                        session_to_use.add(sim)
-                        session_to_use.flush()
-                    elif phone and not sim.phone_number:
-                        sim.phone_number = phone
-                        sim.number_status = NumberStatus.DIKETAHUI
+    @staticmethod
+    def _parse_sms(item: Any) -> Optional[ParsedSMS]:
+        if not isinstance(item, dict):
+            return None
+        sender = _clean_text(item.get("sender"), 50) or "Unknown"
+        body = _clean_text(item.get("body"), MAX_BODY_CHARS)
+        index = item.get("index")
+        return ParsedSMS(
+            index=index if isinstance(index, int) and not isinstance(index, bool) else None,
+            status_str="REC UNREAD",
+            sender_raw=sender,
+            sender_normalized=normalize_sender(sender),
+            smsc_timestamp=_parse_timestamp(item.get("timestamp")),
+            body=body,
+            body_hash=compute_body_hash(body),
+        )
 
-                    active_sess = session_to_use.query(SIMSession).filter(
-                        SIMSession.slot_id == slot.id,
-                        SIMSession.ended_at.is_(None)
-                    ).first()
+    # ------------------------------------------------------- ambil nomor via USSD
+    def _schedule_number_fetch(self, owner_id: int, port: str, iccid: str, sim_id: int) -> None:
+        key = f"{owner_id}:{iccid}"
+        if key in self._fetching or not fetch_backoff.allowed(iccid):
+            return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        self._fetching.add(key)
+        task = loop.create_task(self._fetch_number(key, owner_id, port, iccid, sim_id))
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
 
-                    if not active_sess or active_sess.sim_card_id != sim.id:
-                        if active_sess:
-                            active_sess.ended_at = now
-                        new_sess = SIMSession(
-                            slot_id=slot.id,
-                            sim_card_id=sim.id,
-                            started_at=now
-                        )
-                        session_to_use.add(new_sess)
-                elif cpin == "EMPTY":
-                    slot.status = SlotStatus.EMPTY
-                    active_sess = session_to_use.query(SIMSession).filter(
-                        SIMSession.slot_id == slot.id,
-                        SIMSession.ended_at.is_(None)
-                    ).first()
-                    if active_sess:
-                        active_sess.ended_at = now
-                elif cpin == "SIM_ERROR":
-                    slot.status = SlotStatus.SIM_ERROR
-
-                session_to_use.commit()
-            except Exception as e:
-                logger.error(f"Gagal update slot dari agent: {e}")
-                session_to_use.rollback()
-            finally:
-                if should_close:
-                    session_to_use.close()
+    async def _fetch_number(self, key: str, owner_id: int, port: str, iccid: str, sim_id: int) -> None:
+        try:
+            with session_scope() as db:
+                sim = db.get(SIMCard, sim_id)
+                if not sim or not needs_auto_fetch(sim):
+                    return
+                code = ussd_code_for_sim(db, iccid, sim.operator_name)
+            success, _text, phone = await self.request_ussd(owner_id, port, code)
+            if success:
+                fetch_backoff.record_success(iccid)
+            else:
+                fetch_backoff.record_failure(iccid)
+            with session_scope() as db:
+                sim = db.get(SIMCard, sim_id)
+                if sim:
+                    apply_ussd_result(db, sim, success, phone)
+                    db.commit()
+        except Exception:
+            logger.exception("Pengambilan nomor via agent gagal (akun %s)", owner_id)
+        finally:
+            self._fetching.discard(key)
 
 
-# Singleton instance gateway
-agent_gateway = AgentGateway()
+agent_gateway = AgentGateway(auto_fetch_numbers=True)

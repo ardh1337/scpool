@@ -8,11 +8,11 @@ Menegakkan:
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import List, Optional, Callable, Dict
+from typing import List, Optional, Callable
 import re
 
 from app.modem.transport import BaseTransport
-from config.at_allowlist import is_at_command_allowed
+from app.hardware.at_allowlist import is_at_command_allowed
 
 
 class ATError(Exception):
@@ -108,6 +108,40 @@ class ATClient:
     def register_urc_callback(self, callback: Callable[[str], None]) -> None:
         self.urc_callback = callback
 
+    def wait_for_urc(self, prefix: str, timeout: float) -> Optional[str]:
+        """
+        Baca baris dari port sampai URC berawalan `prefix` (mis. "+CUSD:") tiba atau waktu habis.
+
+        Dibutuhkan karena balasan USSD lazimnya datang SETELAH "OK" dari AT+CUSD; send_command() sudah berhenti
+        membaca pada "OK" sehingga balasan itu tidak pernah terbaca. URC bertanda kutip yang mencakup beberapa
+        baris digabung sampai kutipnya tertutup.
+        """
+        prefix_upper = prefix.upper()
+        deadline = time.time() + max(timeout, 0.0)
+        collected: Optional[str] = None
+        with self._lock:
+            if not self.transport.is_open():
+                self.transport.open()
+            while time.time() < deadline:
+                raw = self.transport.readline(timeout=max(deadline - time.time(), 0.05))
+                if not raw:
+                    continue
+                line = raw.decode("latin1", errors="replace").strip("\r\n")
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                if collected is None:
+                    if stripped.upper().startswith(prefix_upper):
+                        collected = stripped
+                    else:
+                        self.urc_history.append(stripped)
+                        continue
+                else:
+                    collected += "\n" + line
+                if collected.count('"') % 2 == 0:
+                    return collected
+        return collected
+
     def send_command(
         self,
         command: str,
@@ -119,6 +153,9 @@ class ATClient:
         Memfilter baris URC sehingga tidak tercampur dengan hasil balasan perintah (I-5).
         """
         cleaned_cmd = command.strip()
+
+        if any(ch in cleaned_cmd for ch in "\r\n\x00\x1a\x1b"):
+            raise DisallowedATCommandError("Perintah AT tidak boleh berisi karakter kontrol (CR/LF/NUL/Ctrl-Z).")
 
         # Invarian I-13: Periksa allowlist perintah AT
         if not is_at_command_allowed(cleaned_cmd, allow_delete=self.allow_destructive):

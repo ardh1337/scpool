@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.database.models import (
     Slot, SIMCard, SIMSession, SlotStatus, NumberStatus, NumberSource
 )
+from app.services.sim_numbers import operator_name_for_iccid
 
 
 def handle_sim_inserted(
@@ -48,6 +49,7 @@ def handle_sim_inserted(
         num_status = NumberStatus.DIKETAHUI if phone_number else NumberStatus.BELUM_DIKETAHUI
         sim_card = SIMCard(
             iccid=iccid,
+            operator_name=operator_name_for_iccid(db, iccid),
             phone_number=phone_number,
             number_status=num_status,
             number_source=number_source if phone_number else None,
@@ -57,6 +59,8 @@ def handle_sim_inserted(
         db.add(sim_card)
         db.flush()
     else:
+        if not sim_card.operator_name:
+            sim_card.operator_name = operator_name_for_iccid(db, iccid)
         # Update nomor hanya bila ada nomor valid baru yang ditemukan dari CNUM/USSD
         if phone_number and not sim_card.phone_number:
             sim_card.phone_number = phone_number
@@ -69,7 +73,8 @@ def handle_sim_inserted(
         slot_id=slot_id,
         sim_card_id=sim_card.id,
         started_at=now,
-        ended_at=None
+        ended_at=None,
+        initial_scan_at=None,  # belum ada pembacaan SMS pada sesi ini (I-11)
     )
     db.add(new_session)
 

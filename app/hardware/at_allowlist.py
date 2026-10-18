@@ -1,6 +1,6 @@
 """
 Daftar Izin Perintah AT (AT Command Allowlist)
-Mengacu pada Lampiran A agent-spec-sim-inventory.md dan Invarian I-13.
+Mengacu pada Lampiran A docs/agent-spec-sim-inventory.md dan Invarian I-13.
 Perintah di luar daftar ini ditolak oleh Klien AT kecuali diizinkan secara eksplisit oleh operator.
 """
 
@@ -37,24 +37,25 @@ READ_ONLY_PREFIXES: Set[str] = {
 
 # Perintah baca pesan berparameter (AT+CMGL=..., AT+CMGR=...)
 SMS_READ_PATTERNS = [
-    re.compile(r"^AT\+CMGL(=.*)?$", re.IGNORECASE),
-    re.compile(r"^AT\+CMGR=\d+$", re.IGNORECASE),
-    re.compile(r"^AT\+CUSD=\d+(,.*)?$", re.IGNORECASE),
+    re.compile(r"^AT\+CMGL(=(\d|\"[A-Z ]{1,20}\"))?\Z", re.IGNORECASE),
+    re.compile(r"^AT\+CMGR=\d+\Z", re.IGNORECASE),
+    # Kode USSD hanya boleh berisi 0-9 * # + (mencegah penyisipan perintah AT lain lewat tanda kutip/;)
+    re.compile(r'^AT\+CUSD=[012](,"[0-9*#+]{1,32}"(,\d{1,3})?)?\Z', re.IGNORECASE),
 ]
 
 # Perintah konfigurasi aman yang diizinkan untuk inisialisasi pembacaan SMS
 CONFIG_ALLOWLIST_PATTERNS = [
-    re.compile(r"^AT\+CMGF=[01]$", re.IGNORECASE),               # Mode PDU (0) atau Teks (1)
-    re.compile(r"^AT\+CPMS=\"[A-Z]+\",\"[A-Z]+\",\"[A-Z]+\"$", re.IGNORECASE),  # Pilih storage
-    re.compile(r"^AT\+CNMI=\d+,\d+,\d+,\d+,\d+$", re.IGNORECASE), # Notifikasi SMS
-    re.compile(r"^AT\+QSIMSTAT=[01]$", re.IGNORECASE),           # SIM status reporting
-    re.compile(r"^AT\+QSIMDET=[01],[01]$", re.IGNORECASE),       # SIM detect config
-    re.compile(r"^AT\+CSCS=\"[A-Z]+\"$", re.IGNORECASE),         # TE Character Set (GSM / IRA)
-    re.compile(r"^AT\+CMEE=[012]$", re.IGNORECASE),              # Report mobile equipment error (0=numeric, 1=numeric, 2=verbose)
+    re.compile(r"^AT\+CMGF=[01]\Z", re.IGNORECASE),               # Mode PDU (0) atau Teks (1)
+    re.compile(r"^AT\+CPMS=\"[A-Z]+\",\"[A-Z]+\",\"[A-Z]+\"\Z", re.IGNORECASE),  # Pilih storage
+    re.compile(r"^AT\+CNMI=\d+,\d+,\d+,\d+,\d+\Z", re.IGNORECASE), # Notifikasi SMS
+    re.compile(r"^AT\+QSIMSTAT=[01]\Z", re.IGNORECASE),           # SIM status reporting
+    re.compile(r"^AT\+QSIMDET=[01],[01]\Z", re.IGNORECASE),       # SIM detect config
+    re.compile(r"^AT\+CSCS=\"[A-Z]+\"\Z", re.IGNORECASE),         # TE Character Set (GSM / IRA)
+    re.compile(r"^AT\+CMEE=[012]\Z", re.IGNORECASE),              # Report mobile equipment error (0=numeric, 1=numeric, 2=verbose)
 ]
 
 # Perintah hapus pesan (Hanya diizinkan jika diverifikasi sudah tersimpan di DB, default non-aktif)
-SMS_DELETE_PATTERN = re.compile(r"^AT\+CMGD=\d+(,\d+)?$", re.IGNORECASE)
+SMS_DELETE_PATTERN = re.compile(r"^AT\+CMGD=\d+(,\d+)?\Z", re.IGNORECASE)
 
 # Perintah berbahaya yang mutlak dilarang (Blocklist keras)
 STRICT_BANNED_PREFIXES = [
@@ -73,6 +74,9 @@ def is_at_command_allowed(command: str, allow_delete: bool = False) -> bool:
     """
     cleaned = command.strip().upper()
     if not cleaned:
+        return False
+    # Satu baris saja: CR/LF/NUL/Ctrl-Z di tengah perintah dapat menyelundupkan perintah kedua.
+    if any(ch in cleaned for ch in "\r\n\x00\x1a\x1b"):
         return False
 
     for banned in STRICT_BANNED_PREFIXES:

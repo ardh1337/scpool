@@ -4,7 +4,7 @@ Memastikan integritas pemetaan slot fisik 1-32 ke port COM serial.
 """
 
 import unittest
-from config.modem_pool_profile import (
+from app.hardware.profile import (
     FOXCOM_32_MAPPING, PORT_TO_SLOT, SLOT_TO_PORT,
     get_slot_for_port, get_port_for_slot
 )

@@ -4,8 +4,8 @@ Mengimplementasikan validasi ICCID dan parsing status kartu (Section 7 & Invaria
 """
 
 import re
-from typing import Optional, Tuple
-from app.modem.at_client import ATClient, ATResponse
+from typing import Optional
+from app.modem.at_client import ATResponse
 
 
 def clean_and_validate_iccid(raw_iccid: str) -> Optional[str]:

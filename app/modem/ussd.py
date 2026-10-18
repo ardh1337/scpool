@@ -1,171 +1,116 @@
-"""
-Modul Penanganan USSD (Unstructured Supplementary Service Data)
-Mengirimkan dial code USSD (misal *808# atau *123#) dan mengekstrak nomor telepon (Tahap M5).
-"""
+"""USSD: kirim dial code, tunggu balasan jaringan (+CUSD), dan ekstrak nomor telepon."""
 
 import re
 import time
-import threading
 from typing import Optional, Tuple
-from app.modem.at_client import ATClient, ATResponse
+
+from app.hardware.operators import FALLBACK_USSD_CODE, default_profiles, match_operator
+from app.modem.at_client import ATClient
+
+USSD_CODE_PATTERN = re.compile(r"^[0-9*#+]{2,32}\Z")
+
+_CUSD_WITH_TEXT = re.compile(r'\+CUSD:\s*(\d+)\s*,\s*"(.*?)"\s*(?:,\s*\d+\s*)?$', re.IGNORECASE | re.DOTALL)
+_CUSD_STATUS_ONLY = re.compile(r"\+CUSD:\s*(\d+)\s*$", re.IGNORECASE | re.MULTILINE)
+
+_CUSD_STATUS_MESSAGES = {
+    2: "Sesi USSD diakhiri tanpa pesan.",
+    4: "Operasi USSD tidak didukung oleh jaringan.",
+    5: "Jaringan tidak merespons permintaan USSD.",
+}
+
+
+def validate_ussd_code(code: Optional[str]) -> str:
+    """Kode USSD hanya boleh terdiri dari 0-9 * # + agar tidak bisa menyisipkan perintah AT lain."""
+    cleaned = (code or "").strip()
+    if not USSD_CODE_PATTERN.match(cleaned):
+        raise ValueError("Kode USSD tidak valid. Hanya angka, *, #, dan + (2-32 karakter) yang diizinkan.")
+    return cleaned
 
 
 def decode_ussd_text(raw_text: str) -> str:
-    """
-    Mendekode teks balasan USSD:
-    - Menangani teks langsung / ASCII.
-    - Menangani teks berformat Hex UCS2 (UTF-16BE) yang sering dikirim oleh modem/jaringan.
-    """
+    """Dekode teks USSD: teks biasa atau Hex UCS2 (UTF-16BE)."""
     cleaned = raw_text.strip().strip('"')
-    # Cek apakah string adalah Hex UCS2 (semua hex dan panjang kelipatan 4)
     if len(cleaned) >= 8 and len(cleaned) % 4 == 0 and all(c in "0123456789ABCDEFabcdef" for c in cleaned):
         try:
-            raw_bytes = bytes.fromhex(cleaned)
-            decoded = raw_bytes.decode("utf-16-be", errors="ignore")
+            decoded = bytes.fromhex(cleaned).decode("utf-16-be", errors="ignore")
             if any(c.isalnum() for c in decoded):
                 return decoded
-        except Exception:
+        except ValueError:
             pass
-
     return cleaned
 
 
 def extract_phone_number_from_text(text: str) -> Optional[str]:
-    """
-    Mengekstrak nomor telepon Indonesia dari teks balasan USSD:
-    - Format: 08xx atau 628xx atau +628xx (10-13 digit)
-    """
+    """Ekstrak nomor Indonesia (08xx / 628xx / +628xx) dan standarkan ke +628xxx."""
     if not text:
         return None
-
-    # Cari nomor yang diawali 08, 628, atau +628
-    matches = re.findall(r'(?:\+?62|0)(8\d{8,11})\b', text)
-    if matches:
-        # Standarisasi ke format internasional +628xxx
-        suffix = matches[0]
-        return f"+62{suffix}"
-
-    return None
+    matches = re.findall(r"(?<!\d)(?:\+?62|0)(8\d{8,11})(?!\d)", text)
+    return f"+62{matches[0]}" if matches else None
 
 
-def get_default_ussd_for_iccid(
-    iccid: Optional[str],
-    operator_name: Optional[str] = None,
-    db: Optional[object] = None
-) -> str:
-    """
-    Mengembalikan kode dial USSD yang sesuai berdasarkan profil operator tersimpan di DB
-    atau fallback berdasarkan prefiks ICCID / nama operator.
-    """
-    clean_iccid = re.sub(r'\D', '', iccid) if iccid else ""
-    op_clean = (operator_name or "").strip().upper()
-
-    # 1. Coba cari profil tersimpan di DB
-    if db:
+def get_default_ussd_for_iccid(iccid: Optional[str], operator_name: Optional[str] = None,
+                               db: Optional[object] = None) -> str:
+    """Kode USSD cek-nomor berdasarkan profil operator di DB; jatuh ke profil bawaan bila tidak cocok."""
+    if db is not None:
         try:
             from app.database.models import OperatorProfile
-            profiles = db.query(OperatorProfile).all()
-
-            # Cocokkan berdasarkan prefiks ICCID
-            if clean_iccid:
-                for p in profiles:
-                    if p.iccid_prefixes:
-                        prefixes = [x.strip() for x in p.iccid_prefixes.split(",") if x.strip()]
-                        if any(clean_iccid.startswith(pfx) for pfx in prefixes):
-                            return p.ussd_code
-
-            # Cocokkan berdasarkan nama operator
-            if op_clean:
-                for p in profiles:
-                    if p.operator_patterns:
-                        patterns = [x.strip().upper() for x in p.operator_patterns.split(",") if x.strip()]
-                        if any(pat in op_clean for pat in patterns):
-                            return p.ussd_code
+            matched = match_operator(db.query(OperatorProfile).all(), iccid, operator_name)
+            if matched:
+                return matched.ussd_code
         except Exception:
             pass
-
-    # 2. Fallback default jika DB tidak ada / tidak cocok
-    if clean_iccid.startswith("896211") or clean_iccid.startswith("896212") or "XL" in op_clean or "AXIS" in op_clean:
-        return "*808*7*8#"
-    elif clean_iccid.startswith("896210") or clean_iccid.startswith("896204") or "TELKOMSEL" in op_clean or "T-SEL" in op_clean:
-        return "*808#"
-    elif clean_iccid.startswith("896201") or clean_iccid.startswith("896221") or "INDOSAT" in op_clean or "IM3" in op_clean:
-        return "*123*30#"
-    elif clean_iccid.startswith("896289") or "TRI" in op_clean:
-        return "*111*1#"
-    elif clean_iccid.startswith("896209") or "SMARTFREN" in op_clean:
-        return "*999#"
-
-    return "*808*7*8#"
+    matched = match_operator(default_profiles(), iccid, operator_name)
+    return matched.ussd_code if matched else FALLBACK_USSD_CODE
 
 
-def execute_ussd(
-    client: ATClient,
-    ussd_code: str,
-    timeout: float = 12.0
-) -> Tuple[bool, Optional[str], Optional[str]]:
+def _parse_cusd(text: str) -> Tuple[Optional[int], Optional[str]]:
+    """(kode status n, teks pesan). Teks None bila modem hanya melaporkan status tanpa pesan."""
+    match = _CUSD_WITH_TEXT.search(text)
+    if match:
+        return int(match.group(1)), decode_ussd_text(match.group(2))
+    only = _CUSD_STATUS_ONLY.search(text)
+    if only:
+        return int(only.group(1)), None
+    return None, None
+
+
+def ussd_result_from_text(raw: str) -> Tuple[bool, Optional[str], Optional[str]]:
+    """Interpretasi teks mentah yang memuat baris +CUSD (dipakai juga untuk balasan dari agent remote)."""
+    status, message = _parse_cusd(raw or "")
+    if message:
+        return True, message, extract_phone_number_from_text(message)
+    if status is not None:
+        return False, _CUSD_STATUS_MESSAGES.get(status, f"Balasan USSD tanpa pesan (status {status})."), None
+    return False, "Tidak ada balasan USSD dari jaringan sebelum waktu habis.", None
+
+
+def execute_ussd(client: ATClient, ussd_code: str, timeout: float = 12.0) -> Tuple[bool, Optional[str], Optional[str]]:
     """
-    Mengirim perintah USSD dan menunggu kedatangan URC +CUSD dari jaringan.
-    Mengembalikan: (success: bool, raw_response_text, extracted_phone_number)
+    Kirim USSD dan tunggu +CUSD, baik yang datang sebelum maupun sesudah "OK".
+    Mengembalikan (berhasil, teks balasan / pesan error, nomor telepon atau None).
     """
-    ussd_response = None
-    event = threading.Event()
+    code = validate_ussd_code(ussd_code)
+    deadline = time.time() + timeout
 
-    def on_urc(line: str):
-        nonlocal ussd_response
-        if line.upper().startswith("+CUSD:"):
-            ussd_response = line
-            event.set()
-
-    # Daftarkan sementara listener URC
-    old_cb = client.urc_callback
-    client.register_urc_callback(on_urc)
-
-    # Batalkan sesi USSD aktif terlebih dahulu untuk menghindari +CME ERROR: 32
-    try:
+    try:  # bersihkan sesi USSD yang menggantung (hindari +CME ERROR: 32)
         client.send_command("AT+CUSD=2", timeout=2.0)
     except Exception:
         pass
 
-    try:
-        # Kirim perintah USSD standar
-        cmd = f'AT+CUSD=1,"{ussd_code}"'
-        resp = client.send_command(cmd, timeout=timeout)
+    resp = client.send_command(f'AT+CUSD=1,"{code}"', timeout=timeout)
+    status, message = _parse_cusd(resp.raw_response or "")
 
-        # 1. Cek langsung di raw_response (dengan dukungan multi-baris re.DOTALL)
-        source_text = resp.raw_response or ""
-        match = re.search(r'\+CUSD:\s*\d+,\s*"([^"]*)"', source_text, re.IGNORECASE | re.DOTALL)
-        if match:
-            raw_str = match.group(1)
-            decoded = decode_ussd_text(raw_str)
-            phone = extract_phone_number_from_text(decoded)
-            return True, decoded, phone
+    if status is None and resp.success:
+        remaining = deadline - time.time()
+        if remaining > 0:
+            late = client.wait_for_urc("+CUSD:", remaining)
+            if late:
+                status, message = _parse_cusd(late)
 
-        # Format cadangan jika tanda kutip terpotong atau format non-standar
-        match_alt = re.search(r'\+CUSD:\s*\d+,\s*"(.*?)(?:"\s*,\s*\d+|"$|$)', source_text, re.IGNORECASE | re.DOTALL)
-        if match_alt and match_alt.group(1):
-            raw_str = match_alt.group(1)
-            decoded = decode_ussd_text(raw_str)
-            phone = extract_phone_number_from_text(decoded)
-            if phone or len(decoded) > 5:
-                return True, decoded, phone
-
-        # 2. Jika belum ada di raw_response, tunggu URC terpisah
-        event.wait(timeout=2.0)
-        if ussd_response:
-            match = re.search(r'\+CUSD:\s*\d+,\s*"([^"]*)"', ussd_response, re.IGNORECASE | re.DOTALL)
-            if match:
-                raw_str = match.group(1)
-                decoded = decode_ussd_text(raw_str)
-                phone = extract_phone_number_from_text(decoded)
-                return True, decoded, phone
-
-        if not resp.success:
-            err = resp.error_message or "Gagal menjalankan perintah USSD."
-            return False, err, None
-
-        return True, source_text, None
-
-    finally:
-        client.register_urc_callback(old_cb)
-
+    if message:
+        return True, message, extract_phone_number_from_text(message)
+    if status is not None:
+        return False, _CUSD_STATUS_MESSAGES.get(status, f"Balasan USSD tanpa pesan (status {status})."), None
+    if not resp.success:
+        return False, resp.error_message or "Gagal menjalankan perintah USSD.", None
+    return False, "Tidak ada balasan USSD dari jaringan sebelum waktu habis.", None

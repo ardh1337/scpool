@@ -20,7 +20,7 @@ from app.services.numbering import renumber_pool_slots, get_display_label
 from app.modem.transport import VirtualTransport
 from app.modem.at_client import ATClient, DisallowedATCommandError
 from app.modem.sms_reader import ParsedSMS, compute_body_hash, mask_sensitive
-from simulator.simulated_modem import SimulatedModem
+from tests.support.simulator.simulated_modem import SimulatedModem
 
 
 class TestInvariants(unittest.TestCase):

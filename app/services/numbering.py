@@ -8,9 +8,9 @@ Menegakkan Invarian I-3 dan aturan penomoran:
 """
 
 from datetime import datetime, timezone
-from typing import List, Dict
+from typing import List
 from sqlalchemy.orm import Session
-from app.database.models import Slot, SlotNumbering, SlotStatus, ModemPool
+from app.database.models import Slot, SlotNumbering, SlotStatus
 
 
 def renumber_pool_slots(db: Session, pool_id: str) -> List[SlotNumbering]:

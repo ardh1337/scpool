@@ -12,7 +12,8 @@ import unittest
 from fastapi.testclient import TestClient
 from app.main import app
 from app.database.connection import SessionLocal
-from app.database.models import init_db, UserAccount, ModemPool, Slot, SlotStatus, SystemSetting
+from app.database.bootstrap import init_db
+from app.database.models import UserAccount, ModemPool, Slot, SlotStatus, SystemSetting
 
 
 class TestPublicIsolationAndRegistration(unittest.TestCase):
@@ -102,8 +103,6 @@ class TestPublicIsolationAndRegistration(unittest.TestCase):
         reg_payload = {
             "username": "klien_baru_test",
             "password": "password_klien_123",
-            "pool_name": "Modem Pool Kantor Cabang",
-            "port_count": 16
         }
         reg_resp = self.client.post("/api/auth/register", json=reg_payload)
         self.assertEqual(reg_resp.status_code, 200)
@@ -111,18 +110,10 @@ class TestPublicIsolationAndRegistration(unittest.TestCase):
         self.assertTrue(reg_data["success"])
         self.assertFalse(reg_data["is_active"])  # Wajib pending!
         self.assertEqual(reg_data["username"], "klien_baru_test")
-        self.assertTrue(reg_data["agent_token"].startswith("scpool_"))
-        self.assertIn("download_script", reg_data)
-        self.assertIn("download_bat", reg_data)
-
-        # 1b. Klien yang baru daftar (belum disetujui) sudah bisa mengunduh 2 filenya via token
-        tok = reg_data["agent_token"]
-        dl_pre_bat = self.client.get(f"/api/download/agent?file_type=bat&token={tok}")
-        self.assertEqual(dl_pre_bat.status_code, 200)
-        self.assertIn(tok, dl_pre_bat.text)
-
-        dl_pre_script = self.client.get(f"/api/download/agent?file_type=script&token={tok}")
-        self.assertEqual(dl_pre_script.status_code, 200)
+        # Akun pending tidak boleh menerima token agent maupun tautan unduh
+        self.assertIsNone(reg_data["agent_token"])
+        self.assertFalse(reg_data.get("download_script"))
+        self.assertFalse(reg_data.get("download_bat"))
 
         # Token palsu ditolak 403
         dl_fake = self.client.get("/api/download/agent?file_type=bat&token=scpool_palsu_12345")
@@ -167,17 +158,16 @@ class TestPublicIsolationAndRegistration(unittest.TestCase):
         self.assertIsNotNone(klien_auth["user"]["agent_token"])
         klien_headers = {"Authorization": f"Bearer {klien_tok}"}
 
-        # Klien mengakses /api/slots -> Hanya melihat 16 slot pool miliknya
+        # Belum ada agent: tidak ada slot maupun modem pool (terbentuk otomatis saat agent melapor)
         klien_slots_resp = self.client.get("/api/slots", headers=klien_headers)
         self.assertEqual(klien_slots_resp.status_code, 200)
-        klien_slots = klien_slots_resp.json()
-        self.assertEqual(len(klien_slots), 16)
+        self.assertEqual(klien_slots_resp.json(), [])
 
         # 5. Klien mengunduh script forwarder & scpool_agent.bat
         dl_script = self.client.get("/api/download/agent?file_type=script", headers=klien_headers)
         self.assertEqual(dl_script.status_code, 200)
         self.assertIn("SCPool", dl_script.text)
-        self.assertIn("Quantum Modem Engine", dl_script.text)
+        self.assertIn("SCPool Agent", dl_script.text)
 
         dl_bat = self.client.get("/api/download/agent?file_type=bat", headers=klien_headers)
         self.assertEqual(dl_bat.status_code, 200)
