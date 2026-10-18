@@ -22,7 +22,7 @@ from app.database.bootstrap import init_db
 from app.database.connection import SessionLocal, get_db
 from app.database.models import UserAccount
 from app.services.agent_gateway import agent_gateway
-from app.services.auto_detector import is_auto_detector_running, start_auto_detector, stop_auto_detector
+from app.services import local_bridge
 from app.services.telegram_service import telegram_poller
 
 logging.basicConfig(level=getattr(logging, settings.log_level, logging.INFO),
@@ -38,7 +38,7 @@ WS_AUTH_FAILURES_PER_MINUTE = 20
 async def lifespan(app: FastAPI):
     init_db()
     if settings.local_hardware:
-        start_auto_detector(interval=settings.scan_interval)
+        local_bridge.start()
     else:
         logger.info("Hardware lokal nonaktif (SCPOOL_LOCAL_HARDWARE); modem dilayani lewat agent remote.")
     telegram_poller.start()
@@ -46,7 +46,7 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         telegram_poller.stop()
-        stop_auto_detector()
+        await local_bridge.stop()
 
 
 # 'unsafe-inline' dibutuhkan karena dashboard memakai handler onclick/style inline; sisanya dikunci.
@@ -147,7 +147,7 @@ async def websocket_agent_endpoint(websocket: WebSocket):
 @app.get("/api/health", include_in_schema=False)
 def health():
     return {"status": "ok", "version": APP_VERSION, "local_hardware": settings.local_hardware,
-            "detector_running": is_auto_detector_running()}
+            "detector_running": local_bridge.is_running()}
 
 
 @app.get("/")

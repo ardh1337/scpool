@@ -34,6 +34,21 @@ Saat pertama jalan, akun `admin` dibuat. Password dari `SCPOOL_ADMIN_PASSWORD`, 
 ## Deploy VPS
 `pm2 start deploy/ecosystem.config.js` di belakang reverse proxy/tunnel. Pada server publik, `SCPOOL_LOCAL_AUTOLOGIN=0` dan `SCPOOL_LOCAL_HARDWARE=0` (sudah di ecosystem). Modem dibaca oleh agent klien lewat `/ws/agent`.
 
+## Mode lokal (tanpa agent)
+Bila server dijalankan di PC yang memegang modem pool, server membuka port COM sendiri, tanpa `.bat` agent dan tanpa
+VPS. Logika agent (`agent/agent_forwarder.py`) berjalan di dalam proses server (`app/services/local_bridge.py`), jadi
+deteksi pool, pemindaian paralel, SMS, dan USSD sama persis dengan agent. Modem lokal milik pemilik pool `foxcom_32`
+(bawaan: admin).
+
+1. Tutup agent `.bat` bila masih jalan (port COM hanya bisa dibuka satu program).
+2. `run.bat` (di Windows `SCPOOL_LOCAL_HARDWARE` aktif secara bawaan).
+3. Akses dari luar: Cloudflare Tunnel ke `http://127.0.0.1:8000`, mis.
+   `cloudflared tunnel --url http://127.0.0.1:8000` atau tunnel bernama untuk domain sendiri.
+   Pengunjung lewat tunnel tetap wajib login (auto-login hanya untuk `localhost` tanpa header proxy).
+
+PC harus menyala terus dan database ada di PC itu (`data/`). Klien lain dengan modem di tempatnya sendiri tetap
+memakai agent ke server VPS.
+
 ## Modem pool otomatis
 Registrasi hanya username dan password. Jumlah modem pool dan port **tidak** diisi manual:
 
