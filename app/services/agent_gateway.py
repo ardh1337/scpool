@@ -54,6 +54,7 @@ from app.services.units import UnitError, owned_pool_ids, sync_detected_ports
 logger = logging.getLogger("agent_gateway")
 
 MAX_REALTIME_SMS_PER_MINUTE = 300
+AGENT_USSD_OVERHEAD = 12.0  # tunggu port di agent (6 dtk) + AT+CUSD=2 (2 dtk) + jaringan/WebSocket
 _sms_limiter = SimpleRateLimiter()
 
 
@@ -178,7 +179,7 @@ class AgentGateway:
                 fut.set_result({"success": False, "error": reason})
 
     # ---------------------------------------------------------------- permintaan
-    async def _request(self, owner_id: int, payload: dict, timeout: float) -> dict:
+    async def _request(self, owner_id: int, payload: dict, timeout: float, margin: float = 3.0) -> dict:
         ws = self.active_agents.get(owner_id)
         if not ws:
             return {"success": False, "error": "Agent tidak sedang online."}
@@ -189,7 +190,7 @@ class AgentGateway:
         self._pending_by_owner.setdefault(owner_id, set()).add(req_id)
         try:
             await ws.send_text(json.dumps({**payload, "req_id": req_id}))
-            return await asyncio.wait_for(future, timeout=timeout + 3.0)
+            return await asyncio.wait_for(future, timeout=timeout + margin)
         except asyncio.TimeoutError:
             return {"success": False, "error": "Timeout menunggu respons agent."}
         except Exception as exc:
@@ -206,8 +207,9 @@ class AgentGateway:
     async def request_ussd(self, owner_id: int, port: str, code: str,
                            timeout: float = 15.0) -> Tuple[bool, Optional[str], Optional[str]]:
         """Dial USSD lewat agent. Mengembalikan (berhasil, teks/pesan error, nomor)."""
+        # Agent bisa menunggu port (AGENT_PORT_WAIT) dan AT+CUSD=2 sebelum dial; jangan menyerah sebelum agent.
         reply = await self._request(owner_id, {"type": "ussd", "port": port, "code": code, "timeout": timeout},
-                                    timeout)
+                                    timeout, margin=AGENT_USSD_OVERHEAD)
         raw = reply.get("raw") or ""
         if raw:
             return ussd_result_from_text(raw)

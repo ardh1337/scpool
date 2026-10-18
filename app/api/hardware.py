@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.auth.deps import require_admin, require_pool_id, require_user
-from app.core.config import settings
+from app.core.config import MAX_PORTS_PER_POOL, settings
 from app.database.connection import get_db
 from app.database.models import NumberSource, OperatorProfile, SIMSession, Slot, SlotStatus, UserAccount
 from app.modem.at_client import ATClient
@@ -32,7 +32,7 @@ from app.services.units import owner_of_pool
 router = APIRouter()
 
 DEFAULT_DIAL_CODE = "*808*7*8#"
-BULK_CONCURRENCY = 8
+BULK_CONCURRENCY = MAX_PORTS_PER_POOL  # tiap port modem sendiri; agent menggilir per port
 
 
 def _dial_local(port: str, code: str) -> Tuple[bool, Optional[str], Optional[str]]:
@@ -107,7 +107,7 @@ class BulkUSSDRequest(BaseModel):
 @router.post("/ussd/bulk")
 async def dial_ussd_bulk(req: BulkUSSDRequest, user: UserAccount = Depends(require_user),
                          db: Session = Depends(get_db)):
-    """Dial USSD paralel (maks. 8 port sekaligus) pada slot terpilih atau semua slot READY."""
+    """Dial USSD paralel ke semua slot terpilih (atau semua slot READY) sekaligus."""
     ussd_code = _checked_code(req.code)
     pool_id = require_pool_id(db, user, req.pool_id)
     owner_id = owner_of_pool(db, pool_id)

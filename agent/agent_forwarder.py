@@ -61,6 +61,7 @@ HEARTBEAT_INTERVAL = 60.0    # kirim ulang status port walau tidak berubah
 SMS_READ_INTERVAL = 20.0     # detik antar pembacaan SMS per port READY
 SMS_RESEND_INTERVAL = 300.0  # kirim ulang seluruh isi kartu walau tidak berubah (server melakukan dedup)
 MAX_PARALLEL_PORTS = 8
+PORT_WAIT = 6.0              # detik maksimal permintaan server menunggu port dipakai pemindai
 MAX_WORKER_THREADS = 80      # 64 port + pemindai; tiap USSD memegang satu thread selama dial
 CONFIG_FILE = Path(__file__).resolve().with_name("agent_config.json")
 
@@ -508,7 +509,7 @@ class Session:
     def _with_port(port: str, action, empty):
         """Jalankan aksi (ser) -> (ok, data, error) dengan kunci eksklusif pada port."""
         lock = port_lock(port)
-        if not lock.acquire(timeout=20.0):
+        if not lock.acquire(timeout=PORT_WAIT):  # pemindai memegang port < 1-2 detik
             return False, empty, "Port sedang dipakai operasi lain."
         try:
             with open_port(port) as ser:
