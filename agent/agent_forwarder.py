@@ -111,18 +111,73 @@ def usb_group_key(location: Optional[str]) -> str:
     return f"usb:{root}" if root else "default"
 
 
+def windows_port_locations() -> Dict[str, str]:
+    """
+    Lokasi USB tiap port COM dalam format pyserial ("1-10.2.3:x.0").
+    pyserial 3.5 membaca SPDRP_LOCATION_PATHS dengan buffer 250 karakter; pada hub bertingkat (Foxcom 32 port:
+    4 tingkat hub + chip Exar 4 port) data itu lebih panjang sehingga sebagian port kembali tanpa lokasi dan
+    terlempar ke kelompok "default", membuat satu modem pool terbaca dua.
+    """
+    if sys.platform != "win32":
+        return {}
+    import ctypes
+    from ctypes import wintypes
+    from serial.tools import list_ports_windows as w
+
+    out: Dict[str, str] = {}
+    guids = (w.GUID * 8)()
+    count = wintypes.DWORD()
+    if not w.SetupDiClassGuidsFromName("Ports", guids, ctypes.sizeof(guids), ctypes.byref(count)):
+        return out
+    for idx in range(count.value):
+        h = w.SetupDiGetClassDevs(ctypes.byref(guids[idx]), None, None, w.DIGCF_PRESENT)
+        dev = w.SP_DEVINFO_DATA()
+        dev.cbSize = ctypes.sizeof(dev)
+        i = 0
+        while w.SetupDiEnumDeviceInfo(h, i, ctypes.byref(dev)):
+            i += 1
+            key = w.SetupDiOpenDevRegKey(h, ctypes.byref(dev), w.DICS_FLAG_GLOBAL, 0, w.DIREG_DEV, w.KEY_READ)
+            name = ctypes.create_unicode_buffer(250)
+            size = wintypes.ULONG(ctypes.sizeof(name))
+            w.RegQueryValueEx(key, "PortName", None, None, ctypes.byref(name), ctypes.byref(size))
+            w.RegCloseKey(key)
+            paths = ctypes.create_unicode_buffer(4096)
+            if not w.SetupDiGetDeviceRegistryProperty(h, ctypes.byref(dev), w.SPDRP_LOCATION_PATHS, None,
+                                                      ctypes.byref(paths), ctypes.sizeof(paths) - 2, None):
+                continue
+            path = paths.value  # entri pertama multi-sz: PCIROOT(..)#..#USBROOT(n)#USB(p)#USB(p)..#USBMI(i)
+            hops = re.findall(r"USBROOT\((\d+)\)|#USB\((\d+)\)", path)
+            if not hops or not hops[0][0]:
+                continue
+            loc = str(int(hops[0][0]) + 1)
+            for k, (_root, port) in enumerate(hops[1:]):
+                loc += ("-" if k == 0 else ".") + port
+            mi = re.search(r"#USBMI\((\d+)\)", path)
+            out[name.value.upper()] = loc + (f":x.{int(mi.group(1))}" if mi else "")
+        w.SetupDiDestroyDeviceInfoList(h)
+    return out
+
+
 def get_local_units(allowed: Optional[List[str]] = None) -> List[Tuple[str, List[str]]]:
     """Port serial USB yang terdeteksi, dikelompokkan per modem pool dan diurutkan menurut posisi fisiknya."""
     wanted = {a.upper() for a in allowed} if allowed else None
     groups: Dict[str, List[Tuple[list, str]]] = {}
-    for info in serial.tools.list_ports.comports():
+    infos = list(serial.tools.list_ports.comports())
+    fallback: Dict[str, str] = {}
+    if any(info.location is None and info.vid is not None for info in infos):
+        try:
+            fallback = windows_port_locations()
+        except Exception as e:
+            print(f"[!] Gagal membaca lokasi USB dari Windows: {e}")
+    for info in infos:
         if wanted is not None:
             if info.device.upper() not in wanted:
                 continue
         elif info.vid is None:  # bukan perangkat USB (COM1 bawaan, Bluetooth): bukan modem pool
             continue
-        order = natural_sort_key(info.location or "") + natural_sort_key(info.device)
-        groups.setdefault(usb_group_key(info.location), []).append((order, info.device))
+        location = info.location or fallback.get(info.device.upper())
+        order = natural_sort_key(location or "") + natural_sort_key(info.device)
+        groups.setdefault(usb_group_key(location), []).append((order, info.device))
     units = [(key, [dev for _order, dev in sorted(items)]) for key, items in groups.items()]
     return sorted(units, key=lambda unit: natural_sort_key(unit[0]))
 
