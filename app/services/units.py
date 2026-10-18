@@ -46,6 +46,18 @@ def owner_of_pool(db: Session, pool_id: str) -> Optional[int]:
     return db.query(ModemPool.owner_id).filter(ModemPool.id == pool_id).scalar()
 
 
+def mark_slots_offline(db: Session, owner_id: Optional[int] = None) -> int:
+    """
+    Tanpa agent tidak ada yang membaca modem: SIM bisa saja sudah dicabut atau ditukar, jadi status lama tidak boleh
+    tampil sebagai aktif. Sesi SIM sengaja dibiarkan terbuka agar SIM yang sama langsung dikenali (tanpa USSD ulang)
+    saat agent kembali. owner_id None = semua akun (server baru menyala). Pemanggil yang commit.
+    """
+    query = db.query(Slot).filter(Slot.status != SlotStatus.OFFLINE)
+    if owner_id is not None:
+        query = query.filter(Slot.pool_id.in_(db.query(ModemPool.id).filter(ModemPool.owner_id == owner_id)))
+    return query.update({Slot.status: SlotStatus.OFFLINE}, synchronize_session=False)
+
+
 def create_unit(db: Session, owner_id: int, name: Optional[str] = None, group_key: Optional[str] = None) -> ModemPool:
     """Buat unit kosong. Nama bawaan "Modem Pool N" (N = urutan berikutnya) dan bisa diganti kapan saja."""
     count = db.query(func.count(ModemPool.id)).filter(ModemPool.owner_id == owner_id).scalar() or 0

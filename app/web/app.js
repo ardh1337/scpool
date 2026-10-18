@@ -282,14 +282,22 @@ if(btnPoll){
   };
 }
 
-const alerts=()=>slots.filter(s=>s.st==='offline'||s.st==='error');
+// Pool tanpa agent: semua port offline karena satu sebab, cukup satu peringatan per pool, bukan per port.
+const agentlessPools=()=>visiblePools().filter(p=>!p.agent_online);
+const alerts=()=>{
+ const off=new Set(agentlessPools().map(p=>p.id));
+ return slots.filter(s=>(s.st==='offline'||s.st==='error')&&!off.has(s.pool_id));
+};
 const refreshBell=()=>{
  const np=$('#np');
  if(!np)return;
- const a=alerts();
- np.innerHTML=a.length?a.map(s=>`<a href="#/dashboard" onclick="openDrawer(${jq(s.id)})">${esc(s.pool_name)} · P${String(s.slot_index).padStart(2,'0')} · ${ST[s.st][0]}<br><span class="mu">${NOTE[s.st]}</span></a>`).join(''):'<p class="mu" style="padding:8px">Semua port beroperasi normal.</p>';
+ const a=alerts(), down=agentlessPools();
+ const poolItems=down.map(p=>`<a href="#/dashboard">${esc(p.name)} · Agent tidak terhubung<br><span class="mu">Jalankan agent di komputer modem pool. Nomor tampil lagi setelah port terbaca.</span></a>`);
+ const slotItems=a.map(s=>`<a href="#/dashboard" onclick="openDrawer(${jq(s.id)})">${esc(s.pool_name)} · P${String(s.slot_index).padStart(2,'0')} · ${ST[s.st][0]}<br><span class="mu">${NOTE[s.st]}</span></a>`);
+ const items=poolItems.concat(slotItems);
+ np.innerHTML=items.length?items.join(''):'<p class="mu" style="padding:8px">Semua port beroperasi normal.</p>';
  const dot=$('.dot');
- if(dot) dot.hidden=!a.length;
+ if(dot) dot.hidden=!items.length;
 };
 
 /* ---------- Router ---------- */
@@ -359,7 +367,7 @@ function exitSelectMode(){
 function toggleSelectSlot(e, id){
  e.stopPropagation();
  const s = slots.find(x => x.id === id);
- if(s && s.st === 'empty') return;
+ if(s && (s.st === 'empty' || s.st === 'offline')) return;
  if(e.target.checked){
   selectedSlots.add(id);
  } else {
@@ -372,8 +380,8 @@ function onSlotClick(e, id){
  if(e.target.closest('.slot-chk')) return;
  if(isSelectMode){
   const s = slots.find(x => x.id === id);
-  if(s && s.st === 'empty'){
-   toast('Slot kosong tidak dapat dipilih.', 0);
+  if(s && (s.st === 'empty' || s.st === 'offline')){
+   toast(s.st === 'empty' ? 'Slot kosong tidak dapat dipilih.' : 'Port offline tidak dapat dipilih.', 0);
    return;
   }
   if(selectedSlots.has(id)){
@@ -453,7 +461,7 @@ function renderSlotBox(s){
  const idq = jq(s.id);
  return `
   <div class="slot-box ${s.st}${isSelected ? ' selected' : ''}" data-id="${esc(s.id)}" onclick="onSlotClick(event, ${idq})" tabindex="0" title="${esc(s.pool_name)} · Port ${s.slot_index} · ${stLabel}${isSelectMode ? ' (klik untuk pilih)' : ''}">
-   <span class="slot-chk-wrap"><input type="checkbox" class="custom-chk slot-chk" ${s.st==='empty'?'disabled':''} ${isSelected ? 'checked' : ''} onclick="toggleSelectSlot(event, ${idq})" title="Pilih slot"></span>
+   <span class="slot-chk-wrap"><input type="checkbox" class="custom-chk slot-chk" ${(s.st==='empty'||s.st==='offline')?'disabled':''} ${isSelected ? 'checked' : ''} onclick="toggleSelectSlot(event, ${idq})" title="Pilih slot"></span>
    <span class="sb-dot"></span>
    <span class="sb-id">${String(s.slot_index).padStart(2,'0')}</span>
    <span class="sb-num mono">${esc(numDisplay)}</span>

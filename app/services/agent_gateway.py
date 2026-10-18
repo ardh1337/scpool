@@ -49,7 +49,7 @@ from app.services.events import log_event
 from app.services.sim_numbers import apply_ussd_result, fetch_backoff, needs_auto_fetch, ussd_code_for_sim
 from app.services.slot_manager import handle_sim_inserted, handle_sim_removed
 from app.services.sms_ingestion import ingest_sms, ingest_sms_batch
-from app.services.units import UnitError, owned_pool_ids, sync_detected_ports
+from app.services.units import UnitError, mark_slots_offline, owned_pool_ids, sync_detected_ports
 
 logger = logging.getLogger("agent_gateway")
 
@@ -170,6 +170,12 @@ class AgentGateway:
         self.active_agents.pop(owner_id, None)
         self.agent_metadata.pop(owner_id, None)
         self._fail_pending(owner_id, "Agent terputus.")
+        try:
+            with session_scope() as db:
+                mark_slots_offline(db, owner_id)
+                db.commit()
+        except Exception:
+            logger.exception("Gagal menandai port offline (akun %s)", owner_id)
         logger.info("Agent terputus: akun_id=%s", owner_id)
 
     def _fail_pending(self, owner_id: int, reason: str) -> None:
@@ -332,7 +338,11 @@ class AgentGateway:
                     if self.auto_fetch_numbers and needs_auto_fetch(sim) and slot.physical_port_id:
                         fetch_job = (slot.physical_port_id, iccid, sim.id)
                 elif cpin == "EMPTY":
-                    if slot.status != SlotStatus.EMPTY:
+                    # Port yang kembali dari OFFLINE sudah berstatus EMPTY (sync_detected_ports) padahal sesi SIM
+                    # lamanya masih terbuka bila kartu dicabut selama agent mati; sesi itu tetap harus ditutup.
+                    open_session = session.query(SIMSession.id).filter(
+                        SIMSession.slot_id == slot.id, SIMSession.ended_at.is_(None)).first()
+                    if slot.status != SlotStatus.EMPTY or open_session:
                         handle_sim_removed(session, slot.id)
                 elif cpin in ("SIM_ERROR", "PORT_ERROR"):
                     new_status = SlotStatus[cpin]

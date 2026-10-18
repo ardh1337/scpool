@@ -19,10 +19,11 @@ from app.api.routes import router
 from app.auth.security import auth_rate_limiter, get_client_ip, is_https_request
 from app.core.config import settings
 from app.database.bootstrap import init_db
-from app.database.connection import SessionLocal, get_db
+from app.database.connection import SessionLocal, get_db, session_scope
 from app.database.models import UserAccount
 from app.services.agent_gateway import agent_gateway
 from app.services import local_bridge
+from app.services.units import mark_slots_offline
 from app.services.telegram_service import telegram_poller
 
 logging.basicConfig(level=getattr(logging, settings.log_level, logging.INFO),
@@ -37,6 +38,9 @@ WS_AUTH_FAILURES_PER_MINUTE = 20
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    with session_scope() as db:  # belum ada agent yang tersambung: status lama belum tentu benar
+        mark_slots_offline(db)
+        db.commit()
     if settings.local_hardware:
         local_bridge.start()
     else:
