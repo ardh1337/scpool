@@ -5,12 +5,12 @@ Semua teks dokumentasi ada di file ini supaya mudah dibaca dan diubah tanpa meny
 wajib diberi entri di ENDPOINTS (dicek oleh tests/test_api_docs.py).
 """
 
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse
 
 from app.auth.deps import get_current_user_optional
 
@@ -19,10 +19,11 @@ API untuk membaca SIM, SMS, dan menjalankan USSD di modem pool Anda.
 
 **Cara mulai**
 
-1. Login di dashboard, lalu buka halaman ini. Tombol **Try it out** langsung memakai sesi login Anda.
-2. Untuk aplikasi lain (bot, sistem registrasi, dll.): panggil `POST /api/auth/login`, ambil nilai `token` dari
+1. Mencoba langsung: login di dashboard, lalu buka `/docs` (Swagger). Tombol **Try it out** di sana memakai sesi
+   login Anda.
+2. Dari aplikasi lain (bot, sistem registrasi, dll.): panggil `POST /api/auth/login`, ambil nilai `token` dari
    balasannya, lalu kirim di setiap permintaan sebagai header `Authorization: Bearer <token>`.
-   Di halaman ini, token bisa dipasang lewat tombol **Authorize**.
+   Di Swagger, token bisa dipasang lewat tombol **Authorize**.
 
 **Istilah**
 
@@ -34,6 +35,12 @@ API untuk membaca SIM, SMS, dan menjalankan USSD di modem pool Anda.
 
 **Status port**: `READY` (SIM aktif), `EMPTY` (tidak ada SIM), `SIM_ERROR` (SIM bermasalah),
 `PORT_ERROR` (modem tidak merespons), `OFFLINE` (agent tidak terhubung).
+"""
+
+# Hanya tampil di Swagger; file unduhan tidak perlu menautkan dirinya sendiri.
+DOWNLOADS = """
+**Unduh dokumentasi:** [Panduan API (.md)](/docs/scpool-api.md) untuk dibaca atau dibagikan ·
+[OpenAPI (.json)](/openapi.json?download=1) untuk diimpor ke Postman/Insomnia.
 """
 
 TAGS = [
@@ -150,7 +157,8 @@ ENDPOINTS: Dict[Tuple[str, str], Tuple[str, str, str]] = {
 def build_openapi(app: FastAPI) -> dict:
     if app.openapi_schema:
         return app.openapi_schema
-    schema = get_openapi(title="SCPool API", version=app.version, description=INTRO, routes=app.routes, tags=TAGS)
+    schema = get_openapi(title="SCPool API", version=app.version, description=DOWNLOADS + INTRO,
+                         routes=app.routes, tags=TAGS)
     for path, operations in schema["paths"].items():
         for method, operation in operations.items():
             entry = ENDPOINTS.get((method.upper(), path))
@@ -164,6 +172,55 @@ def build_openapi(app: FastAPI) -> dict:
     return schema
 
 
+_PLACE = {"path": "di URL", "query": "query (?nama=nilai)", "header": "header"}
+
+
+def _cell(text) -> str:
+    return " ".join(str(text if text is not None else "").split()).replace("|", r"\|")
+
+
+def _body_fields(schema: dict, operation: dict) -> List[str]:
+    content = operation.get("requestBody", {}).get("content", {}).get("application/json", {})
+    ref = content.get("schema", {}).get("$ref", "")
+    model = schema["components"]["schemas"].get(ref.rsplit("/", 1)[-1], {}) if ref else {}
+    required = set(model.get("required", []))
+    rows = []
+    for name, prop in model.get("properties", {}).items():
+        kind = prop.get("type") or "/".join(x["type"] for x in prop.get("anyOf", []) if x.get("type", "null") != "null")
+        default = prop.get("default")
+        note = "wajib" if name in required else "opsional" + (f", bawaan `{default}`" if default not in (None, "") else "")
+        rows.append(f"| `{name}` | {kind} | {note} |")
+    return rows
+
+
+def to_markdown(schema: dict, base_url: str) -> str:
+    """Panduan API yang bisa dibaca tanpa Swagger: dibuat dari skema yang sama, jadi selalu sesuai dengan /docs."""
+    out = [f"# SCPool API (versi {schema['info']['version']})", "", f"Alamat server: `{base_url}`", "", INTRO.strip(), ""]
+    by_tag: Dict[str, List[Tuple[str, str, dict]]] = {}
+    for path, operations in schema["paths"].items():
+        for method, operation in operations.items():
+            by_tag.setdefault((operation.get("tags") or ["Lainnya"])[0], []).append((method.upper(), path, operation))
+    for tag in TAGS:
+        items = by_tag.get(tag["name"])
+        if not items:
+            continue
+        out += [f"## {tag['name']}", "", tag["description"], ""]
+        for method, path, operation in items:
+            out += [f"### {operation.get('summary', path)}", "", f"`{method} {path}`", "",
+                    operation.get("description", ""), ""]
+            params = [p for p in operation.get("parameters", []) if p.get("in") != "cookie"]
+            if params:
+                out += ["| Parameter | Letak | Keterangan |", "|---|---|---|"]
+                out += [f"| `{p['name']}` | {_PLACE.get(p['in'], p['in'])} | "
+                        f"{'wajib' if p.get('required') else 'opsional'}"
+                        f"{'. ' + _cell(p['description']) if p.get('description') else ''} |" for p in params]
+                out.append("")
+            fields = _body_fields(schema, operation)
+            if fields:
+                out += ["Isi permintaan (JSON):", "", "| Field | Tipe | Keterangan |", "|---|---|---|", *fields, ""]
+    return "\n".join(out) + "\n"
+
+
 # Swagger UI dimuat dari CDN; CSP halaman ini saja yang dilonggarkan untuk CDN itu.
 SWAGGER_CDN = "https://cdn.jsdelivr.net"
 DOCS_CSP = (f"default-src 'self'; script-src 'self' 'unsafe-inline' {SWAGGER_CDN}; "
@@ -175,10 +232,19 @@ def install(app: FastAPI) -> None:
     app.openapi = lambda: build_openapi(app)
 
     @app.get("/openapi.json", include_in_schema=False)
-    def openapi_json(user=Depends(get_current_user_optional)):
+    def openapi_json(download: bool = False, user=Depends(get_current_user_optional)):
         if user is None:
             return JSONResponse({"detail": "Login dulu untuk melihat dokumentasi API."}, status_code=401)
-        return build_openapi(app)
+        headers = {"Content-Disposition": 'attachment; filename="scpool-openapi.json"'} if download else None
+        return JSONResponse(build_openapi(app), headers=headers)
+
+    @app.get("/docs/scpool-api.md", include_in_schema=False)
+    def markdown_guide(request: Request, user=Depends(get_current_user_optional)):
+        if user is None:
+            return JSONResponse({"detail": "Login dulu untuk mengunduh dokumentasi API."}, status_code=401)
+        return PlainTextResponse(to_markdown(build_openapi(app), str(request.base_url).rstrip("/")),
+                                 media_type="text/markdown; charset=utf-8",
+                                 headers={"Content-Disposition": 'attachment; filename="scpool-api.md"'})
 
     @app.get("/docs", include_in_schema=False)
     def swagger_ui(user=Depends(get_current_user_optional)):

@@ -42,3 +42,21 @@ def test_every_endpoint_is_documented():
     assert not missing, f"Endpoint tanpa penjelasan di app/api/docs.py: {sorted(missing)}"
     stale = set(ENDPOINTS) - documented
     assert not stale, f"Entri dokumentasi untuk endpoint yang sudah tidak ada: {sorted(stale)}"
+
+
+def test_docs_downloads_for_logged_in_user():
+    with TestClient(app) as client:
+        guide = client.get("/docs/scpool-api.md")
+        assert guide.status_code == 200
+        assert 'filename="scpool-api.md"' in guide.headers["content-disposition"]
+        assert "### Dial USSD di banyak port sekaligus" in guide.text
+        assert "`POST /api/ussd/bulk`" in guide.text
+        spec = client.get("/openapi.json?download=1")
+        assert 'filename="scpool-openapi.json"' in spec.headers["content-disposition"]
+        assert "/api/slots" in spec.json()["paths"]
+
+
+def test_docs_downloads_require_login():
+    with _anonymous_client() as client:
+        assert client.get("/docs/scpool-api.md").status_code == 401
+        assert client.get("/openapi.json?download=1").status_code == 401
