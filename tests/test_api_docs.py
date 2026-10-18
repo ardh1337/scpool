@@ -60,3 +60,9 @@ def test_docs_downloads_require_login():
     with _anonymous_client() as client:
         assert client.get("/docs/scpool-api.md").status_code == 401
         assert client.get("/openapi.json?download=1").status_code == 401
+
+
+def test_every_endpoint_has_detail():
+    from app.api.docs_detail import DETAILS
+    assert set(DETAILS) == set(ENDPOINTS), sorted(set(ENDPOINTS) ^ set(DETAILS))
+    assert all("access" in d and "response" in d for d in DETAILS.values())

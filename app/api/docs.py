@@ -5,6 +5,7 @@ Semua teks dokumentasi ada di file ini supaya mudah dibaca dan diubah tanpa meny
 wajib diberi entri di ENDPOINTS (dicek oleh tests/test_api_docs.py).
 """
 
+import json
 from typing import Dict, List, Tuple
 
 from fastapi import Depends, FastAPI, Request
@@ -12,6 +13,7 @@ from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse
 
+from app.api.docs_detail import DETAILS, FLOWS, GENERAL, POOL, PUBLIK, TOKEN
 from app.auth.deps import get_current_user_optional
 
 INTRO = """
@@ -32,9 +34,6 @@ API untuk membaca SIM, SMS, dan menjalankan USSD di modem pool Anda.
 - **pool_id**: kode modem pool. Lihat di `GET /api/pools`. Boleh dikosongkan bila akun hanya punya satu modem pool.
 - **Agent**: program di komputer yang tercolok ke modem pool. Tanpa agent yang menyala, port tampil **OFFLINE**
   dan perintah ke modem (USSD, baca SMS) tidak bisa dijalankan.
-
-**Status port**: `READY` (SIM aktif), `EMPTY` (tidak ada SIM), `SIM_ERROR` (SIM bermasalah),
-`PORT_ERROR` (modem tidak merespons), `OFFLINE` (agent tidak terhubung).
 """
 
 # Hanya tampil di Swagger; file unduhan tidak perlu menautkan dirinya sendiri.
@@ -154,10 +153,44 @@ ENDPOINTS: Dict[Tuple[str, str], Tuple[str, str, str]] = {
 }
 
 
+def _fields_table(fields) -> List[str]:
+    return ["| Field | Arti |", "|---|---|", *[f"| `{name}` | {_cell(meaning)} |" for name, meaning in fields]]
+
+
+def _apply_detail(operation: dict, detail: dict) -> None:
+    """Tampilkan hak akses, arti field, catatan, serta contoh balasan dan error di Swagger."""
+    if not detail:
+        return
+    extra = [f"**Akses:** {detail['access']}"]
+    if detail.get("fields"):
+        extra += ["", "**Arti field**", "", *_fields_table(detail["fields"])]
+    if detail.get("notes"):
+        extra += ["", f"**Catatan:** {detail['notes']}"]
+    operation["description"] = operation.get("description", "") + "\n\n" + "\n".join(extra)
+
+    body = operation.get("requestBody", {}).get("content", {}).get("application/json")
+    if body is not None and "body" in detail:
+        body["example"] = detail["body"]
+    responses = operation.setdefault("responses", {})
+    if "422" in responses:
+        responses["422"]["description"] = "Format isian salah (mis. angka diisi teks). `detail` berisi field yang salah."
+    if isinstance(detail.get("response"), (dict, list)):
+        ok = responses.setdefault("200", {"description": "Berhasil"})
+        ok["description"] = "Berhasil"
+        ok.setdefault("content", {}).setdefault("application/json", {})["example"] = detail["response"]
+    by_code: Dict[int, List[Tuple[str, str]]] = {}
+    for code, message, meaning in detail.get("errors", []):
+        by_code.setdefault(code, []).append((message, meaning))
+    for code, items in by_code.items():
+        lines = [f"- `{message}`" + (f": {meaning}" if meaning else "") for message, meaning in items]
+        responses[str(code)] = {"description": "\n".join(lines),
+                                "content": {"application/json": {"example": {"detail": items[0][0]}}}}
+
+
 def build_openapi(app: FastAPI) -> dict:
     if app.openapi_schema:
         return app.openapi_schema
-    schema = get_openapi(title="SCPool API", version=app.version, description=DOWNLOADS + INTRO,
+    schema = get_openapi(title="SCPool API", version=app.version, description=DOWNLOADS + INTRO + GENERAL,
                          routes=app.routes, tags=TAGS)
     for path, operations in schema["paths"].items():
         for method, operation in operations.items():
@@ -165,6 +198,7 @@ def build_openapi(app: FastAPI) -> dict:
             if entry:
                 tag, summary, description = entry
                 operation.update(tags=[tag], summary=summary, description=description)
+            _apply_detail(operation, DETAILS.get((method.upper(), path), {}))
     schema.setdefault("components", {})["securitySchemes"] = {
         "Token": {"type": "http", "scheme": "bearer", "description": "Token dari `POST /api/auth/login`."}}
     schema["security"] = [{"Token": []}]
@@ -193,9 +227,27 @@ def _body_fields(schema: dict, operation: dict) -> List[str]:
     return rows
 
 
+_PATH_EXAMPLES = {"{slot_index}": "1", "{pool_id}": POOL, "{user_id}": "2", "{operator_id}": "telkomsel"}
+
+
+def _curl(base_url: str, method: str, path: str, detail: dict) -> List[str]:
+    url = path
+    for placeholder, value in _PATH_EXAMPLES.items():
+        url = url.replace(placeholder, value)
+    lines = [f"curl -X {method} \"{base_url}{url}{detail.get('query', '')}\""]
+    if detail.get("access") != PUBLIK:
+        lines.append(f"  -H \"Authorization: Bearer {TOKEN}\"")
+    if "body" in detail:
+        lines += ["  -H \"Content-Type: application/json\"",
+                  f"  -d '{json.dumps(detail['body'], ensure_ascii=False)}'"]
+    return ["```bash", " \\\n".join(lines), "```"]
+
+
 def to_markdown(schema: dict, base_url: str) -> str:
-    """Panduan API yang bisa dibaca tanpa Swagger: dibuat dari skema yang sama, jadi selalu sesuai dengan /docs."""
-    out = [f"# SCPool API (versi {schema['info']['version']})", "", f"Alamat server: `{base_url}`", "", INTRO.strip(), ""]
+    """Panduan API lengkap tanpa Swagger. Endpoint dan parameternya diambil dari skema yang sama dengan /docs."""
+    out = [f"# SCPool API (versi {schema['info']['version']})", "", f"Alamat server: `{base_url}`", "",
+           INTRO.strip(), "", GENERAL.strip(), "", FLOWS.strip().replace("https://scpool.ardh1337.cloud", base_url),
+           "", "# Daftar endpoint", ""]
     by_tag: Dict[str, List[Tuple[str, str, dict]]] = {}
     for path, operations in schema["paths"].items():
         for method, operation in operations.items():
@@ -206,18 +258,37 @@ def to_markdown(schema: dict, base_url: str) -> str:
             continue
         out += [f"## {tag['name']}", "", tag["description"], ""]
         for method, path, operation in items:
-            out += [f"### {operation.get('summary', path)}", "", f"`{method} {path}`", "",
-                    operation.get("description", ""), ""]
+            detail = DETAILS.get((method, path), {})
+            summary = ENDPOINTS.get((method, path), ("", path, ""))
+            out += [f"### {summary[1]}", "", f"`{method} {path}`", "", summary[2], ""]
+            if detail.get("access"):
+                out += [f"**Akses:** {detail['access']}", ""]
             params = [p for p in operation.get("parameters", []) if p.get("in") != "cookie"]
             if params:
-                out += ["| Parameter | Letak | Keterangan |", "|---|---|---|"]
+                out += ["**Parameter**", "", "| Parameter | Letak | Keterangan |", "|---|---|---|"]
                 out += [f"| `{p['name']}` | {_PLACE.get(p['in'], p['in'])} | "
                         f"{'wajib' if p.get('required') else 'opsional'}"
                         f"{'. ' + _cell(p['description']) if p.get('description') else ''} |" for p in params]
                 out.append("")
             fields = _body_fields(schema, operation)
             if fields:
-                out += ["Isi permintaan (JSON):", "", "| Field | Tipe | Keterangan |", "|---|---|---|", *fields, ""]
+                out += ["**Isi permintaan (JSON)**", "", "| Field | Tipe | Keterangan |", "|---|---|---|", *fields, ""]
+            if detail:
+                out += ["**Contoh permintaan**", "", *_curl(base_url, method, path, detail), ""]
+            if isinstance(detail.get("response"), (dict, list)):
+                out += ["**Contoh balasan** (`200`)", "", "```json",
+                        json.dumps(detail["response"], indent=2, ensure_ascii=False), "```", ""]
+            elif detail.get("response"):
+                out += [f"**Balasan:** {detail['response']}", ""]
+            if detail.get("fields"):
+                out += ["**Arti field**", "", *_fields_table(detail["fields"]), ""]
+            if detail.get("errors"):
+                out += ["**Kemungkinan error**", "", "| Kode | Pesan (`detail`) | Arti |", "|---|---|---|"]
+                out += [f"| `{code}` | {_cell(message)} | {_cell(meaning)} |" for code, message, meaning in detail["errors"]]
+                out.append("")
+            if detail.get("notes"):
+                out += [f"**Catatan:** {detail['notes']}", ""]
+            out += ["---", ""]
     return "\n".join(out) + "\n"
 
 
