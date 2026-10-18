@@ -145,8 +145,11 @@ class TestAPIEndpoints(unittest.TestCase):
         self.assertIn("frame-ancestors 'none'", resp.headers["content-security-policy"])
         https = self.client.get("/", headers={"x-forwarded-proto": "https"})
         self.assertIn("strict-transport-security", https.headers)
-        for path in ("/docs", "/redoc", "/openapi.json"):
-            self.assertEqual(self.client.get(path).status_code, 404)
+        # /docs dan /openapi.json hanya untuk yang sudah login (tests/test_api_docs.py); ReDoc tidak dipakai.
+        self.assertEqual(self.client.get("/redoc").status_code, 404)
+        public = TestClient(app, base_url="http://scpool.example.com")
+        self.assertEqual(public.get("/openapi.json").status_code, 401)
+        self.assertNotEqual(public.get("/docs", follow_redirects=False).status_code, 200)
 
     def test_password_change_keeps_current_bearer_session(self):
         """Ganti password lewat Bearer: sesi sendiri tetap hidup, sesi lain dicabut."""
