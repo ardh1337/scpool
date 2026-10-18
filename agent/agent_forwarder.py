@@ -21,6 +21,7 @@ import subprocess
 import sys
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -60,6 +61,7 @@ HEARTBEAT_INTERVAL = 60.0    # kirim ulang status port walau tidak berubah
 SMS_READ_INTERVAL = 20.0     # detik antar pembacaan SMS per port READY
 SMS_RESEND_INTERVAL = 300.0  # kirim ulang seluruh isi kartu walau tidak berubah (server melakukan dedup)
 MAX_PARALLEL_PORTS = 8
+MAX_WORKER_THREADS = 80      # 64 port + pemindai; tiap USSD memegang satu thread selama dial
 CONFIG_FILE = Path(__file__).resolve().with_name("agent_config.json")
 
 # Allowlist perintah AT (cerminan config server). Menghapus SMS (AT+CMGD), reset (ATZ/AT&F), dan
@@ -388,6 +390,7 @@ class Session:
         self.last_state: Dict[str, Tuple[str, float]] = {}
         self.sms_state: Dict[str, Tuple[str, float, str, float]] = {}
         self.known_units: List[Tuple[str, List[str]]] = []
+        self.requests: set = set()
 
     async def send(self, payload: dict) -> None:
         async with self.send_lock:
@@ -458,7 +461,18 @@ class Session:
         elif kind == "rescan":
             self.rescan.set()
         elif kind in ("cmd", "ussd"):
+            # Jangan di-await: satu USSD bisa 15 detik dan menahan pesan lain. Server meminta nomor 32 SIM sekaligus;
+            # bila diproses berurutan, sisanya melewati batas tunggu server lalu kena jeda percobaan ulang.
+            # Port yang sama tetap bergiliran lewat port_lock.
+            task = asyncio.create_task(self._run_request(payload))
+            self.requests.add(task)
+            task.add_done_callback(self.requests.discard)
+
+    async def _run_request(self, payload: dict) -> None:
+        try:
             await self.handle_request(payload)
+        except Exception as err:
+            log(f"Gagal memproses permintaan server: {type(err).__name__}")
 
     async def handle_request(self, payload: dict) -> None:
         req_id, port = payload.get("req_id"), payload.get("port")
@@ -532,6 +546,8 @@ async def connect_and_run(server_url: str, token: str, allowed_ports: Optional[L
                         scanner.result()  # munculkan error pemindai agar sesi di-restart
             finally:
                 scanner.cancel()
+                for task in list(session.requests):
+                    task.cancel()
     except Exception as exc:
         if _http_status(exc) in (401, 403):
             raise AuthRejected() from exc
@@ -563,6 +579,8 @@ def save_token(server_url: str, token: str) -> None:
 
 
 async def main_loop() -> None:
+    # Bawaan asyncio.to_thread = min(32, CPU+4) thread; PC 4 core hanya 8, sehingga USSD 32 port kembali mengantre.
+    asyncio.get_running_loop().set_default_executor(ThreadPoolExecutor(max_workers=MAX_WORKER_THREADS))
     parser = argparse.ArgumentParser(description="SCPool Agent")
     parser.add_argument("--server", default="", help="URL WebSocket server (wss://host/ws/agent)")
     parser.add_argument("--token", default="", help="Agent token (scpool_...)")

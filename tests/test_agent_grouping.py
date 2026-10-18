@@ -39,3 +39,54 @@ def test_location_lookup_failure_falls_back_to_default_group(monkeypatch):
 @pytest.mark.skipif(not agent.sys.platform.startswith("win"), reason="hanya Windows")
 def test_windows_port_locations_runs():
     assert isinstance(agent.windows_port_locations(), dict)
+
+
+class _FakeWS:
+    def __init__(self):
+        self.sent = []
+
+    async def send(self, text):
+        self.sent.append(text)
+
+
+def _slow_ussd_session(monkeypatch, delay):
+    import contextlib
+    import time as _time
+
+    monkeypatch.setattr(agent, "get_local_ports", lambda allowed=None: ["COM3", "COM4"])
+    monkeypatch.setattr(agent, "open_port", lambda port: contextlib.nullcontext(port))
+    monkeypatch.setattr(agent, "run_ussd", lambda ser, code, timeout: (_time.sleep(delay), (True, "+CUSD: 0", None))[1])
+    return agent.Session(_FakeWS(), None)
+
+
+def test_ussd_requests_on_different_ports_run_in_parallel(monkeypatch):
+    import asyncio
+    import time as _time
+
+    session = _slow_ussd_session(monkeypatch, 0.5)
+
+    async def scenario():
+        start = _time.monotonic()
+        for i, port in enumerate(["COM3", "COM4"]):
+            await session.handle_server_message({"type": "ussd", "req_id": i, "port": port, "code": "*808#"})
+        await asyncio.gather(*session.requests)
+        return _time.monotonic() - start
+
+    assert asyncio.run(scenario()) < 0.9
+    assert len(session.ws.sent) == 2
+
+
+def test_ussd_requests_on_same_port_still_take_turns(monkeypatch):
+    import asyncio
+    import time as _time
+
+    session = _slow_ussd_session(monkeypatch, 0.3)
+
+    async def scenario():
+        start = _time.monotonic()
+        for i in range(2):
+            await session.handle_server_message({"type": "ussd", "req_id": i, "port": "COM3", "code": "*808#"})
+        await asyncio.gather(*session.requests)
+        return _time.monotonic() - start
+
+    assert asyncio.run(scenario()) >= 0.6
