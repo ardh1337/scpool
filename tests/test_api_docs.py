@@ -1,0 +1,44 @@
+"""Dokumentasi API (/docs): hanya untuk yang sudah login, dan setiap endpoint punya penjelasan."""
+
+from fastapi.testclient import TestClient
+from starlette.routing import Route
+
+from app.api.docs import ENDPOINTS, build_openapi
+from app.main import app
+
+
+def _anonymous_client():
+    # Auto-login lokal hanya untuk host localhost; host publik memaksa jalur login biasa.
+    return TestClient(app, base_url="http://scpool.example.com")
+
+
+def test_docs_require_login():
+    with _anonymous_client() as client:
+        assert client.get("/openapi.json").status_code == 401
+        page = client.get("/docs", follow_redirects=False)
+        assert page.status_code in (302, 307) and page.headers["location"] == "/"
+
+
+def test_docs_page_loads_swagger_for_logged_in_user():
+    with TestClient(app) as client:  # localhost + auto-login = admin lokal
+        page = client.get("/docs")
+        assert page.status_code == 200
+        assert "swagger-ui-bundle.js" in page.text
+        assert "https://cdn.jsdelivr.net" in page.headers["content-security-policy"]
+        schema = client.get("/openapi.json").json()
+        assert schema["paths"]["/api/ussd/bulk"]["post"]["summary"] == "Dial USSD di banyak port sekaligus"
+
+
+def test_other_pages_keep_strict_csp():
+    with TestClient(app) as client:
+        assert "cdn.jsdelivr.net" not in client.get("/").headers["content-security-policy"]
+
+
+def test_every_endpoint_is_documented():
+    app.openapi_schema = None
+    schema = build_openapi(app)
+    documented = {(m.upper(), p) for p, ops in schema["paths"].items() for m in ops}
+    missing = documented - set(ENDPOINTS)
+    assert not missing, f"Endpoint tanpa penjelasan di app/api/docs.py: {sorted(missing)}"
+    stale = set(ENDPOINTS) - documented
+    assert not stale, f"Entri dokumentasi untuk endpoint yang sudah tidak ada: {sorted(stale)}"

@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.api.docs import install as install_docs
 from app.api.routes import router
 from app.auth.security import auth_rate_limiter, get_client_ip, is_https_request
 from app.core.config import settings
@@ -91,6 +92,7 @@ async def security_headers(request: Request, call_next):
 
 
 app.include_router(router)
+install_docs(app)
 WEB_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(WEB_DIR)), name="static")
 
@@ -154,7 +156,7 @@ def health():
             "detector_running": local_bridge.is_running()}
 
 
-@app.get("/")
+@app.get("/", include_in_schema=False)
 def serve_dashboard():
     index_path = WEB_DIR / "index.html"
     if index_path.exists():
