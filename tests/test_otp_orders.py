@@ -54,6 +54,7 @@ def setup():
     iccids = [f"896210{secrets.randbelow(10 ** 13):013d}" for _ in ports]
     for port, iccid in zip(ports, iccids):
         agent_gateway._on_slot_update(owner, {"port": port, "cpin": "READY", "iccid": iccid}, None)
+        agent_gateway._on_sms_batch(owner, {"port": port, "messages": []}, None)  # pembacaan awal oleh agent
     with session_scope() as db:
         for n, iccid in enumerate(iccids):
             sim = db.query(SIMCard).filter(SIMCard.iccid == iccid).one()
@@ -183,3 +184,58 @@ def test_orders_are_private_per_account(setup):
     order = _order(setup).json()
     other = setup["client"].get(f"/api/otp/orders/{order['order_id']}", headers={"X-API-Key": "sk_" + "x" * 43})
     assert other.status_code == 401
+
+
+def test_waiting_phone_gets_otp_immediately_after_agent_delivers_sms(setup):
+    """Jalur asli agent (handle_agent_message) membangunkan HP yang menunggu tanpa jeda polling."""
+    import json
+    import time
+
+    order = _order(setup).json()
+    port = _port_of(setup, order)
+    delivered = {}
+
+    def agent_sends_sms():
+        time.sleep(1.0)
+        msg = {"type": "sms_batch", "port": port, "messages": [
+            {"index": 1, "sender": "WhatsApp", "body": "Kode WhatsApp Anda: 246-801.",
+             "timestamp": datetime.now(timezone.utc).isoformat()}]}
+        setup["client"].portal.call(agent_gateway.handle_agent_message, setup["owner"], json.dumps(msg))
+        delivered["at"] = time.monotonic()
+
+    threading.Thread(target=agent_sends_sms).start()
+    got = setup["client"].get(f"/api/otp/orders/{order['order_id']}?wait=10", headers=setup["hdr"]).json()
+    latency = time.monotonic() - delivered["at"]
+    assert got["otp"] == "246801"
+    assert latency < 0.5, f"OTP sampai ke HP {latency:.2f} detik setelah SMS tersimpan"
+
+
+def _first_read_of_new_sim(setup, port, iccid, messages):
+    """SIM baru terdeteksi lalu pembacaan SMS pertamanya (semua isinya ditandai PESAN BAWAAN)."""
+    agent_gateway._on_slot_update(setup["owner"], {"port": port, "cpin": "READY", "iccid": iccid}, None)
+    with session_scope() as db:
+        db.query(SIMCard).filter(SIMCard.iccid == iccid).one().phone_number = "+6285700001111"
+        db.commit()
+
+
+def test_otp_in_first_read_of_a_new_sim_is_caught_but_old_otp_is_not(setup):
+    port = setup["ports"][0]
+    _first_read_of_new_sim(setup, port, "89621099999999000011", [])
+    order = next(o for o in (_order(setup).json(), _order(setup).json()) if o["phone_number"] == "+6285700001111")
+    old = (datetime.now(timezone.utc) - timedelta(hours=3)).isoformat()
+    new = datetime.now(timezone.utc).isoformat()
+    agent_gateway._on_sms_batch(setup["owner"], {"port": port, "messages": [
+        {"index": 1, "sender": "WhatsApp", "body": "Kode WhatsApp Anda: 111-111.", "timestamp": old},
+    ]}, None)
+    stale = setup["client"].get(f"/api/otp/orders/{order['order_id']}", headers=setup["hdr"]).json()
+    assert stale["otp"] is None  # OTP lama di kartu bukan untuk pesanan ini
+
+    _first_read_of_new_sim(setup, port, "89621099999999000022", [])
+    with session_scope() as db:
+        db.get(NumberOrder, order["order_id"]).iccid = "89621099999999000022"
+        db.commit()
+    agent_gateway._on_sms_batch(setup["owner"], {"port": port, "messages": [
+        {"index": 2, "sender": "WhatsApp", "body": "Kode WhatsApp Anda: 222-333.", "timestamp": new},
+    ]}, None)
+    got = setup["client"].get(f"/api/otp/orders/{order['order_id']}", headers=setup["hdr"]).json()
+    assert got["otp"] == "222333"

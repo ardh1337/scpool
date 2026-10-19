@@ -47,6 +47,7 @@ SERVICE_NAME = re.compile(r"^[a-z0-9][a-z0-9_-]{1,29}\Z")
 
 DEFAULT_MINUTES = 10
 MIN_MINUTES, MAX_MINUTES = 2, 30
+SMSC_CLOCK_TOLERANCE = timedelta(minutes=2)
 LOCKING = (OrderStatus.ACTIVE, OrderStatus.OTP_RECEIVED)
 USED = (OrderStatus.OTP_RECEIVED, OrderStatus.DONE)
 
@@ -142,13 +143,19 @@ def refresh_order(db: Session, order: NumberOrder, after_sms_id: int = 0) -> Num
     db.refresh(order)
     if order.status not in LOCKING or order.slot_id is None:
         return order
-    # received_at = waktu SMS tersimpan di server. SMS lama di kartu sudah tersimpan sebelum pesanan dibuat, jadi
-    # yang lolos penyaring ini memang baru. Waktu SMSC tidak dipakai: jam operator/modem bisa meleset.
+    # received_at = waktu SMS tersimpan di server; SMS biasa yang tersimpan setelah pesanan dibuat memang baru.
+    # Pembacaan PERTAMA sebuah SIM menandai semua isinya PESAN BAWAAN, termasuk OTP yang kebetulan masuk saat itu
+    # (SIM baru terdeteksi lalu langsung dipesan). Untuk SMS itu waktu kirim SMSC yang menentukan, dengan toleransi
+    # karena jam operator/modem bisa meleset; OTP lama yang masih tersimpan di kartu tetap tidak terbaca.
+    since = _aware(order.created_at)
     query = db.query(SMSMessage).filter(
-        SMSMessage.slot_id == order.slot_id, SMSMessage.status == SMSStatus.RECEIVED,
-        SMSMessage.received_at >= _aware(order.created_at), SMSMessage.id > after_sms_id,
+        SMSMessage.slot_id == order.slot_id,
+        SMSMessage.status.in_((SMSStatus.RECEIVED, SMSStatus.PESAN_BAWAAN)),
+        SMSMessage.received_at >= since, SMSMessage.id > after_sms_id,
     ).order_by(SMSMessage.id.desc()).limit(20)
     for sms in query.all():
+        if sms.status == SMSStatus.PESAN_BAWAAN and _aware(sms.smsc_timestamp) < since - SMSC_CLOCK_TOLERANCE:
+            continue
         if not sms_matches_service(order.service, sms.sender_raw, sms.body):
             continue
         code = extract_otp(sms.body)

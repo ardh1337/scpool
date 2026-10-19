@@ -54,6 +54,39 @@ from app.services.units import UnitError, mark_slots_offline, owned_pool_ids, sy
 logger = logging.getLogger("agent_gateway")
 
 MAX_REALTIME_SMS_PER_MINUTE = 300
+
+
+class SmsSignal:
+    """Membangunkan semua yang sedang menunggu OTP begitu SMS dari agent tersimpan, tanpa polling berkala."""
+
+    def __init__(self):
+        self._event: Optional[asyncio.Event] = None
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
+
+    def _current(self) -> asyncio.Event:
+        # Event terikat ke event loop pemakai pertamanya; buat baru bila loop berganti (mis. server dinyalakan ulang).
+        loop = asyncio.get_running_loop()
+        if self._event is None or self._loop is not loop:
+            self._event, self._loop = asyncio.Event(), loop
+        return self._event
+
+    def ticket(self) -> asyncio.Event:
+        """Ambil SEBELUM memeriksa database: SMS yang masuk sesudahnya pasti membangunkan wait(ticket)."""
+        return self._current()
+
+    def notify(self) -> None:
+        self._current().set()
+        self._event = asyncio.Event()
+
+    @staticmethod
+    async def wait(ticket: asyncio.Event, timeout: float) -> None:
+        try:
+            await asyncio.wait_for(ticket.wait(), timeout)
+        except asyncio.TimeoutError:
+            pass
+
+
+sms_signal = SmsSignal()
 AGENT_USSD_OVERHEAD = 12.0  # tunggu port di agent (6 dtk) + AT+CUSD=2 (2 dtk) + jaringan/WebSocket
 _sms_limiter = SimpleRateLimiter()
 
@@ -274,6 +307,8 @@ class AgentGateway:
                 handler, owner_id, data, None)
             if msg_type == "slot_update" and result:
                 self._schedule_number_fetch(owner_id, *result)
+            elif msg_type in ("sms_batch", "sms_received"):
+                sms_signal.notify()
 
     # --------------------------------------------------------------- handler DB
     @staticmethod

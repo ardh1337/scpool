@@ -497,7 +497,8 @@ DETAILS: Dict[Tuple[str, str], Detail] = {
                     "nomornya. Coba lagi nanti atau tambah SIM."),
                    (409, "Agent modem pool sedang tidak terhubung, jadi OTP tidak bisa diterima.", ""),
                    (409, "Akun ini belum punya modem pool.", "")],
-        "notes": "Agent otomatis membaca SMS port itu tiap ~3 detik selama pesanan aktif (agent versi baru).",
+        "notes": "Agent otomatis membaca SMS port itu tiap ~1 detik selama pesanan aktif (agent versi baru), dan server "
+                 "langsung meneruskan OTP ke HP yang sedang menunggu (`wait`).",
     },
     ("GET", "/api/otp/orders/{order_id}"): {
         "access": API_KEY,

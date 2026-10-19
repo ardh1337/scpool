@@ -18,7 +18,7 @@ from app.auth.deps import get_current_user_optional, is_admin, require_user
 from app.auth.security import hash_session_token
 from app.database.connection import get_db
 from app.database.models import ApiKey, ModemPool, NumberOrder, OrderStatus, Slot, UserAccount
-from app.services.agent_gateway import agent_gateway
+from app.services.agent_gateway import agent_gateway, sms_signal
 from app.services.otp_orders import (
     DEFAULT_MINUTES, LOCKING, MAX_MINUTES, MIN_MINUTES, SERVICES, OrderError, cancel_order, clean_service,
     finish_order, order_dict, refresh_order, reserve_number,
@@ -132,12 +132,15 @@ async def get_order(order_id: int, wait: int = Query(0, ge=0, le=MAX_WAIT_SECOND
     order = _own_order(db, user, order_id)
     deadline = asyncio.get_running_loop().time() + wait
     while True:
+        ticket = sms_signal.ticket()
         db.commit()  # tutup transaksi yang mungkin terbuka agar SMS yang baru masuk dari agent ikut terbaca
         order = refresh_order(db, order, after)
         got_new = order.status == OrderStatus.OTP_RECEIVED and (order.sms_id or 0) > after
         if got_new or order.status not in LOCKING or asyncio.get_running_loop().time() >= deadline:
             return order_dict(db, order)
-        await asyncio.sleep(1.0)
+        # Bangun begitu SMS baru tersimpan; batas 2 detik tetap ada agar kedaluwarsa pesanan terdeteksi.
+        remaining = deadline - asyncio.get_running_loop().time()
+        await sms_signal.wait(ticket, min(2.0, max(remaining, 0.0)))
 
 
 @router.post("/otp/orders/{order_id}/finish")
