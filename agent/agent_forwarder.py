@@ -59,6 +59,8 @@ BAUDRATE = 115200
 SCAN_INTERVAL = 8.0          # detik antar siklus pemindaian semua port
 HEARTBEAT_INTERVAL = 60.0    # kirim ulang status port walau tidak berubah
 SMS_READ_INTERVAL = 20.0     # detik antar pembacaan SMS per port READY
+WATCH_INTERVAL = 3.0         # detik antar pembacaan SMS untuk port yang sedang menunggu OTP
+MAX_WATCH_SECONDS = 1800.0
 SMS_RESEND_INTERVAL = 300.0  # kirim ulang seluruh isi kartu walau tidak berubah (server melakukan dedup)
 MAX_PARALLEL_PORTS = 8
 PORT_WAIT = 6.0              # detik maksimal permintaan server menunggu port dipakai pemindai
@@ -392,6 +394,7 @@ class Session:
         self.sms_state: Dict[str, Tuple[str, float, str, float]] = {}
         self.known_units: List[Tuple[str, List[str]]] = []
         self.requests: set = set()
+        self.watched: Dict[str, float] = {}  # port -> batas waktu baca cepat
 
     async def send(self, payload: dict) -> None:
         async with self.send_lock:
@@ -437,10 +440,13 @@ class Session:
         if status["cpin"] != "READY":
             self.sms_state.pop(port, None)
             return
+        await self.sync_sms(port, status.get("iccid") or "", SMS_READ_INTERVAL)
 
-        iccid = status.get("iccid") or ""
+    async def sync_sms(self, port: str, iccid: str, interval: float) -> None:
+        """Baca SMS di kartu bila pembacaan terakhir lebih lama dari `interval`, kirim ke server bila berubah."""
+        now = time.time()
         prev = self.sms_state.get(port)  # (iccid, waktu baca, digest, waktu kirim terakhir)
-        if prev and prev[0] == iccid and now - prev[1] < SMS_READ_INTERVAL:
+        if prev and prev[0] == iccid and now - prev[1] < interval:
             return
         messages = await asyncio.to_thread(read_sms, port)
         if messages is None:
@@ -455,12 +461,35 @@ class Session:
             last_sent = now
         self.sms_state[port] = (iccid, now, digest, last_sent)
 
+    async def watch_loop(self) -> None:
+        """Port yang sedang menunggu OTP (diminta server lewat watch_sms) dibaca jauh lebih sering."""
+        while True:
+            await asyncio.sleep(WATCH_INTERVAL)
+            now = time.time()
+            for port, until in list(self.watched.items()):
+                if until < now:
+                    self.watched.pop(port, None)
+                    continue
+                state = self.sms_state.get(port)
+                if state:  # hanya port READY yang sudah pernah terbaca pemindai
+                    await self.sync_sms(port, state[0], WATCH_INTERVAL)
+
+    async def run(self) -> None:
+        await asyncio.gather(self.scan_loop(), self.watch_loop())
+
     async def handle_server_message(self, payload: dict) -> None:
         kind = payload.get("type")
         if kind == "ping":
             await self.send({"type": "pong"})
         elif kind == "rescan":
             self.rescan.set()
+        elif kind == "watch_sms":
+            port, seconds = payload.get("port"), payload.get("seconds")
+            if isinstance(port, str) and isinstance(seconds, (int, float)):
+                if seconds > 0:
+                    self.watched[port] = time.time() + min(float(seconds), MAX_WATCH_SECONDS)
+                else:
+                    self.watched.pop(port, None)
         elif kind in ("cmd", "ussd"):
             # Jangan di-await: satu USSD bisa 15 detik dan menahan pesan lain. Server meminta nomor 32 SIM sekaligus;
             # bila diproses berurutan, sisanya melewati batas tunggu server lalu kena jeda percobaan ulang.
@@ -536,7 +565,7 @@ async def connect_and_run(server_url: str, token: str, allowed_ports: Optional[L
             log(f"Terhubung sebagai {welcome.get('username')}")
 
             session = Session(ws, allowed_ports)
-            scanner = asyncio.create_task(session.scan_loop())
+            scanner = asyncio.create_task(session.run())
             try:
                 async for message in ws:
                     try:

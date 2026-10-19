@@ -13,7 +13,7 @@ from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse
 
-from app.api.docs_detail import DETAILS, FLOWS, GENERAL, POOL, PUBLIK, TOKEN
+from app.api.docs_detail import API_KEY, DETAILS, FLOWS, GENERAL, POOL, PUBLIK, SAMPLE_KEY, TOKEN
 from app.auth.deps import get_current_user_optional
 
 INTRO = """
@@ -48,6 +48,8 @@ TAGS = [
     {"name": "SIM & Port", "description": "Status setiap port dan SIM di dalamnya."},
     {"name": "SMS", "description": "SMS yang masuk ke SIM, termasuk kode OTP."},
     {"name": "USSD", "description": "Dial kode USSD (mis. cek nomor `*808#`) dan kode bawaan tiap operator."},
+    {"name": "Otomasi HP", "description": "Untuk aplikasi di smartphone: ambil nomor, tunggu OTP, selesai. "
+                                          "Memakai kunci API (`X-API-Key`)."},
     {"name": "Agent", "description": "Status dan unduhan program agent untuk komputer modem pool."},
     {"name": "Admin", "description": "Khusus administrator: kelola pengguna dan pengaturan sistem."},
 ]
@@ -124,6 +126,35 @@ ENDPOINTS: Dict[Tuple[str, str], Tuple[str, str, str]] = {
         "USSD", "Kode USSD tiap operator", "Kode USSD cek nomor yang dipakai untuk setiap operator."),
     ("PUT", "/api/operators/{operator_id}"): (
         "USSD", "Ganti kode USSD operator", "Khusus administrator. Mengubah kode USSD cek nomor untuk satu operator."),
+
+    # Otomasi HP
+    ("GET", "/api/otp/services"): (
+        "Otomasi HP", "Daftar layanan",
+        "Layanan yang dikenali beserta kata yang dicari di pengirim atau isi SMS. Layanan lain tetap bisa dipakai: "
+        "namanya sendiri dijadikan kata kunci."),
+    ("POST", "/api/otp/orders"): (
+        "Otomasi HP", "Ambil nomor",
+        "Mengunci satu nomor untuk satu layanan. Nomor yang diberikan: SIM aktif, agent-nya online, tidak sedang "
+        "dikunci HP lain, dan belum pernah menerima OTP untuk layanan yang sama."),
+    ("GET", "/api/otp/orders/{order_id}"): (
+        "Otomasi HP", "Cek / tunggu OTP",
+        "Status pesanan dan kode OTP. Isi `wait` (detik) agar server menunggu sampai OTP masuk, jadi HP tidak perlu "
+        "bertanya berulang-ulang."),
+    ("POST", "/api/otp/orders/{order_id}/finish"): (
+        "Otomasi HP", "Selesai",
+        "Melepas kunci nomor. Bila OTP sudah diterima, nomor tercatat sudah dipakai untuk layanan ini."),
+    ("POST", "/api/otp/orders/{order_id}/cancel"): (
+        "Otomasi HP", "Batal",
+        "Melepas kunci nomor sebelum OTP masuk. Nomor boleh diberikan lagi untuk layanan yang sama."),
+    ("GET", "/api/otp/orders"): (
+        "Otomasi HP", "Riwayat pesanan", "Pesanan milik akun ini, yang terbaru di atas."),
+    ("GET", "/api/otp/keys"): (
+        "Otomasi HP", "Daftar kunci API", "Kunci API milik akun ini. Kunci lengkapnya tidak pernah ditampilkan lagi."),
+    ("POST", "/api/otp/keys"): (
+        "Otomasi HP", "Buat kunci API",
+        "Membuat kunci untuk aplikasi HP. Kunci lengkap (`api_key`) **hanya ditampilkan sekali**; simpan baik-baik."),
+    ("DELETE", "/api/otp/keys/{key_id}"): (
+        "Otomasi HP", "Cabut kunci API", "Kunci langsung tidak bisa dipakai lagi. Pakai bila HP hilang atau kunci bocor."),
 
     # Agent
     ("GET", "/api/agent/status"): (
@@ -227,7 +258,8 @@ def _body_fields(schema: dict, operation: dict) -> List[str]:
     return rows
 
 
-_PATH_EXAMPLES = {"{slot_index}": "1", "{pool_id}": POOL, "{user_id}": "2", "{operator_id}": "telkomsel"}
+_PATH_EXAMPLES = {"{slot_index}": "1", "{pool_id}": POOL, "{user_id}": "2", "{operator_id}": "telkomsel",
+                  "{order_id}": "41", "{key_id}": "3"}
 
 
 def _curl(base_url: str, method: str, path: str, detail: dict) -> List[str]:
@@ -235,7 +267,9 @@ def _curl(base_url: str, method: str, path: str, detail: dict) -> List[str]:
     for placeholder, value in _PATH_EXAMPLES.items():
         url = url.replace(placeholder, value)
     lines = [f"curl -X {method} \"{base_url}{url}{detail.get('query', '')}\""]
-    if detail.get("access") != PUBLIK:
+    if detail.get("access") == API_KEY:
+        lines.append(f"  -H \"X-API-Key: {SAMPLE_KEY}\"")
+    elif detail.get("access") != PUBLIK:
         lines.append(f"  -H \"Authorization: Bearer {TOKEN}\"")
     if "body" in detail:
         lines += ["  -H \"Content-Type: application/json\"",

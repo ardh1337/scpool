@@ -87,7 +87,7 @@ async def _run() -> None:
     await agent_gateway.register(owner.id, to_agent, owner)
     logger.info("Modem lokal dipindai langsung oleh server (akun %s).", owner.username)
     try:
-        await session.scan_loop()
+        await session.run()
     finally:
         for task in list(to_agent.tasks) + list(session.requests):
             task.cancel()

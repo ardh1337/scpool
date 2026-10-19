@@ -352,3 +352,55 @@ class SystemSetting(Base):
     value = Column(Text, nullable=True)
     description = Column(String(255), nullable=True)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+
+class ApiKey(Base):
+    """Kunci API untuk aplikasi otomasi (HP). Hanya berlaku di endpoint /api/otp; disimpan sebagai hash SHA-256."""
+    __tablename__ = "api_keys"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=False, index=True)
+    name = Column(String(50), nullable=False)
+    key_hash = Column(String(64), unique=True, nullable=False)
+    prefix = Column(String(16), nullable=False)  # awal kunci, untuk dikenali di dashboard
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    last_used_at = Column(DateTime(timezone=True), nullable=True)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class OrderStatus(str, enum.Enum):
+    ACTIVE = "ACTIVE"              # nomor dikunci, menunggu OTP
+    OTP_RECEIVED = "OTP_RECEIVED"  # OTP sudah masuk; nomor masih dikunci sampai selesai
+    DONE = "DONE"                  # selesai; nomor tercatat sudah dipakai untuk layanan ini
+    CANCELLED = "CANCELLED"        # dibatalkan sebelum OTP; nomor boleh dipakai lagi untuk layanan ini
+    EXPIRED = "EXPIRED"            # batas waktu habis tanpa OTP
+
+
+class NumberOrder(Base):
+    """
+    Pesanan nomor dari aplikasi otomasi: satu nomor dikunci untuk satu layanan sampai OTP diterima dan pesanan
+    selesai. Riwayat pemakaian per layanan dicatat lewat ICCID (melekat pada kartu, tidak berubah walau pool dihapus).
+    """
+    __tablename__ = "number_orders"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("user_accounts.id"), nullable=False)
+    slot_id = Column(Integer, nullable=True)  # bukan FK: riwayat tetap ada walau slot/pool dihapus
+    pool_id = Column(String(50), nullable=True)
+    iccid = Column(String(22), nullable=False)
+    phone_number = Column(String(20), nullable=False)
+    service = Column(String(30), nullable=False)
+    device = Column(String(50), nullable=True)
+    status = Column(SQLEnum(OrderStatus, values_callable=lambda x: [e.value for e in x]),
+                    default=OrderStatus.ACTIVE, nullable=False)
+    otp_code = Column(String(12), nullable=True)
+    sms_id = Column(Integer, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    finished_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("ix_number_orders_status", "status"),
+        Index("ix_number_orders_iccid_service", "iccid", "service"),
+        Index("ix_number_orders_user", "user_id", "created_at"),
+    )

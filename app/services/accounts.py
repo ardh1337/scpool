@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session
 from app.auth.security import generate_agent_token, hash_password
 from app.core.config import ADMIN_ROLES, ROLE_OPERATOR
 from app.database.models import (
-    Device, EventLog, ModemPool, Port, SIMCard, SIMSession, Slot, SlotNumbering, SMSMessage, SMSPart,
-    UserAccount, UserSession,
+    ApiKey, Device, EventLog, ModemPool, NumberOrder, Port, SIMCard, SIMSession, Slot, SlotNumbering, SMSMessage,
+    SMSPart, UserAccount, UserSession,
 )
 
 
@@ -71,6 +71,8 @@ def delete_account(db: Session, target: UserAccount, protected_pool_id: str) -> 
     legacy_pool_id = target.pool_id
     owned = [p.id for p in db.query(ModemPool).filter(ModemPool.owner_id == target.id).all()]
     db.query(UserSession).filter(UserSession.user_id == target.id).delete(synchronize_session=False)
+    db.query(ApiKey).filter(ApiKey.user_id == target.id).delete(synchronize_session=False)
+    db.query(NumberOrder).filter(NumberOrder.user_id == target.id).delete(synchronize_session=False)
     db.delete(target)
     db.flush()
     for pool_id in owned:

@@ -1287,6 +1287,18 @@ function pSet(){
   </section>
   ` : ''}
 
+  <!-- KUNCI API UNTUK APLIKASI HP -->
+  <section class="panel">
+   <h3>Kunci API untuk Aplikasi HP</h3>
+   <p class="mu" style="font-size:12.5px;margin-bottom:12px;">Dipakai aplikasi di smartphone untuk mengambil nomor dan kode OTP (kelompok <b>Otomasi HP</b> di <a href="/docs" target="_blank">dokumentasi API</a>). Kunci hanya berlaku untuk otomasi, tidak bisa dipakai mengubah akun. Buat satu kunci per HP agar mudah dicabut bila HP hilang.</p>
+   <form class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:12px;" onsubmit="createApiKey(event)">
+    <input id="apikey-name" maxlength="50" placeholder="Nama HP, mis. HP-07" aria-label="Nama kunci API" style="flex:1;min-width:160px;" required>
+    <button type="submit" class="btn pri">+ Buat Kunci</button>
+   </form>
+   <div id="apikey-new" hidden></div>
+   <div id="apikey-list" class="mu" style="font-size:12.5px;">Memuat…</div>
+  </section>
+
   <!-- DOKUMENTASI API INTEGRASI (LAYANAN SIM POOL) -->
   <section class="panel">
    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
@@ -1392,6 +1404,57 @@ function pSet(){
  switchApiTab(currentApiLang);
  loadCredentialsUI();
  loadTelegramSettings();
+ loadApiKeys();
+}
+
+async function loadApiKeys(){
+ const box = $('#apikey-list');
+ if(!box) return;
+ try{
+  const r = await fetch('/api/otp/keys');
+  if(!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || r.status);
+  const keys = (await r.json()).filter(k => !k.revoked);
+  const when = v => v ? new Date(v).toLocaleString('id-ID', {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : 'belum pernah';
+  box.innerHTML = keys.length ? keys.map(k => `
+   <div class="row" style="justify-content:space-between;gap:8px;padding:8px 0;border-top:1px solid var(--ln);flex-wrap:wrap;">
+    <div><b>${esc(k.name)}</b> <span class="mono">${esc(k.prefix)}…</span><br><span class="mu">Terakhir dipakai: ${esc(when(k.last_used_at))}</span></div>
+    <button type="button" class="btn danger" onclick="revokeApiKey(${jq(k.id)}, ${jq(k.name)})">Cabut</button>
+   </div>`).join('') : 'Belum ada kunci API.';
+ }catch(e){
+  box.textContent = 'Gagal memuat kunci API: ' + e.message;
+ }
+}
+
+async function createApiKey(ev){
+ ev.preventDefault();
+ const input = $('#apikey-name');
+ try{
+  const r = await fetch('/api/otp/keys', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name: input.value})});
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok){ toast(d.detail || 'Gagal membuat kunci.', 1); return; }
+  input.value = '';
+  const box = $('#apikey-new');
+  box.hidden = false;
+  box.innerHTML = `<div class="note" style="margin-bottom:12px;">
+    <b>Kunci untuk ${esc(d.name)}</b>. Salin sekarang, kunci ini <b>tidak akan ditampilkan lagi</b>.
+    <div class="row" style="gap:6px;margin-top:8px;">
+     <input class="mono" value="${esc(d.api_key)}" readonly style="flex:1;font-size:12px;background:var(--p2);" aria-label="Kunci API baru">
+     <button type="button" class="btn" onclick="copyToClipboard(${jq(d.api_key)}, 'Kunci API disalin')">📋 Salin</button>
+    </div></div>`;
+  loadApiKeys();
+ }catch(e){
+  toast('Gagal membuat kunci: ' + e.message, 1);
+ }
+}
+
+async function revokeApiKey(id, name){
+ if(!confirm(`Cabut kunci '${name}'? Aplikasi yang memakainya langsung berhenti bekerja.`)) return;
+ const r = await fetch(`/api/otp/keys/${encodeURIComponent(id)}`, {method:'DELETE'});
+ const d = await r.json().catch(()=>({}));
+ toast(d.message || d.detail || 'Selesai.', !r.ok);
+ const fresh = $('#apikey-new');
+ if(fresh){ fresh.hidden = true; fresh.innerHTML = ''; }
+ loadApiKeys();
 }
 
 async function loadTelegramSettings(){

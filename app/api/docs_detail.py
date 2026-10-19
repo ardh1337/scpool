@@ -8,10 +8,22 @@ Dipakai oleh app/api/docs.py untuk Swagger (/docs) dan Panduan API (.md).
 from typing import Dict, Tuple
 
 PUBLIK, LOGIN, ADMIN = "Publik (tanpa login)", "Wajib login", "Khusus administrator"
+API_KEY = "Kunci API (`X-API-Key`) atau login"
 
 TOKEN = "Qov_NrV9aTJSWgvtm7VeQsdUYIwt6OD0i39KMKRpSPw"
 POOL = "u2_5840651d"
+SAMPLE_KEY = "sk_Xy3k9QaLm2Vt8RbN0cWq5ZpD7hJ4uE1fG6sK3oY9iA"
 
+ORDER_ACTIVE = {"order_id": 41, "status": "ACTIVE", "service": "whatsapp", "phone_number": "+6281234567890",
+                "phone_national": "081234567890", "pool_id": POOL, "slot_index": 5, "device": "HP-07", "otp": None,
+                "sms": None, "created_at": "2026-10-19T02:41:00+00:00", "expires_at": "2026-10-19T02:51:00+00:00",
+                "seconds_left": 600}
+ORDER_OTP = {**ORDER_ACTIVE, "status": "OTP_RECEIVED", "otp": "482913", "seconds_left": 571,
+             "sms": {"id": 918, "sender": "WhatsApp", "body": "Kode WhatsApp Anda: 482-913. Jangan bagikan kode ini.",
+                     "received_at": "2026-10-19T02:41:29+00:00"}}
+
+ERR_KEY = (401, "Kunci API salah, sudah dicabut, atau akunnya nonaktif.",
+           "Periksa kunci di header `X-API-Key`, atau buat kunci baru.")
 ERR_401 = (401, "Otentikasi diperlukan. Silakan login terlebih dahulu.", "Token tidak dikirim, salah, atau sudah kedaluwarsa.")
 ERR_403_ADMIN = (403, "Akses ditolak. Fitur ini khusus Administrator.", "Akun Anda bukan administrator.")
 ERR_404_POOL = (404, "Modem pool tidak ditemukan.", "`pool_id` salah atau bukan milik akun Anda.")
@@ -54,6 +66,8 @@ Setiap endpoint ditandai salah satu:
 - **{PUBLIK}**: boleh dipanggil tanpa token.
 - **{LOGIN}**: butuh token. Anda hanya bisa melihat dan mengubah modem pool milik akun sendiri.
 - **{ADMIN}**: butuh token akun administrator.
+- **{API_KEY}**: untuk aplikasi otomasi. Kirim header `X-API-Key: sk_...`. Kunci API hanya berlaku di endpoint
+  kelompok *Otomasi HP*; tidak bisa dipakai untuk endpoint lain.
 
 ### Memilih modem pool (`pool_id`)
 
@@ -165,6 +179,69 @@ pembacaan segera.
 2. Lihat kode USSD cek nomor tiap operator di `GET /api/operators` (mis. `*808#` untuk Telkomsel).
 3. `POST /api/ussd/bulk` dengan `slot_indices` port-port satu operator dan `code` operator itu. Ulangi per operator.
 4. Nomor yang terbaca langsung tersimpan; panggil lagi `GET /api/slots` untuk melihatnya.
+"""
+
+# String biasa (bukan f-string): contoh Kotlin memakai kurung kurawal.
+FLOWS += """
+### 4. Otomasi HP: ambil nomor dan OTP
+
+Persiapan sekali: login di dashboard, buat kunci API (`POST /api/otp/keys`, atau menu Pengaturan > Kunci API),
+lalu tanam kuncinya di aplikasi HP. Satu kunci per HP memudahkan pencabutan bila HP hilang.
+
+Alur setiap kali HP butuh nomor:
+
+1. **Ambil nomor**: `POST /api/otp/orders` dengan `{"service": "whatsapp", "device": "HP-07"}`.
+   Simpan `order_id`, isi nomor (`phone_national`) di aplikasi tujuan, lalu minta OTP.
+2. **Tunggu OTP**: `GET /api/otp/orders/{order_id}?wait=30`. Ulangi sampai `status` = `OTP_RECEIVED`,
+   atau sampai `status` menjadi `EXPIRED` (nomor tidak menerima OTP; ambil nomor lain).
+3. **Pakai** nilai `otp`.
+4. **Selesai**: `POST /api/otp/orders/{order_id}/finish`. Bila batal sebelum OTP masuk:
+   `POST /api/otp/orders/{order_id}/cancel`.
+
+Butuh kode kedua (kirim ulang)? Panggil `GET /api/otp/orders/{order_id}?wait=30&after=<sms.id sebelumnya>`.
+
+Contoh Kotlin (Android, OkHttp + org.json), jalankan di luar main thread:
+
+```kotlin
+val base = "https://scpool.ardh1337.cloud"
+val apiKey = "sk_..."  // kunci API untuk HP ini
+val http = OkHttpClient.Builder().readTimeout(70, TimeUnit.SECONDS).build()
+val json = "application/json".toMediaType()
+
+fun call(method: String, path: String, body: JSONObject? = null): JSONObject {
+    val req = Request.Builder().url(base + path).header("X-API-Key", apiKey)
+        .method(method, body?.toString()?.toRequestBody(json)).build()
+    http.newCall(req).execute().use { res ->
+        val data = JSONObject(res.body!!.string())
+        if (!res.isSuccessful) throw IllegalStateException(data.optString("detail"))
+        return data
+    }
+}
+
+val order = call("POST", "/api/otp/orders", JSONObject().put("service", "whatsapp").put("device", "HP-07"))
+val id = order.getInt("order_id")
+val nomor = order.getString("phone_national")      // isi ke aplikasi tujuan, lalu minta OTP
+var otp: String? = null
+while (otp == null) {
+    val st = call("GET", "/api/otp/orders/$id?wait=30")
+    when (st.getString("status")) {
+        "OTP_RECEIVED" -> otp = st.getString("otp")
+        "EXPIRED", "CANCELLED" -> error("Nomor tidak menerima OTP, ambil nomor lain")
+    }
+}
+// ... pakai otp ...
+call("POST", "/api/otp/orders/$id/finish")
+```
+
+Contoh `curl`:
+
+```bash
+KEY="sk_..."
+curl -X POST "https://scpool.ardh1337.cloud/api/otp/orders" -H "X-API-Key: $KEY" \
+  -H "Content-Type: application/json" -d '{"service":"whatsapp","device":"HP-07"}'
+curl "https://scpool.ardh1337.cloud/api/otp/orders/41?wait=30" -H "X-API-Key: $KEY"
+curl -X POST "https://scpool.ardh1337.cloud/api/otp/orders/41/finish" -H "X-API-Key: $KEY"
+```
 """
 
 # (METHOD, path) -> detail. Kunci yang tersedia: access, query, body, response, fields, errors, notes.
@@ -392,6 +469,90 @@ DETAILS: Dict[Tuple[str, str], Detail] = {
                    (404, "Profil operator tidak ditemukan.", "")],
     },
 
+    ("GET", "/api/otp/services"): {
+        "access": API_KEY,
+        "response": [{"service": "whatsapp", "keywords": ["whatsapp"]},
+                     {"service": "google", "keywords": ["google", "g-"]},
+                     {"service": "any", "keywords": []}],
+        "fields": [("service", "Nama yang dikirim saat ambil nomor."),
+                   ("keywords", "Kata yang dicari di pengirim atau isi SMS. `any` = SMS apa pun yang memuat kode.")],
+        "errors": [ERR_KEY],
+    },
+    ("POST", "/api/otp/orders"): {
+        "access": API_KEY,
+        "body": {"service": "whatsapp", "device": "HP-07", "minutes": 10},
+        "response": ORDER_ACTIVE,
+        "fields": [("service", "Wajib. Nama layanan, huruf kecil (lihat `GET /api/otp/services`)."),
+                   ("device", "Opsional. Nama HP, untuk dikenali di riwayat."),
+                   ("minutes", "Opsional. Lama kunci nomor, 2-30 menit (bawaan 10). Lewat dari itu tanpa OTP, "
+                               "pesanan menjadi `EXPIRED`."),
+                   ("pool_id", "Opsional. Batasi ke satu modem pool."),
+                   ("order_id", "Simpan untuk langkah berikutnya."),
+                   ("phone_number / phone_national", "Nomor dalam format `+62...` dan `08...`."),
+                   ("seconds_left", "Sisa waktu kunci nomor, dalam detik.")],
+        "errors": [ERR_KEY,
+                   (400, "Nama layanan harus 2-30 karakter: huruf kecil, angka, - atau _ (mis. whatsapp).", ""),
+                   (409, "Tidak ada nomor tersedia untuk layanan 'whatsapp'. ...",
+                    "Semua nomor sedang dipakai HP lain, sudah pernah dipakai untuk layanan ini, atau belum terbaca "
+                    "nomornya. Coba lagi nanti atau tambah SIM."),
+                   (409, "Agent modem pool sedang tidak terhubung, jadi OTP tidak bisa diterima.", ""),
+                   (409, "Akun ini belum punya modem pool.", "")],
+        "notes": "Agent otomatis membaca SMS port itu tiap ~3 detik selama pesanan aktif (agent versi baru).",
+    },
+    ("GET", "/api/otp/orders/{order_id}"): {
+        "access": API_KEY,
+        "query": "?wait=30",
+        "response": ORDER_OTP,
+        "fields": [("wait", "Opsional. Tunggu sampai OTP masuk, maksimal 60 detik. `0` = langsung jawab."),
+                   ("after", "Opsional. `sms.id` OTP sebelumnya; server menunggu OTP yang lebih baru "
+                             "(dipakai saat HP meminta kirim ulang kode)."),
+                   ("status", "`ACTIVE` (menunggu), `OTP_RECEIVED`, `DONE`, `CANCELLED`, `EXPIRED`."),
+                   ("otp", "Kode OTP yang sudah diekstrak, tanpa tanda `-` atau spasi."),
+                   ("sms", "SMS asal OTP, untuk diperiksa bila perlu.")],
+        "errors": [ERR_KEY, (404, "Pesanan tidak ditemukan.", "Bukan milik akun ini atau `order_id` salah.")],
+        "notes": "Bila `wait` habis tanpa OTP, balasannya tetap `200` dengan `status` `ACTIVE`; panggil lagi. "
+                 "Hanya SMS dari layanan itu yang masuk setelah pesanan dibuat yang dihitung sebagai OTP.",
+    },
+    ("POST", "/api/otp/orders/{order_id}/finish"): {
+        "access": API_KEY,
+        "response": {**ORDER_OTP, "status": "DONE", "seconds_left": 0},
+        "errors": [ERR_KEY, (404, "Pesanan tidak ditemukan.", "")],
+        "notes": "Panggil setelah HP selesai memakai OTP. Bila OTP belum masuk, sama dengan batal.",
+    },
+    ("POST", "/api/otp/orders/{order_id}/cancel"): {
+        "access": API_KEY,
+        "response": {**ORDER_ACTIVE, "status": "CANCELLED", "seconds_left": 0},
+        "errors": [ERR_KEY, (404, "Pesanan tidak ditemukan.", ""),
+                   (409, "OTP sudah diterima; nomor tercatat dipakai. Pakai /finish untuk menyelesaikan.", "")],
+    },
+    ("GET", "/api/otp/orders"): {
+        "access": API_KEY,
+        "query": "?status=ACTIVE&limit=20",
+        "response": [ORDER_ACTIVE],
+        "fields": [("status", "Opsional. Saring per status."), ("limit", "1-500, bawaan 50.")],
+        "errors": [ERR_KEY, (400, "Status harus salah satu: ACTIVE, OTP_RECEIVED, DONE, CANCELLED, EXPIRED.", "")],
+    },
+    ("GET", "/api/otp/keys"): {
+        "access": LOGIN,
+        "response": [{"id": 3, "name": "HP-07", "prefix": "sk_Xy3k9Qa", "created_at": "2026-10-19T02:10:00+00:00",
+                      "last_used_at": "2026-10-19T02:41:12+00:00", "revoked": False}],
+        "fields": [("prefix", "Awal kunci, untuk mengenali kunci mana yang dipakai HP mana.")],
+        "errors": [ERR_401],
+    },
+    ("POST", "/api/otp/keys"): {
+        "access": LOGIN,
+        "body": {"name": "HP-07"},
+        "response": {"id": 3, "name": "HP-07", "prefix": "sk_Xy3k9Qa", "created_at": "2026-10-19T02:10:00+00:00",
+                     "last_used_at": None, "revoked": False, "api_key": SAMPLE_KEY},
+        "fields": [("api_key", "Kunci lengkap. Hanya muncul sekali di sini.")],
+        "errors": [ERR_401, (400, "Maksimal 20 kunci aktif. Cabut kunci yang tidak dipakai.", "")],
+        "notes": "Wajib login biasa (bukan kunci API), supaya kunci yang bocor tidak bisa membuat kunci baru.",
+    },
+    ("DELETE", "/api/otp/keys/{key_id}"): {
+        "access": LOGIN,
+        "response": {"success": True, "message": "Kunci 'HP-07' dicabut dan tidak bisa dipakai lagi."},
+        "errors": [ERR_401, (404, "Kunci API tidak ditemukan.", "")],
+    },
     ("GET", "/api/agent/status"): {
         "access": LOGIN,
         "response": {"pool_id": POOL, "is_online": True,

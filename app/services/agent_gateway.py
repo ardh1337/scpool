@@ -221,6 +221,16 @@ class AgentGateway:
             return ussd_result_from_text(raw)
         return False, reply.get("error") or "Agent tidak mengembalikan balasan USSD.", None
 
+    async def watch_sms(self, owner_id: int, port: str, seconds: float) -> None:
+        """Minta agent membaca SMS port ini tiap beberapa detik (menunggu OTP). seconds=0 menghentikannya.
+        Agent lama mengabaikan pesan ini dan tetap membaca SMS dengan jadwal biasa."""
+        ws = self.active_agents.get(owner_id)
+        if ws:
+            try:
+                await ws.send_text(json.dumps({"type": "watch_sms", "port": port, "seconds": seconds}))
+            except Exception:
+                logger.debug("watch_sms gagal dikirim ke agent akun %s", owner_id, exc_info=True)
+
     async def request_rescan(self, owner_id: int) -> bool:
         ws = self.active_agents.get(owner_id)
         if not ws:
