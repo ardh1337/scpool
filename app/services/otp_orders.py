@@ -13,7 +13,7 @@ from __future__ import annotations
 import re
 import threading
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -26,6 +26,7 @@ from app.modem.otp import extract_otp
 # Kata yang dicari di pengirim ATAU isi SMS. Layanan lain memakai namanya sendiri sebagai kata kunci.
 SERVICES: Dict[str, Sequence[str]] = {
     "whatsapp": ("whatsapp",),
+    "whatsapp_business": ("whatsapp business",),
     "telegram": ("telegram",),
     "google": ("google", "g-"),
     "facebook": ("facebook", "fb-"),
@@ -43,7 +44,9 @@ SERVICES: Dict[str, Sequence[str]] = {
     "linkaja": ("linkaja",),
     "any": (),  # SMS apa pun yang memuat kode OTP
 }
-DISPLAY_NAMES = {"whatsapp": "WhatsApp", "tiktok": "TikTok", "linkaja": "LinkAja", "dana": "DANA", "ovo": "OVO",
+# Kata yang membatalkan kecocokan: SMS WhatsApp Business juga memuat kata "whatsapp".
+EXCLUDE: Dict[str, Sequence[str]] = {"whatsapp": ("whatsapp business",)}
+DISPLAY_NAMES = {"whatsapp": "WhatsApp", "whatsapp_business": "WhatsApp Business", "tiktok": "TikTok", "linkaja": "LinkAja", "dana": "DANA", "ovo": "OVO",
                  "any": "Semua (SMS apa pun)"}
 SERVICE_NAME = re.compile(r"^[a-z0-9][a-z0-9_-]{1,29}\Z")
 
@@ -52,6 +55,18 @@ MIN_MINUTES, MAX_MINUTES = 2, 30
 SMSC_CLOCK_TOLERANCE = timedelta(minutes=2)
 LOCKING = (OrderStatus.ACTIVE, OrderStatus.OTP_RECEIVED)
 USED = (OrderStatus.OTP_RECEIVED, OrderStatus.DONE)
+
+# Alasan gagal yang dilaporkan aplikasi HP dan dampaknya ke pemberian nomor untuk layanan yang sama.
+FAIL_REASONS = {
+    "no_sms": "OTP tidak datang",
+    "banned": "Nomor diblokir layanan",
+    "limited": "Dibatasi sementara (coba lagi nanti)",
+    "wrong_code": "Kode ditolak",
+    "other": "Lainnya",
+}
+LIMITED_BLOCK = timedelta(hours=24)        # "limited": nomor istirahat sehari
+NO_SMS_WINDOW = timedelta(hours=24)        # "no_sms" (termasuk EXPIRED) sebanyak NO_SMS_LIMIT kali dalam jendela ini
+NO_SMS_LIMIT = 2                           # -> nomor istirahat sampai jendela lewat
 
 _reserve_lock = threading.Lock()  # pilih + kunci nomor harus atomik antar permintaan paralel (satu proses server)
 
@@ -84,7 +99,7 @@ def sms_matches_service(service: str, sender: str, body: str) -> bool:
     if not keywords:
         return True
     text = f"{sender}\n{body}".lower()
-    return any(k in text for k in keywords)
+    return any(k in text for k in keywords) and not any(k in text for k in EXCLUDE.get(service, ()))
 
 
 def expire_orders(db: Session) -> None:
@@ -108,13 +123,47 @@ def _candidates(db: Session, pool_ids: List[str]):
             yield slot, sim
 
 
+def _is_no_sms(order: NumberOrder) -> bool:
+    return order.status == OrderStatus.EXPIRED or order.fail_reason == "no_sms"
+
+
+def blocked_numbers(db: Session, service: str) -> Dict[str, Tuple[str, Optional[datetime]]]:
+    """ICCID yang tidak boleh diberikan untuk layanan ini -> (alasan, sampai kapan; None = selamanya)."""
+    now = _now()
+    blocked: Dict[str, Tuple[str, Optional[datetime]]] = {}
+    for iccid, in db.query(NumberOrder.iccid).filter(
+            NumberOrder.service == service, NumberOrder.status.in_(USED)).distinct():
+        blocked[iccid] = ("used", None)
+    recent = db.query(NumberOrder).filter(
+        NumberOrder.service == service, NumberOrder.created_at >= now - max(LIMITED_BLOCK, NO_SMS_WINDOW),
+        NumberOrder.status.in_((OrderStatus.CANCELLED, OrderStatus.EXPIRED)),
+    ).order_by(NumberOrder.created_at).all()
+    no_sms: Dict[str, List[datetime]] = {}
+    for order in recent:
+        when = _aware(order.created_at)
+        if order.fail_reason == "banned":
+            blocked[order.iccid] = ("banned", None)
+        elif order.fail_reason == "limited" and order.iccid not in blocked:
+            blocked[order.iccid] = ("limited", when + LIMITED_BLOCK)
+        elif _is_no_sms(order):
+            no_sms.setdefault(order.iccid, []).append(when)
+    for iccid, times in no_sms.items():
+        times = [t for t in times if t >= now - NO_SMS_WINDOW]
+        if len(times) >= NO_SMS_LIMIT and iccid not in blocked:
+            blocked[iccid] = ("no_sms", times[-NO_SMS_LIMIT] + NO_SMS_WINDOW)
+    banned = db.query(NumberOrder.iccid).filter(  # blokir permanen walau laporannya sudah lama
+        NumberOrder.service == service, NumberOrder.fail_reason == "banned").distinct()
+    for iccid, in banned:
+        blocked[iccid] = ("banned", None)
+    return blocked
+
+
 def free_numbers(db: Session, pool_ids: List[str], online_pool_ids: set, service: str):
-    """(slot, sim) yang bisa diberikan untuk layanan ini sekarang: online, tidak dikunci, belum terpakai."""
+    """(slot, sim) yang bisa diberikan untuk layanan ini sekarang: online, tidak dikunci, belum terpakai/diblokir."""
     locked = {row[0] for row in db.query(NumberOrder.iccid).filter(NumberOrder.status.in_(LOCKING)).all()}
-    used = {row[0] for row in db.query(NumberOrder.iccid).filter(
-        NumberOrder.service == service, NumberOrder.status.in_(USED)).all()}
+    blocked = blocked_numbers(db, service)
     return [(slot, sim) for slot, sim in _candidates(db, [p for p in pool_ids if p in online_pool_ids])
-            if sim.iccid not in locked and sim.iccid not in used]
+            if sim.iccid not in locked and sim.iccid not in blocked]
 
 
 def reserve_number(db: Session, user_id: int, pool_ids: List[str], online_pool_ids: set, service: str,
@@ -176,21 +225,72 @@ def refresh_order(db: Session, order: NumberOrder, after_sms_id: int = 0) -> Num
     return order
 
 
-def finish_order(db: Session, order: NumberOrder) -> NumberOrder:
+def clean_reason(reason: Optional[str]) -> Optional[str]:
+    if reason is None or reason == "":
+        return None
+    if reason not in FAIL_REASONS:
+        raise OrderError(400, "Alasan harus salah satu: " + ", ".join(FAIL_REASONS) + ".")
+    return reason
+
+
+def finish_order(db: Session, order: NumberOrder, result: Optional[str] = None,
+                 reason: Optional[str] = None) -> NumberOrder:
+    """Selesai. `result` "failed" + `reason` dipakai bila OTP sudah masuk tapi tetap gagal (mis. kode ditolak)."""
+    if result not in (None, "success", "failed"):
+        raise OrderError(400, "Hasil harus 'success' atau 'failed'.")
+    reason = clean_reason(reason)
     if order.status in LOCKING:
-        order.status = OrderStatus.DONE if order.status == OrderStatus.OTP_RECEIVED else OrderStatus.CANCELLED
+        got_otp = order.status == OrderStatus.OTP_RECEIVED
+        order.status = OrderStatus.DONE if got_otp else OrderStatus.CANCELLED
+        order.result = result or ("success" if got_otp and not reason else "failed")
+        order.fail_reason = reason if order.result == "failed" else None
+        if order.result == "failed" and not order.fail_reason and not got_otp:
+            order.fail_reason = "no_sms"
         order.finished_at = _now()
         db.commit()
     return order
 
 
-def cancel_order(db: Session, order: NumberOrder) -> NumberOrder:
+def cancel_order(db: Session, order: NumberOrder, reason: Optional[str] = None) -> NumberOrder:
+    reason = clean_reason(reason)
     if order.status == OrderStatus.OTP_RECEIVED:
         raise OrderError(409, "OTP sudah diterima; nomor tercatat dipakai. Pakai /finish untuk menyelesaikan.")
     if order.status == OrderStatus.ACTIVE:
         order.status, order.finished_at = OrderStatus.CANCELLED, _now()
+        order.result, order.fail_reason = ("failed", reason) if reason else (None, None)
         db.commit()
     return order
+
+
+def number_stats(db: Session, user_id: int, service: str) -> List[dict]:
+    """Rekap per nomor untuk satu layanan: berapa kali berhasil/gagal dan apakah sedang bisa diberikan."""
+    blocked = blocked_numbers(db, service)
+    rows: Dict[str, dict] = {}
+    for order in db.query(NumberOrder).filter(NumberOrder.user_id == user_id, NumberOrder.service == service) \
+            .order_by(NumberOrder.created_at):
+        row = rows.setdefault(order.iccid, {"phone_number": order.phone_number, "attempts": 0, "success": 0,
+                                            "failed": 0, "reasons": {}, "last_result": None, "last_at": None})
+        row["phone_number"] = order.phone_number
+        row["attempts"] += 1
+        if order.status in LOCKING:
+            outcome = "active"
+        elif order.result == "success" or (order.status == OrderStatus.DONE and order.result is None):
+            outcome = "success"
+        elif order.result == "failed" or order.status == OrderStatus.EXPIRED:
+            outcome = "failed"
+            reason = order.fail_reason or "no_sms"
+            row["reasons"][reason] = row["reasons"].get(reason, 0) + 1
+        else:
+            outcome = "cancelled"
+        if outcome in ("success", "failed"):
+            row[outcome] += 1
+        row["last_result"], row["last_at"] = outcome, _aware(order.created_at).isoformat()
+    out = []
+    for iccid, row in rows.items():
+        reason, until = blocked.get(iccid, (None, None))
+        out.append({**row, "available": iccid not in blocked, "blocked_reason": reason,
+                    "blocked_until": until.isoformat() if until else None})
+    return sorted(out, key=lambda r: r["last_at"] or "", reverse=True)
 
 
 def order_dict(db: Session, order: NumberOrder) -> dict:
@@ -208,6 +308,8 @@ def order_dict(db: Session, order: NumberOrder) -> dict:
         "slot_index": slot.slot_index if slot else None,
         "device": order.device,
         "otp": order.otp_code,
+        "result": order.result,
+        "fail_reason": order.fail_reason,
         "sms": {"id": sms.id, "sender": sms.sender_raw, "body": sms.body,
                 "received_at": _aware(sms.received_at).isoformat()} if sms else None,
         "created_at": _aware(order.created_at).isoformat(),

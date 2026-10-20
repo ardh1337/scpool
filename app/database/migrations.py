@@ -18,7 +18,7 @@ from app.database import models  # noqa: F401  (mendaftarkan semua tabel ke Base
 
 logger = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 # Kolom baru bertipe NOT NULL butuh nilai bawaan saat ALTER TABLE ADD COLUMN.
 _COLUMN_DEFAULTS = {("user_accounts", "is_active"): "1"}

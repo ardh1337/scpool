@@ -395,6 +395,8 @@ class NumberOrder(Base):
                     default=OrderStatus.ACTIVE, nullable=False)
     otp_code = Column(String(12), nullable=True)
     sms_id = Column(Integer, nullable=True)
+    result = Column(String(10), nullable=True)       # "success" / "failed", dilaporkan aplikasi
+    fail_reason = Column(String(20), nullable=True)  # lihat FAIL_REASONS di app/services/otp_orders.py
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     finished_at = Column(DateTime(timezone=True), nullable=True)

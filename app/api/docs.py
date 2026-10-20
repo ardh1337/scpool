@@ -142,12 +142,18 @@ ENDPOINTS: Dict[Tuple[str, str], Tuple[str, str, str]] = {
         "bertanya berulang-ulang."),
     ("POST", "/api/otp/orders/{order_id}/finish"): (
         "Otomasi HP", "Selesai",
-        "Melepas kunci nomor. Bila OTP sudah diterima, nomor tercatat sudah dipakai untuk layanan ini."),
+        "Melepas kunci nomor dan melaporkan hasilnya. Bila OTP sudah diterima, nomor tercatat sudah dipakai untuk "
+        "layanan ini."),
     ("POST", "/api/otp/orders/{order_id}/cancel"): (
         "Otomasi HP", "Batal",
-        "Melepas kunci nomor sebelum OTP masuk. Nomor boleh diberikan lagi untuk layanan yang sama."),
+        "Melepas kunci nomor sebelum OTP masuk. Sertakan `reason` bila batal karena gagal (mis. nomor diblokir "
+        "WhatsApp), supaya nomor itu tidak diberikan lagi ke HP lain."),
     ("GET", "/api/otp/orders"): (
         "Otomasi HP", "Riwayat pesanan", "Pesanan milik akun ini, yang terbaru di atas."),
+    ("GET", "/api/otp/stats"): (
+        "Otomasi HP", "Statistik per nomor",
+        "Berapa kali tiap nomor berhasil atau gagal untuk satu layanan, alasan gagalnya, dan apakah nomor itu sedang "
+        "bisa diberikan."),
     ("GET", "/api/otp/keys"): (
         "Otomasi HP", "Daftar kunci API", "Kunci API milik akun ini. Kunci lengkapnya tidak pernah ditampilkan lagi."),
     ("POST", "/api/otp/keys"): (

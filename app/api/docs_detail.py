@@ -22,6 +22,16 @@ ORDER_OTP = {**ORDER_ACTIVE, "status": "OTP_RECEIVED", "otp": "482913", "seconds
              "sms": {"id": 918, "sender": "WhatsApp", "body": "Kode WhatsApp Anda: 482-913. Jangan bagikan kode ini.",
                      "received_at": "2026-10-19T02:41:29+00:00"}}
 
+FAIL_TABLE = """
+
+| `reason` | Kapan dipakai | Dampak ke nomor (untuk layanan yang sama) |
+|---|---|---|
+| `no_sms` | OTP tidak datang walau sudah kirim ulang | Istirahat 24 jam bila 2 kali dalam sehari (pesanan kedaluwarsa juga dihitung) |
+| `banned` | Layanan menyatakan nomor diblokir | Tidak pernah diberikan lagi |
+| `limited` | "Coba lagi dalam X jam" / terlalu sering | Istirahat 24 jam |
+| `wrong_code` | Kode ditolak aplikasi tujuan | Dicatat saja |
+| `other` | Lainnya | Dicatat saja |
+"""
 ERR_KEY = (401, "Kunci API salah, sudah dicabut, atau akunnya nonaktif.",
            "Periksa kunci di header `X-API-Key`, atau buat kunci baru.")
 ERR_401 = (401, "Otentikasi diperlukan. Silakan login terlebih dahulu.", "Token tidak dikirim, salah, atau sudah kedaluwarsa.")
@@ -519,13 +529,23 @@ DETAILS: Dict[Tuple[str, str], Detail] = {
     },
     ("POST", "/api/otp/orders/{order_id}/finish"): {
         "access": API_KEY,
-        "response": {**ORDER_OTP, "status": "DONE", "seconds_left": 0},
-        "errors": [ERR_KEY, (404, "Pesanan tidak ditemukan.", "")],
-        "notes": "Panggil setelah HP selesai memakai OTP. Bila OTP belum masuk, sama dengan batal.",
+        "body": {"result": "success"},
+        "response": {**ORDER_OTP, "status": "DONE", "result": "success", "fail_reason": None, "seconds_left": 0},
+        "fields": [("result", "Opsional. `success` (bawaan bila OTP sudah masuk) atau `failed`."),
+                   ("reason", "Opsional, dipakai bersama `failed`. Lihat tabel alasan di bawah.")],
+        "errors": [ERR_KEY, (404, "Pesanan tidak ditemukan.", ""),
+                   (400, "Hasil harus 'success' atau 'failed'.", ""),
+                   (400, "Alasan harus salah satu: no_sms, banned, limited, wrong_code, other.", "")],
+        "notes": "Panggil setelah HP selesai memakai OTP. Isi tanpa body = berhasil. Contoh gagal setelah OTP masuk: "
+                 "`{\"result\": \"failed\", \"reason\": \"wrong_code\"}`." + FAIL_TABLE,
     },
     ("POST", "/api/otp/orders/{order_id}/cancel"): {
         "access": API_KEY,
-        "response": {**ORDER_ACTIVE, "status": "CANCELLED", "seconds_left": 0},
+        "body": {"reason": "banned"},
+        "response": {**ORDER_ACTIVE, "status": "CANCELLED", "result": "failed", "fail_reason": "banned",
+                     "seconds_left": 0},
+        "fields": [("reason", "Opsional. Kosongkan bila sekadar batal (nomor tidak dianggap bermasalah).")],
+        "notes": "Alasan menentukan apakah nomor masih diberikan ke HP lain." + FAIL_TABLE,
         "errors": [ERR_KEY, (404, "Pesanan tidak ditemukan.", ""),
                    (409, "OTP sudah diterima; nomor tercatat dipakai. Pakai /finish untuk menyelesaikan.", "")],
     },
@@ -535,6 +555,27 @@ DETAILS: Dict[Tuple[str, str], Detail] = {
         "response": [ORDER_ACTIVE],
         "fields": [("status", "Opsional. Saring per status."), ("limit", "1-500, bawaan 50.")],
         "errors": [ERR_KEY, (400, "Status harus salah satu: ACTIVE, OTP_RECEIVED, DONE, CANCELLED, EXPIRED.", "")],
+    },
+    ("GET", "/api/otp/stats"): {
+        "access": API_KEY,
+        "query": "?service=whatsapp",
+        "response": {"service": "whatsapp",
+                     "reasons": {"no_sms": "OTP tidak datang", "banned": "Nomor diblokir layanan",
+                                 "limited": "Dibatasi sementara (coba lagi nanti)", "wrong_code": "Kode ditolak",
+                                 "other": "Lainnya"},
+                     "numbers": [
+                         {"phone_number": "+6281234567890", "attempts": 3, "success": 1, "failed": 2,
+                          "reasons": {"no_sms": 2}, "last_result": "success", "last_at": "2026-10-20T03:10:00+00:00",
+                          "available": False, "blocked_reason": "used", "blocked_until": None},
+                         {"phone_number": "+6285700001111", "attempts": 1, "success": 0, "failed": 1,
+                          "reasons": {"banned": 1}, "last_result": "failed", "last_at": "2026-10-20T02:55:00+00:00",
+                          "available": False, "blocked_reason": "banned", "blocked_until": None}]},
+        "fields": [("service", "Opsional, bawaan `whatsapp`."),
+                   ("available", "`true` bila nomor bisa diberikan sekarang untuk layanan ini."),
+                   ("blocked_reason", "`used` (sudah berhasil dipakai), `banned`, `limited`, atau `no_sms`."),
+                   ("blocked_until", "Kapan nomor boleh dipakai lagi. `null` = selamanya.")],
+        "errors": [ERR_KEY],
+        "notes": "Hanya nomor yang pernah dipesan akun ini yang muncul.",
     },
     ("GET", "/api/otp/keys"): {
         "access": LOGIN,

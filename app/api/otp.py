@@ -20,8 +20,8 @@ from app.database.connection import get_db
 from app.database.models import ApiKey, ModemPool, NumberOrder, OrderStatus, Slot, UserAccount
 from app.services.agent_gateway import agent_gateway, sms_signal
 from app.services.otp_orders import (
-    DEFAULT_MINUTES, DISPLAY_NAMES, LOCKING, MAX_MINUTES, MIN_MINUTES, SERVICES, OrderError, cancel_order,
-    clean_service, expire_orders, finish_order, free_numbers, order_dict, refresh_order, reserve_number,
+    DEFAULT_MINUTES, DISPLAY_NAMES, FAIL_REASONS, LOCKING, MAX_MINUTES, MIN_MINUTES, SERVICES, OrderError, cancel_order,
+    clean_service, expire_orders, finish_order, free_numbers, number_stats, order_dict, refresh_order, reserve_number,
 )
 from app.services.units import owned_pool_ids
 
@@ -149,21 +149,43 @@ async def get_order(order_id: int, wait: int = Query(0, ge=0, le=MAX_WAIT_SECOND
         await sms_signal.wait(ticket, min(2.0, max(remaining, 0.0)))
 
 
+class OutcomeRequest(BaseModel):
+    result: Optional[str] = Field(default=None, max_length=10)
+    reason: Optional[str] = Field(default=None, max_length=20)
+
+
 @router.post("/otp/orders/{order_id}/finish")
-async def finish(order_id: int, user: UserAccount = Depends(require_automation_user), db: Session = Depends(get_db)):
-    order = finish_order(db, _own_order(db, user, order_id))
+async def finish(order_id: int, payload: Optional[OutcomeRequest] = None,
+                 user: UserAccount = Depends(require_automation_user), db: Session = Depends(get_db)):
+    payload = payload or OutcomeRequest()
+    try:
+        order = finish_order(db, _own_order(db, user, order_id), payload.result, payload.reason)
+    except OrderError as exc:
+        raise HTTPException(exc.status_code, exc.message)
     await _stop_watch(db, order)
     return order_dict(db, order)
 
 
 @router.post("/otp/orders/{order_id}/cancel")
-async def cancel(order_id: int, user: UserAccount = Depends(require_automation_user), db: Session = Depends(get_db)):
+async def cancel(order_id: int, payload: Optional[OutcomeRequest] = None,
+                 user: UserAccount = Depends(require_automation_user), db: Session = Depends(get_db)):
     try:
-        order = cancel_order(db, _own_order(db, user, order_id))
+        order = cancel_order(db, _own_order(db, user, order_id), (payload or OutcomeRequest()).reason)
     except OrderError as exc:
         raise HTTPException(exc.status_code, exc.message)
     await _stop_watch(db, order)
     return order_dict(db, order)
+
+
+@router.get("/otp/stats")
+def stats(service: str = Query("whatsapp", max_length=30), user: UserAccount = Depends(require_automation_user),
+          db: Session = Depends(get_db)):
+    try:
+        service = clean_service(service)
+    except OrderError as exc:
+        raise HTTPException(exc.status_code, exc.message)
+    expire_orders(db)
+    return {"service": service, "reasons": FAIL_REASONS, "numbers": number_stats(db, user.id, service)}
 
 
 @router.get("/otp/orders")

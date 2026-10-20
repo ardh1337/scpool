@@ -66,3 +66,11 @@ def test_every_endpoint_has_detail():
     from app.api.docs_detail import DETAILS
     assert set(DETAILS) == set(ENDPOINTS), sorted(set(ENDPOINTS) ^ set(DETAILS))
     assert all("access" in d and "response" in d for d in DETAILS.values())
+
+
+def test_docs_text_has_no_leftover_code():
+    """Teks dokumentasi tidak boleh memuat potongan kode Python yang ikut tertulis (mis. 'repr(' atau '+ \"\"\"')."""
+    from app.api.docs_detail import DETAILS
+    for key, detail in DETAILS.items():
+        notes = str(detail.get("notes", ""))
+        assert "repr(" not in notes and '"""' not in notes, key
