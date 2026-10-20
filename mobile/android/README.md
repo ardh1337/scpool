@@ -113,3 +113,28 @@ mobile/android/
 └── settings.gradle.kts           # Registrasi modul :app
 ```
 
+
+## Otomasi WhatsApp
+
+Pilih layanan **WhatsApp** atau **WhatsApp Business**. Selama otomasi berjalan, aplikasi lewat aksesibilitas:
+
+1. Menekan **Setuju dan lanjutkan**, mengisi kode negara `62` dan nomor, menekan **Berikutnya**, lalu **Ya** pada
+   konfirmasi nomor.
+2. Memilih verifikasi lewat **SMS** bila WhatsApp menawarkan pilihan (telepon tidak didukung: kode suara tidak
+   bisa dibaca modem).
+3. Mengisi 6 digit OTP begitu kode masuk ke modem pool.
+4. Bila OTP belum datang setelah *Kirim ulang SMS setelah* (bawaan 70 detik), menekan **Kirim ulang SMS** sekali.
+   Tetap tidak datang: nomor dilaporkan `no_sms`.
+5. Mengenali hasil dan melapor ke server:
+   - layar **Info profil** / **Pulihkan cadangan** → berhasil, pesanan selesai otomatis;
+   - **diblokir** → `banned` (nomor tidak pernah diberikan lagi untuk WhatsApp);
+   - **coba lagi dalam X jam** → `limited` (nomor istirahat 24 jam);
+   - **kode salah** → `wrong_code`.
+6. Bila *Ganti nomor otomatis* aktif, mengambil nomor pengganti (maksimal sesuai pengaturan) dan kembali ke layar
+   isi nomor lewat **Nomor salah?**.
+
+Statistik per nomor: `GET /api/otp/stats?service=whatsapp`.
+
+Layar WhatsApp dikenali dari ID view (`registration_phone`, `verify_sms_code_input`, ...) dengan cadangan teks
+Indonesia/Inggris. Bila WhatsApp memperbarui tampilannya dan ada langkah yang tidak lagi diklik otomatis, lihat log
+di aplikasi lalu sesuaikan `service/WhatsAppFlow.kt`.

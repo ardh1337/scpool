@@ -42,6 +42,20 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("show_overlay", true)
         set(value) = sp.edit().putBoolean("show_overlay", value).apply()
 
+    var autoRetry: Boolean
+        get() = sp.getBoolean("auto_retry", true)
+        set(value) = sp.edit().putBoolean("auto_retry", value).apply()
+
+    /** Jumlah nomor yang dicoba per otomasi sebelum berhenti. */
+    var maxAttempts: Int
+        get() = sp.getInt("max_attempts", 3)
+        set(value) = sp.edit().putInt("max_attempts", value).apply()
+
+    /** Detik menunggu OTP sebelum menekan "Kirim ulang SMS" di WhatsApp. */
+    var resendAfterSec: Int
+        get() = sp.getInt("resend_after_sec", 70)
+        set(value) = sp.edit().putInt("resend_after_sec", value).apply()
+
     var soundVibrate: Boolean
         get() = sp.getBoolean("sound_vibrate", true)
         set(value) = sp.edit().putBoolean("sound_vibrate", value).apply()

@@ -129,8 +129,14 @@ class ScpoolApiClient(private val prefs: Prefs) {
         }
     }
 
-    suspend fun finishOrder(orderId: Int): OrderData = withContext(Dispatchers.IO) {
-        val req = buildRequest("POST", "/api/otp/orders/$orderId/finish")
+    /** `result` "success"/"failed" dan `reason` (no_sms, banned, limited, wrong_code, other) bersifat opsional. */
+    suspend fun finishOrder(orderId: Int, result: String? = null, reason: String? = null): OrderData =
+        withContext(Dispatchers.IO) {
+        val body = JSONObject().apply {
+            if (result != null) put("result", result)
+            if (reason != null) put("reason", reason)
+        }
+        val req = buildRequest("POST", "/api/otp/orders/$orderId/finish", body)
         client.newCall(req).execute().use { res ->
             val raw = res.body?.string().orEmpty()
             if (!res.isSuccessful) {
@@ -141,8 +147,10 @@ class ScpoolApiClient(private val prefs: Prefs) {
         }
     }
 
-    suspend fun cancelOrder(orderId: Int): OrderData = withContext(Dispatchers.IO) {
-        val req = buildRequest("POST", "/api/otp/orders/$orderId/cancel")
+    /** Tanpa `reason` = sekadar batal; dengan `reason` = nomor gagal dan tidak diberikan lagi sesuai aturan server. */
+    suspend fun cancelOrder(orderId: Int, reason: String? = null): OrderData = withContext(Dispatchers.IO) {
+        val body = JSONObject().apply { if (reason != null) put("reason", reason) }
+        val req = buildRequest("POST", "/api/otp/orders/$orderId/cancel", body)
         client.newCall(req).execute().use { res ->
             val raw = res.body?.string().orEmpty()
             if (!res.isSuccessful) {

@@ -39,6 +39,9 @@ class SettingsActivity : AppCompatActivity() {
         binding.switchAutoClipboard.isChecked = prefs.autoCopyClipboard
         binding.switchShowOverlay.isChecked = prefs.showOverlay
         binding.switchSoundVibrate.isChecked = prefs.soundVibrate
+        binding.switchAutoRetry.isChecked = prefs.autoRetry
+        binding.etMaxAttempts.setText(prefs.maxAttempts.toString())
+        binding.etResendAfter.setText(prefs.resendAfterSec.toString())
     }
 
     private fun savePreferences() {
@@ -61,6 +64,9 @@ class SettingsActivity : AppCompatActivity() {
         prefs.autoCopyClipboard = binding.switchAutoClipboard.isChecked
         prefs.showOverlay = binding.switchShowOverlay.isChecked
         prefs.soundVibrate = binding.switchSoundVibrate.isChecked
+        prefs.autoRetry = binding.switchAutoRetry.isChecked
+        prefs.maxAttempts = (binding.etMaxAttempts.text?.toString()?.toIntOrNull() ?: 3).coerceIn(1, 10)
+        prefs.resendAfterSec = (binding.etResendAfter.text?.toString()?.toIntOrNull() ?: 70).coerceIn(30, 300)
 
         Toast.makeText(this, "Pengaturan berhasil disimpan", Toast.LENGTH_SHORT).show()
         finish()

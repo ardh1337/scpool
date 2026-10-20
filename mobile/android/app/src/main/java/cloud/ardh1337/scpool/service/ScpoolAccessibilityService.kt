@@ -14,6 +14,12 @@ class ScpoolAccessibilityService : AccessibilityService() {
     companion object {
         @Volatile private var instance: ScpoolAccessibilityService? = null
 
+        /** Ketuk "Kirim ulang SMS" di WhatsApp. Dipanggil dari main thread (scope AutomationEngine). */
+        fun requestResend(): Boolean {
+            val root = instance?.rootInActiveWindow ?: return false
+            return WhatsAppFlow.resend(root)
+        }
+
         /** Isi nomor/OTP sekarang tanpa menunggu layar berubah. Aman dipanggil dari thread mana pun. */
         fun fillNow() {
             val service = instance ?: return
@@ -48,6 +54,11 @@ class ScpoolAccessibilityService : AccessibilityService() {
         if (currentPackage == null || !targetPackages.contains(currentPackage)) return
 
         val rootNode = rootInActiveWindow ?: return
+
+        if (AutomationEngine.isWhatsApp(order.service.lowercase())) {
+            WhatsAppFlow.handle(rootNode, currentPackage)
+            return
+        }
 
         // 1. Auto-input Nomor Telepon
         if (prefs.autoInputPhone && !AutomationEngine.phoneFilled && order.status == OrderStatus.ACTIVE) {

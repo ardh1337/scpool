@@ -156,6 +156,47 @@
                 android:text="Suara &amp; Getar saat OTP Masuk"
                 android:textColor="@color/text_primary" />
 
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/switch_auto_retry"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Ganti Nomor Otomatis bila Gagal (diblokir / OTP tidak datang)"
+                android:textColor="@color/text_primary" />
+
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:hint="Maksimal Nomor per Otomasi (1-10)"
+                app:boxStrokeColor="@color/primary_emerald">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_max_attempts"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="number"
+                    android:maxLength="2"
+                    android:textColor="@color/text_primary" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:hint="Kirim Ulang SMS WhatsApp setelah (detik, 30-300)"
+                app:boxStrokeColor="@color/primary_emerald">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_resend_after"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="number"
+                    android:maxLength="3"
+                    android:textColor="@color/text_primary" />
+            </com.google.android.material.textfield.TextInputLayout>
+
             <!-- Tombol Simpan -->
             <Button
                 android:id="@+id/btn_save_settings"
