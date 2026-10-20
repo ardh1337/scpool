@@ -19,7 +19,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database.models import (
-    NumberOrder, OrderStatus, SIMSession, Slot, SlotStatus, SMSMessage, SMSStatus,
+    NumberOrder, OrderStatus, SIMCard, SIMSession, Slot, SlotStatus, SMSMessage, SMSStatus,
 )
 from app.modem.otp import extract_otp
 
@@ -154,8 +154,12 @@ def refresh_order(db: Session, order: NumberOrder, after_sms_id: int = 0) -> Num
     # (SIM baru terdeteksi lalu langsung dipesan). Untuk SMS itu waktu kirim SMSC yang menentukan, dengan toleransi
     # karena jam operator/modem bisa meleset; OTP lama yang masih tersimpan di kartu tetap tidak terbaca.
     since = _aware(order.created_at)
+    # SMS harus milik KARTU pesanan ini (lewat sesi SIM-nya), bukan sekadar port: bila SIM dicabut dan diganti
+    # selama pesanan, OTP untuk SIM pengganti tidak boleh terbaca sebagai OTP nomor ini.
+    sessions = db.query(SIMSession.id).join(SIMCard, SIMCard.id == SIMSession.sim_card_id).filter(
+        SIMSession.slot_id == order.slot_id, SIMCard.iccid == order.iccid)
     query = db.query(SMSMessage).filter(
-        SMSMessage.slot_id == order.slot_id,
+        SMSMessage.slot_id == order.slot_id, SMSMessage.session_id.in_(sessions),
         SMSMessage.status.in_((SMSStatus.RECEIVED, SMSStatus.PESAN_BAWAAN)),
         SMSMessage.received_at >= since, SMSMessage.id > after_sms_id,
     ).order_by(SMSMessage.id.desc()).limit(20)

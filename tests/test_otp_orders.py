@@ -249,3 +249,17 @@ def test_services_report_display_name_and_available_numbers(setup):
     _order(setup)
     after = {s["service"]: s for s in setup["client"].get("/api/otp/services", headers=setup["hdr"]).json()}
     assert after["whatsapp"]["active_sims"] == before - 1  # nomor yang sedang dikunci tidak dihitung
+
+
+def test_otp_for_a_swapped_in_sim_is_not_given_to_the_old_number(setup):
+    order = _order(setup).json()
+    port = _port_of(setup, order)
+    # Di tengah pesanan, SIM di port itu dicabut lalu diganti kartu lain.
+    agent_gateway._on_slot_update(setup["owner"], {"port": port, "cpin": "EMPTY"}, None)
+    agent_gateway._on_slot_update(setup["owner"], {"port": port, "cpin": "READY", "iccid": "89621088888888000033"}, None)
+    agent_gateway._on_sms_batch(setup["owner"], {"port": port, "messages": []}, None)
+    agent_gateway._on_sms_batch(setup["owner"], {"port": port, "messages": [
+        {"index": 1, "sender": "WhatsApp", "body": "Kode WhatsApp Anda: 999-000.",
+         "timestamp": datetime.now(timezone.utc).isoformat()}]}, None)
+    got = setup["client"].get(f"/api/otp/orders/{order['order_id']}", headers=setup["hdr"]).json()
+    assert got["otp"] is None
