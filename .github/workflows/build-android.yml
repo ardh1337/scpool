@@ -37,7 +37,13 @@ jobs:
 
       - name: Build Debug APK
         working-directory: mobile/android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        # Saat gagal, baris error dijadikan anotasi agar penyebabnya terbaca di halaman run tanpa membuka log.
+        run: |
+          set -o pipefail
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log || {
+            grep -E "^e: |error:|What went wrong|^> |Could not|FAILURE" build.log | head -40 | sed 's/^/::error::/'
+            exit 1
+          }
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
