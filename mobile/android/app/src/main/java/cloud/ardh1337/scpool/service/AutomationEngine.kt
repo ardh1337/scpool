@@ -319,7 +319,8 @@ object AutomationEngine {
     private const val MAX_RESENDS = 1
     private const val NO_SMS_GRACE_MS = 30_000L
     private val REASON_LABEL = mapOf(
-        "no_sms" to "OTP tidak datang", "banned" to "nomor diblokir WhatsApp",
+        "no_sms" to "OTP tidak datang", "banned" to "tameng merah (nomor diblokir)",
+        "registered_elsewhere" to "akun aktif di perangkat lain", "under_review" to "sedang ditinjau",
         "limited" to "dibatasi sementara", "wrong_code" to "kode ditolak"
     )
 }

@@ -27,7 +27,9 @@ FAIL_TABLE = """
 | `reason` | Kapan dipakai | Dampak ke nomor (untuk layanan yang sama) |
 |---|---|---|
 | `no_sms` | OTP tidak datang walau sudah kirim ulang | Istirahat 24 jam bila 2 kali dalam sehari (pesanan kedaluwarsa juga dihitung) |
-| `banned` | Layanan menyatakan nomor diblokir | Tidak pernah diberikan lagi |
+| `banned` | Tameng merah: nomor diblokir WhatsApp | Hanya ditandai di statistik |
+| `registered_elsewhere` | Akun WhatsApp nomor ini aktif di perangkat lain | Hanya ditandai di statistik |
+| `under_review` | Akun sedang ditinjau (setelah banding) | Hanya ditandai di statistik |
 | `limited` | "Coba lagi dalam X jam" / terlalu sering | Istirahat 24 jam |
 | `wrong_code` | Kode ditolak aplikasi tujuan | Dicatat saja |
 | `other` | Lainnya | Dicatat saja |
@@ -535,7 +537,7 @@ DETAILS: Dict[Tuple[str, str], Detail] = {
                    ("reason", "Opsional, dipakai bersama `failed`. Lihat tabel alasan di bawah.")],
         "errors": [ERR_KEY, (404, "Pesanan tidak ditemukan.", ""),
                    (400, "Hasil harus 'success' atau 'failed'.", ""),
-                   (400, "Alasan harus salah satu: no_sms, banned, limited, wrong_code, other.", "")],
+                   (400, "Alasan harus salah satu: no_sms, banned, registered_elsewhere, under_review, limited, wrong_code, other.", "")],
         "notes": "Panggil setelah HP selesai memakai OTP. Isi tanpa body = berhasil. Contoh gagal setelah OTP masuk: "
                  "`{\"result\": \"failed\", \"reason\": \"wrong_code\"}`." + FAIL_TABLE,
     },
@@ -565,14 +567,20 @@ DETAILS: Dict[Tuple[str, str], Detail] = {
                                  "other": "Lainnya"},
                      "numbers": [
                          {"phone_number": "+6281234567890", "attempts": 3, "success": 1, "failed": 2,
-                          "reasons": {"no_sms": 2}, "last_result": "success", "last_at": "2026-10-20T03:10:00+00:00",
+                          "reasons": {"no_sms": 2}, "flags": [], "last_result": "success", "last_reason": None,
+                          "last_at": "2026-10-20T03:10:00+00:00",
                           "available": False, "blocked_reason": "used", "blocked_until": None},
                          {"phone_number": "+6285700001111", "attempts": 1, "success": 0, "failed": 1,
-                          "reasons": {"banned": 1}, "last_result": "failed", "last_at": "2026-10-20T02:55:00+00:00",
-                          "available": False, "blocked_reason": "banned", "blocked_until": None}]},
+                          "reasons": {"banned": 1}, "flags": ["banned"], "last_result": "failed",
+                          "last_reason": "banned", "last_at": "2026-10-20T02:55:00+00:00",
+                          "available": True, "blocked_reason": None, "blocked_until": None}]},
         "fields": [("service", "Opsional, bawaan `whatsapp`."),
                    ("available", "`true` bila nomor bisa diberikan sekarang untuk layanan ini."),
-                   ("blocked_reason", "`used` (sudah berhasil dipakai), `banned`, `limited`, atau `no_sms`."),
+                   ("flags", "Tanda yang pernah muncul untuk nomor ini: `banned` (tameng merah), "
+                             "`registered_elsewhere` (akun di perangkat lain), `under_review` (ditinjau). Tanda tidak "
+                             "membuat nomor diistirahatkan."),
+                   ("last_reason", "Alasan gagal pada percobaan terakhir, `null` bila terakhir berhasil."),
+                   ("blocked_reason", "`used` (sudah berhasil dipakai), `limited`, atau `no_sms`."),
                    ("blocked_until", "Kapan nomor boleh dipakai lagi. `null` = selamanya.")],
         "errors": [ERR_KEY],
         "notes": "Hanya nomor yang pernah dipesan akun ini yang muncul.",

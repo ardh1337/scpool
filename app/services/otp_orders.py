@@ -59,11 +59,15 @@ USED = (OrderStatus.OTP_RECEIVED, OrderStatus.DONE)
 # Alasan gagal yang dilaporkan aplikasi HP dan dampaknya ke pemberian nomor untuk layanan yang sama.
 FAIL_REASONS = {
     "no_sms": "OTP tidak datang",
-    "banned": "Nomor diblokir layanan",
+    "banned": "Tameng merah (nomor diblokir)",
+    "registered_elsewhere": "Akun aktif di perangkat lain",
+    "under_review": "Sedang ditinjau (banding)",
     "limited": "Dibatasi sementara (coba lagi nanti)",
     "wrong_code": "Kode ditolak",
     "other": "Lainnya",
 }
+# Hasil yang hanya DITANDAI di statistik; nomornya tetap boleh diberikan lagi (keputusan pemilik, 20 Okt 2026).
+MARK_ONLY = ("banned", "registered_elsewhere", "under_review")
 LIMITED_BLOCK = timedelta(hours=24)        # "limited": nomor istirahat sehari
 NO_SMS_WINDOW = timedelta(hours=24)        # "no_sms" (termasuk EXPIRED) sebanyak NO_SMS_LIMIT kali dalam jendela ini
 NO_SMS_LIMIT = 2                           # -> nomor istirahat sampai jendela lewat
@@ -131,8 +135,11 @@ def blocked_numbers(db: Session, service: str) -> Dict[str, Tuple[str, Optional[
     """ICCID yang tidak boleh diberikan untuk layanan ini -> (alasan, sampai kapan; None = selamanya)."""
     now = _now()
     blocked: Dict[str, Tuple[str, Optional[datetime]]] = {}
-    for iccid, in db.query(NumberOrder.iccid).filter(
-            NumberOrder.service == service, NumberOrder.status.in_(USED)).distinct():
+    # Terpakai = berhasil. Selesai dengan hasil gagal (mis. ditinjau setelah OTP diisi) tidak mengunci nomor.
+    used = db.query(NumberOrder.iccid).filter(
+        NumberOrder.service == service, NumberOrder.status.in_(USED),
+        (NumberOrder.result.is_(None)) | (NumberOrder.result == "success")).distinct()
+    for iccid, in used:
         blocked[iccid] = ("used", None)
     recent = db.query(NumberOrder).filter(
         NumberOrder.service == service, NumberOrder.created_at >= now - max(LIMITED_BLOCK, NO_SMS_WINDOW),
@@ -141,9 +148,7 @@ def blocked_numbers(db: Session, service: str) -> Dict[str, Tuple[str, Optional[
     no_sms: Dict[str, List[datetime]] = {}
     for order in recent:
         when = _aware(order.created_at)
-        if order.fail_reason == "banned":
-            blocked[order.iccid] = ("banned", None)
-        elif order.fail_reason == "limited" and order.iccid not in blocked:
+        if order.fail_reason == "limited" and order.iccid not in blocked:
             blocked[order.iccid] = ("limited", when + LIMITED_BLOCK)
         elif _is_no_sms(order):
             no_sms.setdefault(order.iccid, []).append(when)
@@ -151,10 +156,6 @@ def blocked_numbers(db: Session, service: str) -> Dict[str, Tuple[str, Optional[
         times = [t for t in times if t >= now - NO_SMS_WINDOW]
         if len(times) >= NO_SMS_LIMIT and iccid not in blocked:
             blocked[iccid] = ("no_sms", times[-NO_SMS_LIMIT] + NO_SMS_WINDOW)
-    banned = db.query(NumberOrder.iccid).filter(  # blokir permanen walau laporannya sudah lama
-        NumberOrder.service == service, NumberOrder.fail_reason == "banned").distinct()
-    for iccid, in banned:
-        blocked[iccid] = ("banned", None)
     return blocked
 
 
@@ -269,7 +270,8 @@ def number_stats(db: Session, user_id: int, service: str) -> List[dict]:
     for order in db.query(NumberOrder).filter(NumberOrder.user_id == user_id, NumberOrder.service == service) \
             .order_by(NumberOrder.created_at):
         row = rows.setdefault(order.iccid, {"phone_number": order.phone_number, "attempts": 0, "success": 0,
-                                            "failed": 0, "reasons": {}, "last_result": None, "last_at": None})
+                                            "failed": 0, "reasons": {}, "flags": [], "last_result": None,
+                                            "last_reason": None, "last_at": None})
         row["phone_number"] = order.phone_number
         row["attempts"] += 1
         if order.status in LOCKING:
@@ -280,11 +282,14 @@ def number_stats(db: Session, user_id: int, service: str) -> List[dict]:
             outcome = "failed"
             reason = order.fail_reason or "no_sms"
             row["reasons"][reason] = row["reasons"].get(reason, 0) + 1
+            if reason in MARK_ONLY and reason not in row["flags"]:
+                row["flags"].append(reason)
         else:
             outcome = "cancelled"
         if outcome in ("success", "failed"):
             row[outcome] += 1
         row["last_result"], row["last_at"] = outcome, _aware(order.created_at).isoformat()
+        row["last_reason"] = (order.fail_reason or "no_sms") if outcome == "failed" else None
     out = []
     for iccid, row in rows.items():
         reason, until = blocked.get(iccid, (None, None))

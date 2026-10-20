@@ -19,6 +19,16 @@ object WhatsAppFlow {
         "banned from using whatsapp", "not allowed to use whatsapp"
     )
 
+    // Teks dugaan; cocokkan dengan screenshot asli layar WhatsApp bila ada yang tidak terdeteksi.
+    private val REGISTERED_ELSEWHERE = listOf(
+        "terdaftar di ponsel lain", "terdaftar di perangkat lain", "whatsapp di ponsel lain", "ponsel anda yang lain",
+        "registered on another phone", "registered on another device", "whatsapp on your other phone",
+        "on your other phone"
+    )
+    private val UNDER_REVIEW = listOf(
+        "sedang meninjau", "sedang ditinjau", "dalam peninjauan", "under review", "we're reviewing", "reviewing your"
+    )
+
     // Hanya pembatasan dalam hitungan jam. Hitung mundur "kirim ulang dalam 0:59" di layar verifikasi bukan blokir.
     private val LIMITED = Regex("(coba lagi|try again|tunggu|wait)[^\\n]{0,60}?\\d+\\s*(jam|hour)")
 
@@ -48,6 +58,14 @@ object WhatsAppFlow {
             BANNED.any { text.contains(it) } -> {
                 AutomationEngine.reportFailure("banned")
                 clickByText(root, CONFIRM)
+                acted()
+            }
+            UNDER_REVIEW.any { text.contains(it) } -> {
+                AutomationEngine.reportFailure("under_review")
+                acted()
+            }
+            REGISTERED_ELSEWHERE.any { text.contains(it) } -> {
+                AutomationEngine.reportFailure("registered_elsewhere")
                 acted()
             }
             LIMITED.containsMatchIn(text) -> {

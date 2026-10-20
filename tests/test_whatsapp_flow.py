@@ -61,11 +61,25 @@ def _cancel(s, order, reason):
     return s["client"].post(f"/api/otp/orders/{order['order_id']}/cancel", json={"reason": reason}, headers=s["hdr"])
 
 
-def test_banned_number_is_never_given_again_for_that_service(setup):
+@pytest.mark.parametrize("reason", ["banned", "registered_elsewhere", "under_review"])
+def test_marked_results_are_flagged_but_number_stays_available(setup, reason):
     order = _order(setup).json()
-    assert _cancel(setup, order, "banned").json()["fail_reason"] == "banned"
-    assert order["phone_number"] not in _numbers_for(setup)
-    assert order["phone_number"] in _numbers_for(setup, "telegram")  # layanan lain tidak terpengaruh
+    assert _cancel(setup, order, reason).json()["fail_reason"] == reason
+    rows = {r["phone_number"]: r for r in
+            setup["client"].get("/api/otp/stats", headers=setup["hdr"]).json()["numbers"]}
+    row = rows[order["phone_number"]]
+    assert (row["flags"], row["last_reason"], row["available"]) == ([reason], reason, True)
+    assert order["phone_number"] in _numbers_for(setup)
+
+
+def test_review_after_otp_is_flagged_not_locked(setup):
+    """Ditinjau bisa muncul setelah OTP diisi: hasil gagal setelah OTP tidak membuat nomor dianggap terpakai."""
+    order = _order(setup).json()
+    _send(setup, order, "Kode WhatsApp Anda: 482-913.")
+    setup["client"].get(f"/api/otp/orders/{order['order_id']}", headers=setup["hdr"])
+    setup["client"].post(f"/api/otp/orders/{order['order_id']}/finish",
+                         json={"result": "failed", "reason": "under_review"}, headers=setup["hdr"])
+    assert order["phone_number"] in _numbers_for(setup)
 
 
 def test_limited_number_rests(setup):
@@ -123,8 +137,8 @@ def test_stats_per_number(setup):
     data = setup["client"].get("/api/otp/stats?service=whatsapp", headers=setup["hdr"]).json()
     rows = {r["phone_number"]: r for r in data["numbers"]}
     banned, used = rows[order["phone_number"]], rows[other["phone_number"]]
-    assert (banned["failed"], banned["reasons"], banned["available"], banned["blocked_reason"]) == \
-        (1, {"banned": 1}, False, "banned")
+    assert (banned["failed"], banned["reasons"], banned["flags"], banned["available"]) == \
+        (1, {"banned": 1}, ["banned"], True)
     assert (used["success"], used["available"], used["blocked_reason"]) == (1, False, "used")
     assert "banned" in data["reasons"]
 
