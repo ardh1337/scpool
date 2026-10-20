@@ -19,6 +19,7 @@ scripts/             utilitas CLI; scripts/manual berisi diagnostik hardware
 tests/               pytest (modem disimulasikan di tests/support/simulator)
 docs/                spesifikasi dan invarian (I-1..I-13), hasil probe
 deploy/              konfigurasi PM2
+mobile/              aplikasi smartphone Android (SCPool Bot) untuk otomasi OTP & aksesibilitas
 ```
 
 ## Menjalankan

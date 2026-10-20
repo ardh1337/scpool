@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg_dark">#0F1211</color>
+    <color name="surface_dark">#19201D</color>
+    <color name="surface_card">#202A26</color>
+    <color name="surface_border">#2C3B35</color>
+    <color name="primary_emerald">#10B981</color>
+    <color name="primary_emerald_dark">#059669</color>
+    <color name="primary_emerald_light">#34D399</color>
+    <color name="text_primary">#F8FAFC</color>
+    <color name="text_secondary">#94A3B8</color>
+    <color name="text_muted">#64748B</color>
+    <color name="color_danger">#EF4444</color>
+    <color name="color_warning">#F59E0B</color>
+    <color name="color_success">#10B981</color>
+    <color name="black_overlay">#CC000000</color>
+</resources>
+

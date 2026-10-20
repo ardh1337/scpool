@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SCPool Bot</string>
+    <string name="accessibility_service_name">SCPool Otomasi OTP</string>
+    <string name="accessibility_description">Membaca form registrasi dan mengisikan nomor SIM &amp; kode OTP secara otomatis dari modem pool.</string>
+
+    <!-- UI Labels -->
+    <string name="title_dashboard">SCPool Otomasi</string>
+    <string name="status_label">Status</string>
+    <string name="status_idle">SIAP</string>
+    <string name="status_requesting">MEMESAN NOMOR…</string>
+    <string name="status_waiting_otp">MENUNGGU OTP</string>
+    <string name="status_otp_received">KODE DITERIMA</string>
+    <string name="status_done">SELESAI</string>
+    <string name="status_cancelled">DIBATALKAN</string>
+    <string name="status_expired">KADALUWARSA</string>
+
+    <string name="btn_start_automation">Ambil Nomor &amp; Otomasi</string>
+    <string name="btn_cancel">Batalkan</string>
+    <string name="btn_finish">Selesai</string>
+    <string name="btn_resend_otp">Kirim Ulang OTP</string>
+    <string name="btn_copy_number">Salin Nomor</string>
+    <string name="btn_copy_otp">Salin OTP</string>
+    <string name="btn_settings">Pengaturan</string>
+    <string name="btn_save">Simpan</string>
+
+    <!-- Settings Labels -->
+    <string name="title_settings">Pengaturan Bot</string>
+    <string name="pref_server_url">URL Server</string>
+    <string name="pref_api_key">Kunci API (X-API-Key)</string>
+    <string name="pref_device_name">Nama Perangkat (ID HP)</string>
+    <string name="pref_service">Layanan Target</string>
+    <string name="pref_auto_launch">Buka Aplikasi Otomatis</string>
+    <string name="pref_auto_input_phone">Auto-Input Nomor Telepon</string>
+    <string name="pref_auto_input_otp">Auto-Input Kode OTP</string>
+    <string name="pref_overlay">Tampilkan Tombol Melayang (Overlay)</string>
+    <string name="pref_sound_vibrate">Suara &amp; Getar saat OTP Masuk</string>
+
+    <!-- Accessibility / Permission hints -->
+    <string name="perm_accessibility_disabled">Aksesibilitas belum aktif. Ketuk untuk mengaktifkan di Pengaturan Android.</string>
+    <string name="perm_overlay_disabled">Izin tampil di atas aplikasi lain belum aktif.</string>
+
+    <!-- Notifications -->
+    <string name="channel_name">Layanan SCPool</string>
+    <string name="channel_description">Menjaga proses pengambilan OTP tetap berjalan di latar belakang.</string>
+    <string name="notif_waiting_title">SCPool Otomasi Aktif</string>
+    <string name="notif_otp_title">OTP Diterima!</string>
+</resources>
+
