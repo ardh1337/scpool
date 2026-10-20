@@ -16,6 +16,9 @@ import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
+/** Server membalas error. 4xx = mengulang tidak akan berhasil (mis. pesanan tidak ada). */
+class ApiException(val code: Int, message: String) : IOException(message)
+
 class ScpoolApiClient(private val prefs: Prefs) {
 
     private val jsonMedia = "application/json; charset=utf-8".toMediaType()
@@ -75,7 +78,7 @@ class ScpoolApiClient(private val prefs: Prefs) {
             val raw = res.body?.string().orEmpty()
             if (!res.isSuccessful) {
                 val detail = try { JSONObject(raw).optString("detail", raw) } catch (_: Exception) { raw }
-                throw IOException("Gagal memuat layanan: HTTP ${res.code} - $detail")
+                throw ApiException(res.code, "Gagal memuat layanan: HTTP ${res.code} - $detail")
             }
             val arr = JSONArray(raw)
             val list = mutableListOf<ServiceItem>()
@@ -84,7 +87,7 @@ class ScpoolApiClient(private val prefs: Prefs) {
                 list.add(
                     ServiceItem(
                         service = item.optString("service"),
-                        displayName = item.optString("display_name"),
+                        displayName = item.optString("display_name").ifBlank { item.optString("service") },
                         activeSims = item.optInt("active_sims", 0)
                     )
                 )
@@ -104,7 +107,7 @@ class ScpoolApiClient(private val prefs: Prefs) {
             val raw = res.body?.string().orEmpty()
             if (!res.isSuccessful) {
                 val detail = try { JSONObject(raw).optString("detail", raw) } catch (_: Exception) { raw }
-                throw IOException("Gagal memesan nomor: HTTP ${res.code} - $detail")
+                throw ApiException(res.code, "Gagal memesan nomor: HTTP ${res.code} - $detail")
             }
             parseOrder(JSONObject(raw))
         }
@@ -120,7 +123,7 @@ class ScpoolApiClient(private val prefs: Prefs) {
             val raw = res.body?.string().orEmpty()
             if (!res.isSuccessful) {
                 val detail = try { JSONObject(raw).optString("detail", raw) } catch (_: Exception) { raw }
-                throw IOException("Gagal cek pesanan: HTTP ${res.code} - $detail")
+                throw ApiException(res.code, "Gagal cek pesanan: HTTP ${res.code} - $detail")
             }
             parseOrder(JSONObject(raw))
         }
@@ -132,7 +135,7 @@ class ScpoolApiClient(private val prefs: Prefs) {
             val raw = res.body?.string().orEmpty()
             if (!res.isSuccessful) {
                 val detail = try { JSONObject(raw).optString("detail", raw) } catch (_: Exception) { raw }
-                throw IOException("Gagal menyelesaikan: HTTP ${res.code} - $detail")
+                throw ApiException(res.code, "Gagal menyelesaikan: HTTP ${res.code} - $detail")
             }
             parseOrder(JSONObject(raw))
         }
@@ -144,7 +147,7 @@ class ScpoolApiClient(private val prefs: Prefs) {
             val raw = res.body?.string().orEmpty()
             if (!res.isSuccessful) {
                 val detail = try { JSONObject(raw).optString("detail", raw) } catch (_: Exception) { raw }
-                throw IOException("Gagal membatalkan: HTTP ${res.code} - $detail")
+                throw ApiException(res.code, "Gagal membatalkan: HTTP ${res.code} - $detail")
             }
             parseOrder(JSONObject(raw))
         }

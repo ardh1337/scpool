@@ -2,6 +2,7 @@ package cloud.ardh1337.scpool.service
 
 import android.content.Context
 import android.content.Intent
+import cloud.ardh1337.scpool.api.ApiException
 import cloud.ardh1337.scpool.api.ScpoolApiClient
 import cloud.ardh1337.scpool.data.OrderData
 import cloud.ardh1337.scpool.data.OrderStatus
@@ -112,8 +113,10 @@ object AutomationEngine {
                     val order = api.getOrder(orderId, wait = 30, afterSmsId = afterSmsId)
                     _currentOrder.value = order
 
+                    // Saat kirim ulang, server mengembalikan OTP lama bila `wait` habis tanpa kode baru.
+                    val isOldOtp = afterSmsId != null && (order.sms?.id ?: 0) <= afterSmsId
                     when (order.status) {
-                        OrderStatus.OTP_RECEIVED -> {
+                        OrderStatus.OTP_RECEIVED -> if (isOldOtp) continue else {
                             if (!order.otp.isNullOrBlank()) {
                                 _statusText.value = "KODE DITERIMA"
                                 addLog("OTP Masuk: ${order.otp} (Pengirim: ${order.sms?.sender ?: "-"})")
@@ -124,6 +127,8 @@ object AutomationEngine {
                                 if (prefs.soundVibrate) {
                                     SoundHelper.notifyOtpReceived(context)
                                 }
+                                // Layar OTP biasanya diam (tak ada event aksesibilitas): isi sekarang juga.
+                                ScpoolAccessibilityService.fillNow()
                             }
                             // Tunggu aksi pengguna (selesai/batal/kirim ulang)
                             break
@@ -131,19 +136,19 @@ object AutomationEngine {
                         OrderStatus.DONE -> {
                             _statusText.value = "SELESAI"
                             addLog("Pesanan #${order.orderId} selesai.")
-                            _isRunning.value = false
+                            stopSession(context)
                             break
                         }
                         OrderStatus.CANCELLED -> {
                             _statusText.value = "DIBATALKAN"
                             addLog("Pesanan #${order.orderId} dibatalkan.")
-                            _isRunning.value = false
+                            stopSession(context)
                             break
                         }
                         OrderStatus.EXPIRED -> {
                             _statusText.value = "KADALUWARSA"
                             addLog("Waktu pesanan #${order.orderId} habis tanpa OTP.")
-                            _isRunning.value = false
+                            stopSession(context)
                             break
                         }
                         OrderStatus.ACTIVE -> {
@@ -151,6 +156,17 @@ object AutomationEngine {
                         }
                         else -> {}
                     }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: ApiException) {
+                    if (e.code in 400..499) {
+                        _statusText.value = "GAGAL"
+                        addLog("Pesanan tidak bisa dilanjutkan: ${e.message}")
+                        stopSession(context)
+                        break
+                    }
+                    addLog("Server error, mencoba lagi: ${e.message}")
+                    delay(2000)
                 } catch (e: Exception) {
                     if (isActive && _isRunning.value) {
                         addLog("Koneksi terputus, mencoba lagi: ${e.message}")
@@ -186,7 +202,7 @@ object AutomationEngine {
             } catch (e: Exception) {
                 addLog("Gagal menyelesaikan: ${e.message}")
             } finally {
-                _isRunning.value = false
+                stopSession(context)
             }
         }
     }
@@ -206,9 +222,15 @@ object AutomationEngine {
             } catch (e: Exception) {
                 addLog("Gagal membatalkan: ${e.message}")
             } finally {
-                _isRunning.value = false
+                stopSession(context)
             }
         }
+    }
+
+    /** Pesanan berakhir: tutup widget melayang beserta notifikasi foreground-nya. */
+    private fun stopSession(context: Context) {
+        _isRunning.value = false
+        FloatingOverlayService.stop(context)
     }
 
     fun launchTargetApp(context: Context, service: String) {

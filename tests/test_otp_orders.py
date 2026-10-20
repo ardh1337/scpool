@@ -239,3 +239,13 @@ def test_otp_in_first_read_of_a_new_sim_is_caught_but_old_otp_is_not(setup):
     ]}, None)
     got = setup["client"].get(f"/api/otp/orders/{order['order_id']}", headers=setup["hdr"]).json()
     assert got["otp"] == "222333"
+
+
+def test_services_report_display_name_and_available_numbers(setup):
+    services = {s["service"]: s for s in setup["client"].get("/api/otp/services", headers=setup["hdr"]).json()}
+    assert services["whatsapp"]["display_name"] == "WhatsApp"
+    before = services["whatsapp"]["active_sims"]
+    assert before >= 1
+    _order(setup)
+    after = {s["service"]: s for s in setup["client"].get("/api/otp/services", headers=setup["hdr"]).json()}
+    assert after["whatsapp"]["active_sims"] == before - 1  # nomor yang sedang dikunci tidak dihitung

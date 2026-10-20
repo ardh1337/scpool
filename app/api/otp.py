@@ -20,8 +20,8 @@ from app.database.connection import get_db
 from app.database.models import ApiKey, ModemPool, NumberOrder, OrderStatus, Slot, UserAccount
 from app.services.agent_gateway import agent_gateway, sms_signal
 from app.services.otp_orders import (
-    DEFAULT_MINUTES, LOCKING, MAX_MINUTES, MIN_MINUTES, SERVICES, OrderError, cancel_order, clean_service,
-    finish_order, order_dict, refresh_order, reserve_number,
+    DEFAULT_MINUTES, DISPLAY_NAMES, LOCKING, MAX_MINUTES, MIN_MINUTES, SERVICES, OrderError, cancel_order,
+    clean_service, expire_orders, finish_order, free_numbers, order_dict, refresh_order, reserve_number,
 )
 from app.services.units import owned_pool_ids
 
@@ -95,8 +95,14 @@ async def _stop_watch(db: Session, order: NumberOrder) -> None:
 
 # ----------------------------------------------------------------------------- layanan & pesanan
 @router.get("/otp/services")
-def list_services(user: UserAccount = Depends(require_automation_user)):
-    return [{"service": name, "keywords": list(words)} for name, words in SERVICES.items()]
+def list_services(user: UserAccount = Depends(require_automation_user), db: Session = Depends(get_db)):
+    pool_ids = owned_pool_ids(db, user.id)
+    owners = dict(db.query(ModemPool.id, ModemPool.owner_id).filter(ModemPool.id.in_(pool_ids)).all())
+    online = {pid for pid, owner in owners.items() if owner is not None and agent_gateway.is_agent_online(owner)}
+    expire_orders(db)
+    return [{"service": name, "display_name": DISPLAY_NAMES.get(name, name.title()), "keywords": list(words),
+             "active_sims": len(free_numbers(db, pool_ids, online, name))}
+            for name, words in SERVICES.items()]
 
 
 class OrderRequest(BaseModel):

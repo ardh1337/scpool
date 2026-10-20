@@ -471,10 +471,13 @@ DETAILS: Dict[Tuple[str, str], Detail] = {
 
     ("GET", "/api/otp/services"): {
         "access": API_KEY,
-        "response": [{"service": "whatsapp", "keywords": ["whatsapp"]},
-                     {"service": "google", "keywords": ["google", "g-"]},
-                     {"service": "any", "keywords": []}],
+        "response": [{"service": "whatsapp", "display_name": "WhatsApp", "keywords": ["whatsapp"], "active_sims": 27},
+                     {"service": "google", "display_name": "Google", "keywords": ["google", "g-"], "active_sims": 30},
+                     {"service": "any", "display_name": "Semua (SMS apa pun)", "keywords": [], "active_sims": 30}],
         "fields": [("service", "Nama yang dikirim saat ambil nomor."),
+                   ("display_name", "Nama untuk ditampilkan di aplikasi."),
+                   ("active_sims", "Jumlah nomor yang bisa diambil sekarang untuk layanan ini: SIM aktif, agent "
+                                   "online, tidak sedang dipakai, dan belum pernah menerima OTP layanan ini."),
                    ("keywords", "Kata yang dicari di pengirim atau isi SMS. `any` = SMS apa pun yang memuat kode.")],
         "errors": [ERR_KEY],
     },

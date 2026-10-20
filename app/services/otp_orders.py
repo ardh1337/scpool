@@ -43,6 +43,8 @@ SERVICES: Dict[str, Sequence[str]] = {
     "linkaja": ("linkaja",),
     "any": (),  # SMS apa pun yang memuat kode OTP
 }
+DISPLAY_NAMES = {"whatsapp": "WhatsApp", "tiktok": "TikTok", "linkaja": "LinkAja", "dana": "DANA", "ovo": "OVO",
+                 "any": "Semua (SMS apa pun)"}
 SERVICE_NAME = re.compile(r"^[a-z0-9][a-z0-9_-]{1,29}\Z")
 
 DEFAULT_MINUTES = 10
@@ -106,6 +108,15 @@ def _candidates(db: Session, pool_ids: List[str]):
             yield slot, sim
 
 
+def free_numbers(db: Session, pool_ids: List[str], online_pool_ids: set, service: str):
+    """(slot, sim) yang bisa diberikan untuk layanan ini sekarang: online, tidak dikunci, belum terpakai."""
+    locked = {row[0] for row in db.query(NumberOrder.iccid).filter(NumberOrder.status.in_(LOCKING)).all()}
+    used = {row[0] for row in db.query(NumberOrder.iccid).filter(
+        NumberOrder.service == service, NumberOrder.status.in_(USED)).all()}
+    return [(slot, sim) for slot, sim in _candidates(db, [p for p in pool_ids if p in online_pool_ids])
+            if sim.iccid not in locked and sim.iccid not in used]
+
+
 def reserve_number(db: Session, user_id: int, pool_ids: List[str], online_pool_ids: set, service: str,
                    device: Optional[str], minutes: int) -> NumberOrder:
     if not pool_ids:
@@ -114,13 +125,8 @@ def reserve_number(db: Session, user_id: int, pool_ids: List[str], online_pool_i
         raise OrderError(409, "Agent modem pool sedang tidak terhubung, jadi OTP tidak bisa diterima.")
     with _reserve_lock:
         expire_orders(db)
-        locked = {row[0] for row in db.query(NumberOrder.iccid).filter(NumberOrder.status.in_(LOCKING)).all()}
-        used = {row[0] for row in db.query(NumberOrder.iccid).filter(
-            NumberOrder.service == service, NumberOrder.status.in_(USED)).all()}
+        free = free_numbers(db, pool_ids, online_pool_ids, service)
         last_order = dict(db.query(NumberOrder.iccid, func.max(NumberOrder.created_at)).group_by(NumberOrder.iccid).all())
-
-        free = [(slot, sim) for slot, sim in _candidates(db, [p for p in pool_ids if p in online_pool_ids])
-                if sim.iccid not in locked and sim.iccid not in used]
         if not free:
             raise OrderError(409, f"Tidak ada nomor tersedia untuk layanan '{service}'. Semua nomor sedang dipakai, "
                                   "sudah pernah dipakai untuk layanan ini, atau belum terbaca nomornya.")

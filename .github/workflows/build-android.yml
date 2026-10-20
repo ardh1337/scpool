@@ -21,9 +21,7 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
+      # Runner ubuntu-latest sudah membawa Android SDK ($ANDROID_HOME); tidak perlu langkah setup terpisah.
       - name: Cache Gradle Packages
         uses: actions/cache@v4
         with:
@@ -32,7 +30,7 @@ jobs:
             ~/.gradle/wrapper
           key: ${{ runner.os }}-gradle-${{ hashFiles('mobile/android/**/*.gradle*', 'mobile/android/**/gradle-wrapper.properties') }}
           restore-keys: |
-            ${runner.os }}-gradle-
+            ${{ runner.os }}-gradle-
 
       - name: Grant Execute Permission for Gradlew
         run: chmod +x mobile/android/gradlew
